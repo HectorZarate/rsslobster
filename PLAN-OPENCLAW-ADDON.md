@@ -17,7 +17,7 @@ The add-on path asks: **what if we delete all of that and ship a SKILL.md?**
 | Channel adapters | Build our own (Telegram first) | Use OpenClaw's 23+ channels |
 | Agent runtime | Build our own (~200 LOC) | Use OpenClaw's embedded agent |
 | Model interface | Build our own (OpenAI-compatible) | Use OpenClaw's multi-provider system |
-| CLI + onboarding | Build our own | `openclaw skills add rss-lobster` |
+| CLI + onboarding | Build our own | `openclaw skills add rsslobster` |
 | State management | Build our own (files) | Use OpenClaw's session system |
 | What we actually build | SKILL.md + templates + generator + git deploy | Same, but no glue code |
 
@@ -38,7 +38,7 @@ The add-on path asks: **what if we delete all of that and ship a SKILL.md?**
 │              OPENCLAW GATEWAY                    │
 │         (already running on your hardware)       │
 │                                                  │
-│  Channel ──▶ Agent Runtime ──▶ $rss-lobster      │
+│  Channel ──▶ Agent Runtime ──▶ $rsslobster      │
 │                                  │               │
 │                    ┌─────────────┘               │
 │                    ▼                             │
@@ -48,7 +48,7 @@ The add-on path asks: **what if we delete all of that and ship a SKILL.md?**
 │  │  SKILL.md  (classification +    │             │
 │  │             publishing rules)   │             │
 │  │                                 │             │
-│  │  rss-lobster CLI tool:          │             │
+│  │  rsslobster CLI tool:          │             │
 │  │    generate  → HTML + RSS       │             │
 │  │    publish   → git commit+push  │             │
 │  │    drafts    → list/manage      │             │
@@ -66,58 +66,58 @@ The add-on path asks: **what if we delete all of that and ship a SKILL.md?**
 └─────────────────────────────────────────────────┘
 ```
 
-**Key insight:** OpenClaw skills invoke CLI tools. The SKILL.md teaches the agent *when and how* to call `rss-lobster generate`, `rss-lobster publish`, etc. The agent handles classification and orchestration natively — that's what it does. We just give it the right tool.
+**Key insight:** OpenClaw skills invoke CLI tools. The SKILL.md teaches the agent *when and how* to call `rsslobster generate`, `rsslobster publish`, etc. The agent handles classification and orchestration natively — that's what it does. We just give it the right tool.
 
 ---
 
 ## III. What We Ship
 
-### 1. The Skill (`skills/rss-lobster/SKILL.md`)
+### 1. The Skill (`skills/rsslobster/SKILL.md`)
 
 Following OpenClaw's exact skill format:
 
 ```yaml
 ---
-name: rss-lobster
+name: rsslobster
 description: "Publish to the open web via RSS. Classify messages as micro/post/image/carousel/link, generate HTML + RSS, deploy via git push."
 metadata:
   openclaw:
     emoji: "🦞"
     requires:
-      bins: ["rss-lobster", "git"]
+      bins: ["rsslobster", "git"]
     install:
-      - npm install -g rss-lobster
+      - npm install -g rsslobster
 ---
 ```
 
 The SKILL.md body contains:
 - **When to use** — user says "publish", "post this", "draft:", sends an image with caption, shares a URL with commentary
 - **Content classification rules** — the 5 types with clear decision tree
-- **Commands** — `rss-lobster generate`, `rss-lobster publish`, `rss-lobster drafts`, `rss-lobster init`
+- **Commands** — `rsslobster generate`, `rsslobster publish`, `rsslobster drafts`, `rsslobster init`
 - **Workflow examples** — publish a micro, publish a post with title, save a draft, list and publish drafts
 - **RSS conventions** — feed structure, required elements, date formats
 
-### 2. The CLI Tool (`rss-lobster` npm package)
+### 2. The CLI Tool (`rsslobster` npm package)
 
 A focused CLI that the OpenClaw agent invokes. **Not** an agent itself — just a tool.
 
 ```bash
 # Initialize a new site
-rss-lobster init --domain mysite.com --title "My Feed" --repo git@github.com:user/mysite.git
+rsslobster init --domain mysite.com --title "My Feed" --repo git@github.com:user/mysite.git
 
 # Generate HTML + feeds from structured input (agent pipes JSON)
-echo '{"type":"micro","body":"Hello world","tags":["test"]}' | rss-lobster generate
+echo '{"type":"micro","body":"Hello world","tags":["test"]}' | rsslobster generate
 
 # Commit and push
-rss-lobster publish --message "micro: hello-world"
+rsslobster publish --message "micro: hello-world"
 
 # Draft management
-rss-lobster drafts list
-rss-lobster drafts show hello-world
-rss-lobster drafts publish hello-world
+rsslobster drafts list
+rsslobster drafts show hello-world
+rsslobster drafts publish hello-world
 
 # Preview without deploying
-rss-lobster preview
+rsslobster preview
 ```
 
 ### 3. Templates + SOUL.md
@@ -129,7 +129,7 @@ Same as standalone — shipped with the npm package, copied to user's site repo 
 ## IV. Directory Structure (the npm package)
 
 ```
-rss-lobster/
+rsslobster/
 ├── src/
 │   ├── index.ts              # CLI entry point
 │   ├── cli/
@@ -199,8 +199,8 @@ When the user sends a message to publish, classify it:
 
 | Signal | Type | Action |
 |---|---|---|
-| Short text, no title, no URL, no image | `micro` | `rss-lobster generate` with type=micro |
-| Text starting with "# " or user says "blog post" | `post` | `rss-lobster generate` with type=post |
+| Short text, no title, no URL, no image | `micro` | `rsslobster generate` with type=micro |
+| Text starting with "# " or user says "blog post" | `post` | `rsslobster generate` with type=post |
 | Image(s) attached with optional caption | `image` | Save image(s) to site/images/, generate with type=image |
 | Multiple images with narrative | `carousel` | Save images, generate with type=carousel |
 | URL with commentary | `link` | Fetch OG metadata, generate with type=link |
@@ -210,7 +210,7 @@ Always confirm the classification with the user before publishing.
 Ask: "Publish as [type]? [preview of first line]"
 ```
 
-The agent reads this, classifies the message, constructs the right JSON, pipes it to `rss-lobster generate`, then calls `rss-lobster publish`. Standard OpenClaw tool invocation pattern.
+The agent reads this, classifies the message, constructs the right JSON, pipes it to `rsslobster generate`, then calls `rsslobster publish`. Standard OpenClaw tool invocation pattern.
 
 ---
 
@@ -243,7 +243,7 @@ Same rigor as standalone, but we test different boundaries.
 ### E2E Test
 
 ```
-JSON on stdin → rss-lobster generate → files on disk → rss-lobster publish → git commit exists
+JSON on stdin → rsslobster generate → files on disk → rsslobster publish → git commit exists
 ```
 
 No mocked LLM needed. The CLI is deterministic — JSON in, files out.
@@ -283,7 +283,7 @@ Identical to standalone Phase 1. The generator code is the same regardless of pa
 - `skill/SKILL.md` — the OpenClaw skill definition
 - `SOUL.md` — example config
 - Integration testing with OpenClaw (manual + fixture-based)
-- npm package configuration for `rss-lobster` global install
+- npm package configuration for `rsslobster` global install
 
 ### Phase 4: CI + Distribution
 
@@ -327,8 +327,8 @@ We build Phase 1 once. Then fork:
 - **Add-on** adds thin CLI (stdin→files→git), SKILL.md
 
 Both ship from the same repo. The `package.json` exports both:
-- `rss-lobster` CLI (works standalone OR as OpenClaw tool)
-- `rss-lobster/skill` (SKILL.md for OpenClaw users)
+- `rsslobster` CLI (works standalone OR as OpenClaw tool)
+- `rsslobster/skill` (SKILL.md for OpenClaw users)
 
 ---
 
@@ -338,14 +338,14 @@ Both ship from the same repo. The `package.json` exports both:
 
 ```bash
 # One command
-openclaw skills add rss-lobster
+openclaw skills add rsslobster
 
 # Or manual
-npm install -g rss-lobster
-# Copy skill/SKILL.md to ~/.openclaw/skills/rss-lobster/
+npm install -g rsslobster
+# Copy skill/SKILL.md to ~/.openclaw/skills/rsslobster/
 
 # Initialize your site
-rss-lobster init --domain mysite.com --title "My Feed"
+rsslobster init --domain mysite.com --title "My Feed"
 
 # Done. Message your OpenClaw bot on any channel:
 # "publish: The coffee in Lisbon is incredible."
@@ -354,9 +354,9 @@ rss-lobster init --domain mysite.com --title "My Feed"
 ### Non-OpenClaw User (standalone path)
 
 ```bash
-npm install -g rss-lobster
-rss-lobster onboard    # Full wizard: channel, model, domain, first post
-rss-lobster start      # Daemon mode
+npm install -g rsslobster
+rsslobster onboard    # Full wizard: channel, model, domain, first post
+rsslobster start      # Daemon mode
 ```
 
 ---

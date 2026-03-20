@@ -381,7 +381,7 @@ Build the output side first. No channels, no LLM, no git. Just: given structured
 - `src/cli/onboard.ts` + test — interactive wizard
 - `src/index.ts` — entry point
 
-**Exit criteria:** `npx rss-lobster onboard` walks through setup. `npx rss-lobster start` runs the daemon. Under 10 minutes from install to first published post.
+**Exit criteria:** `npx rsslobster onboard` walks through setup. `npx rsslobster start` runs the daemon. Under 10 minutes from install to first published post.
 
 ### Phase 6: E2E + Polish
 
@@ -390,7 +390,7 @@ Build the output side first. No channels, no LLM, no git. Just: given structured
 - `.github/workflows/ci.yml`
 - README.md updates
 
-**Exit criteria:** CI green. E2E test passes. `npm install -g rss-lobster && rss-lobster onboard && rss-lobster start` works on a clean machine.
+**Exit criteria:** CI green. E2E test passes. `npm install -g rsslobster && rsslobster onboard && rsslobster start` works on a clean machine.
 
 ---
 
@@ -443,8 +443,8 @@ That's it. If we can cut `gray-matter` by writing a 30-line YAML frontmatter par
 ## IX. What Success Looks Like
 
 ```bash
-$ npm install -g rss-lobster
-$ rss-lobster onboard
+$ npm install -g rsslobster
+$ rsslobster onboard
   → Domain? mysite.com
   → Telegram bot token? (paste from @BotFather)
   → Model? Ollama (local) / OpenAI / Anthropic
@@ -452,7 +452,7 @@ $ rss-lobster onboard
   → First post? "Hello world. The lobster is live."
   ✓ Published to https://mysite.com/posts/hello-world
   ✓ RSS feed: https://mysite.com/feed.xml
-$ rss-lobster start
+$ rsslobster start
   Listening for messages...
 ```
 
