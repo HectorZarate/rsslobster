@@ -4,6 +4,8 @@
 
 **Goal:** Send a message to your Lobster via Telegram. It classifies, templates, generates HTML + RSS, git commits, and deploys to Cloudflare Pages. Under 4 seconds end-to-end.
 
+> **Two paths, one codebase.** This is the standalone plan. See `PLAN-OPENCLAW-ADDON.md` for the OpenClaw skill path. Both share the same generator core (Phase 1). The standalone adds its own channels + agent. The add-on ships a SKILL.md and thin CLI, letting OpenClaw handle everything else.
+
 ---
 
 ## I. Architectural Decisions
