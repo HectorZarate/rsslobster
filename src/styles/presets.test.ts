@@ -21,13 +21,17 @@ describe("PRESETS", () => {
     (preset) => {
       const style = PRESETS[preset];
       expect(style.fontFamily).toBeTruthy();
+      expect(style.fontFamilyHeading).toBeTruthy();
       expect(style.fontSize).toBeTruthy();
       expect(style.lineHeight).toBeTruthy();
       expect(style.maxWidth).toBeTruthy();
       expect(style.colorText).toBeTruthy();
       expect(style.colorBackground).toBeTruthy();
       expect(style.colorAccent).toBeTruthy();
+      expect(style.colorLink).toBeTruthy();
+      expect(style.colorVisited).toBeTruthy();
       expect(style.colorMuted).toBeTruthy();
+      expect(style.colorBorder).toBeTruthy();
       expect(style.borderRadius).toBeDefined();
     },
   );
@@ -60,6 +64,41 @@ describe("PRESETS", () => {
       expect(size).toBeGreaterThanOrEqual(15);
     },
   );
+
+  // UX: zero border-radius — retro web uses sharp corners
+  it.each(Object.keys(PRESETS) as Array<keyof typeof PRESETS>)(
+    "%s has 0px border-radius (retro web, sharp corners)",
+    (preset) => {
+      expect(PRESETS[preset].borderRadius).toBe("0px");
+    },
+  );
+
+  // UX: every preset defines visited link color (retro web essential)
+  it.each(Object.keys(PRESETS) as Array<keyof typeof PRESETS>)(
+    "%s has distinct visited link color",
+    (preset) => {
+      const style = PRESETS[preset];
+      expect(style.colorVisited).toBeTruthy();
+      expect(style.colorVisited).not.toBe(style.colorLink);
+    },
+  );
+
+  // UX: link and visited colors differ from body text
+  it.each(Object.keys(PRESETS) as Array<keyof typeof PRESETS>)(
+    "%s has link color distinct from body text",
+    (preset) => {
+      const style = PRESETS[preset];
+      expect(style.colorLink).not.toBe(style.colorText);
+    },
+  );
+
+  // UX: heading font is defined (can differ from body for visual hierarchy)
+  it.each(Object.keys(PRESETS) as Array<keyof typeof PRESETS>)(
+    "%s has heading font family defined",
+    (preset) => {
+      expect(PRESETS[preset].fontFamilyHeading).toBeTruthy();
+    },
+  );
 });
 
 describe("resolveStyle", () => {
@@ -78,7 +117,6 @@ describe("resolveStyle", () => {
   it("overrides take precedence over preset", () => {
     const resolved = resolveStyle("minimal", { colorAccent: "#ff00ff" });
     expect(resolved.colorAccent).toBe("#ff00ff");
-    // Other values still from preset
     expect(resolved.colorText).toBe(PRESETS.minimal.colorText);
   });
 
@@ -93,6 +131,14 @@ describe("resolveStyle", () => {
     });
     expect(resolved.customCss).toBe(".special { color: red; }");
   });
+
+  it("resolves new properties: colorLink, colorVisited, colorBorder, fontFamilyHeading", () => {
+    const resolved = resolveStyle("minimal");
+    expect(resolved.colorLink).toBe(PRESETS.minimal.colorLink);
+    expect(resolved.colorVisited).toBe(PRESETS.minimal.colorVisited);
+    expect(resolved.colorBorder).toBe(PRESETS.minimal.colorBorder);
+    expect(resolved.fontFamilyHeading).toBe(PRESETS.minimal.fontFamilyHeading);
+  });
 });
 
 describe("styleToCssVars", () => {
@@ -101,14 +147,18 @@ describe("styleToCssVars", () => {
     const css = styleToCssVars(resolved);
 
     expect(css).toContain(":root {");
-    expect(css).toContain("--font-family:");
+    expect(css).toContain("--font-body:");
+    expect(css).toContain("--font-heading:");
     expect(css).toContain("--font-size:");
     expect(css).toContain("--line-height:");
     expect(css).toContain("--max-width:");
     expect(css).toContain("--color-text:");
     expect(css).toContain("--color-bg:");
     expect(css).toContain("--color-accent:");
+    expect(css).toContain("--color-link:");
+    expect(css).toContain("--color-visited:");
     expect(css).toContain("--color-muted:");
+    expect(css).toContain("--color-border:");
     expect(css).toContain("--border-radius:");
   });
 
@@ -116,8 +166,8 @@ describe("styleToCssVars", () => {
     const resolved = resolveStyle("terminal");
     const css = styleToCssVars(resolved);
 
-    expect(css).toContain("#00ff00"); // terminal text color
-    expect(css).toContain("#0a0a0a"); // terminal bg
+    expect(css).toContain("#FFB000"); // terminal amber text
+    expect(css).toContain("#0D0D0D"); // terminal dark bg
   });
 });
 
@@ -183,9 +233,74 @@ describe("generateStylesheet", () => {
     });
     const css = generateStylesheet(resolved);
     expect(css).toContain(".custom { display: none; }");
-    // Custom CSS should be at the end
     const lastRoot = css.lastIndexOf(":root");
     const customPos = css.indexOf(".custom");
     expect(customPos).toBeGreaterThan(lastRoot);
+  });
+
+  // Retro web: visited link styles
+  it("includes visited link styles", () => {
+    const css = generateStylesheet(resolveStyle());
+    expect(css).toContain("a:visited");
+    expect(css).toContain("--color-visited");
+  });
+
+  // Retro web: horizontal rule styling
+  it("includes horizontal rule styles", () => {
+    const css = generateStylesheet(resolveStyle());
+    expect(css).toContain("hr {");
+  });
+
+  // Retro web: blockquote with left border
+  it("includes blockquote with border-left", () => {
+    const css = generateStylesheet(resolveStyle());
+    expect(css).toContain("blockquote");
+    expect(css).toContain("border-left");
+  });
+
+  // Retro web: selection colors
+  it("includes selection color styling", () => {
+    const css = generateStylesheet(resolveStyle());
+    expect(css).toContain("::selection");
+  });
+
+  // Retro web: print stylesheet
+  it("includes print media query", () => {
+    const css = generateStylesheet(resolveStyle());
+    expect(css).toContain("@media print");
+  });
+
+  // UX: code block styling
+  it("includes code and pre styles", () => {
+    const css = generateStylesheet(resolveStyle());
+    expect(css).toContain("code {");
+    expect(css).toContain("pre {");
+  });
+
+  // UX: header has bottom border for structure
+  it("includes header with bottom border", () => {
+    const css = generateStylesheet(resolveStyle());
+    expect(css).toContain("header {");
+    expect(css).toContain("border-bottom");
+  });
+
+  // UX: text-wrap balance on headings
+  it("includes text-wrap balance on headings", () => {
+    const css = generateStylesheet(resolveStyle());
+    expect(css).toContain("text-wrap: balance");
+  });
+
+  // UX: zero external dependencies — no framework, no imports
+  it("contains no @import rules", () => {
+    const css = generateStylesheet(resolveStyle());
+    expect(css).not.toContain("@import");
+  });
+
+  it("contains no external URLs except in print href display", () => {
+    const css = generateStylesheet(resolveStyle());
+    // Split on @media print to check only non-print section
+    const beforePrint = css.split("@media print")[0] ?? "";
+    expect(beforePrint).not.toContain("url(");
+    expect(beforePrint).not.toMatch(/https?:\/\//);
   });
 });

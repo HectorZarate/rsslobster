@@ -29,13 +29,17 @@ export type StylePreset = "minimal" | "brutalist" | "magazine" | "terminal";
 
 export interface StyleOverrides {
   fontFamily?: string;
+  fontFamilyHeading?: string;
   fontSize?: string;
   lineHeight?: string;
   maxWidth?: string;
   colorText?: string;
   colorBackground?: string;
   colorAccent?: string;
+  colorLink?: string;
+  colorVisited?: string;
   colorMuted?: string;
+  colorBorder?: string;
   borderRadius?: string;
   customCss?: string;
 }

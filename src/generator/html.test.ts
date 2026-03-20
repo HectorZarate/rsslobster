@@ -119,7 +119,7 @@ describe("generateHtmlPage", () => {
   it("inlines CSS in style tag", () => {
     const html = generateHtmlPage(MICRO, SITE_CONFIG);
     expect(html).toContain("<style>");
-    expect(html).toContain("--font-family:");
+    expect(html).toContain("--font-body:");
     // Should NOT have external stylesheet link
     expect(html).not.toContain('rel="stylesheet"');
   });
