@@ -1,2 +1,2 @@
-# rsslobster
-RSS Lobster. Unplatform yourself. 
+# RSS Lobster
+Unplatform yourself. 
