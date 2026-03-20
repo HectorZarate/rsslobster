@@ -1,0 +1,18 @@
+#!/usr/bin/env node
+import { Command } from "commander";
+import { generateCommand } from "./cli/generate.js";
+import { draftsCommand } from "./cli/drafts.js";
+import { initCommand } from "./cli/init.js";
+
+const program = new Command();
+
+program
+  .name("rsslobster")
+  .description("Publish to the open web from your phone. Unplatform yourself.")
+  .version("0.1.0");
+
+program.addCommand(generateCommand);
+program.addCommand(draftsCommand);
+program.addCommand(initCommand);
+
+program.parse();

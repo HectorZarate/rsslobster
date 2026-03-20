@@ -54,127 +54,198 @@ Everything else — plugin SDK, session isolation, Lane Queue, browser automatio
 
 ---
 
-## II. Directory Structure
+## II. Style System
+
+### UX Standards (FANG L6-L8)
+
+Every generated page follows these non-negotiable UX principles:
+
+| Principle | Implementation | Test Assertion |
+|---|---|---|
+| **Typography** | Line lengths 45-75ch (max-width 480-800px), line-height 1.4-1.8 | Preset tests validate ranges |
+| **Accessibility** | Skip-to-content link, `lang` attribute, WCAG AA contrast, `focus-visible` outlines | HTML tests check `skip-link`, `aria-label`, `focus-visible` |
+| **Touch targets** | Minimum 44x44px on all interactive elements (WCAG 2.5.8) | CSS contains `min-height: 44px` |
+| **Motion** | `prefers-reduced-motion` media query disables all animation | CSS test checks media query |
+| **Performance** | Inline critical CSS, zero external font requests, system font stacks | No `rel="stylesheet"` in output, no Google Fonts |
+| **Progressive** | Works without JavaScript entirely. Zero JS shipped | HTML contains no `<script>` tags |
+| **Mobile-first** | Viewport meta, responsive images, breakpoint at 480px | HTML tests check viewport meta |
+| **Semantic HTML** | `article`, `time`, `nav`, `header`, `main`, not `div` soup | HTML tests check semantic elements |
+| **Feed discovery** | RSS + JSON Feed `<link>` tags in every page | HTML tests check autodiscovery |
+| **Security** | All user content HTML-escaped. `rel="noopener"` on external links | XSS test with `<script>` in content |
+
+### Style Presets
+
+Four built-in presets, selectable during `rsslobster init`:
+
+| Preset | Font Stack | Personality |
+|---|---|---|
+| `minimal` (default) | System sans-serif | Clean, readable, invisible chrome |
+| `brutalist` | System monospace | Raw, high-contrast, zero border-radius |
+| `magazine` | System serif | Warm, literary, larger type |
+| `terminal` | System monospace | Green-on-black, hacker aesthetic |
+
+All presets use CSS custom properties (`--font-family`, `--color-text`, `--color-bg`, etc.) so users can override individual values without forking the preset.
+
+### Inherit From Existing Site
+
+During onboarding, users can provide a URL to an existing static site. RSS Lobster fetches it, extracts CSS custom properties and body styles, and uses them as overrides:
+
+```bash
+rsslobster init --domain mysite.com --inherit-from https://existingsite.com
+```
+
+Extracts: `font-family`, `font-size`, `line-height`, `max-width`, `color`, `background-color`, accent colors. Falls back to `minimal` preset for any property not found.
+
+---
+
+## II-B. Draft System
+
+Complete draft lifecycle — every operation is possible:
+
+| Operation | CLI | What It Does |
+|---|---|---|
+| **Create** | `echo '...' \| rsslobster drafts create` | Saves classified content to `drafts/{slug}.json` |
+| **List** | `rsslobster drafts list [--status draft\|scheduled\|published]` | Lists all drafts, newest first, filterable by status |
+| **Show** | `rsslobster drafts show <slug>` | Returns full draft content |
+| **Update** | `echo '...' \| rsslobster drafts update <slug>` | Merges partial updates, preserves slug + status |
+| **Delete** | `rsslobster drafts delete <slug>` | Permanent delete. Requires exact slug (no fuzzy matching) |
+| **Schedule** | `rsslobster drafts schedule <slug> <datetime>` | Sets scheduled status + future datetime. Rejects past dates |
+| **Unschedule** | `rsslobster drafts unschedule <slug>` | Reverts to draft status, clears scheduled time |
+| **Publish** | `rsslobster drafts publish <slug>` | Generates HTML + feeds from draft, marks as published |
+| **Due check** | (internal) `getDueScheduledDrafts()` | Returns scheduled drafts past their time — used by publish loop |
+
+Draft statuses: `draft` → `scheduled` → `published`. Slug conflicts auto-resolve with `-2`, `-3` suffixes.
+
+---
+
+## II-C. Shift-Left Testing (Pre-Commit Hook)
+
+All quality gates run on **every commit** via git pre-commit hook:
+
+```bash
+# .git/hooks/pre-commit (auto-installed by `pnpm install` via prepare script)
+#!/bin/sh
+pnpm check   # = pnpm lint && pnpm typecheck && pnpm test
+```
+
+This means:
+- **oxlint** — catches lint issues before they reach CI
+- **tsc --noEmit** — catches type errors before they reach CI
+- **vitest run** — runs all 119+ tests before they reach CI
+
+No broken code can be committed. CI becomes a verification step, not the first line of defense. The `prepare` script in `package.json` auto-creates the hook on `pnpm install`, so contributors get it automatically.
+
+---
+
+## III. Directory Structure
 
 ```
 rsslobster/
 ├── src/
 │   ├── index.ts                  # CLI entry point
 │   ├── cli/
-│   │   ├── index.ts              # Command router (onboard, start, publish)
-│   │   ├── onboard.ts            # Interactive setup wizard
-│   │   └── onboard.test.ts
-│   ├── channels/
-│   │   ├── types.ts              # InboundMessage interface
-│   │   ├── telegram.ts           # Telegram Bot API adapter
-│   │   └── telegram.test.ts
-│   ├── agent/
-│   │   ├── index.ts              # Agent loop: classify → template → generate → commit
-│   │   ├── classify.ts           # Content type classification
-│   │   ├── classify.test.ts
-│   │   ├── model.ts              # OpenAI-compatible model client
-│   │   └── model.test.ts
+│   │   ├── generate.ts           # stdin JSON → HTML + feeds
+│   │   ├── drafts.ts             # Full draft CRUD + schedule + publish
+│   │   └── init.ts               # Scaffold site with style selection
+│   ├── styles/
+│   │   ├── presets.ts             # 4 style presets + resolver + CSS generator
+│   │   ├── presets.test.ts        # UX standards validated per preset
+│   │   ├── inherit.ts             # Extract styles from existing site URL
+│   │   └── inherit.test.ts
+│   ├── drafts/
+│   │   ├── drafts.ts             # Create, list, get, update, delete, schedule, publish
+│   │   └── drafts.test.ts        # 30 tests: CRUD, conflicts, safety
 │   ├── generator/
-│   │   ├── index.ts              # Orchestrates HTML + feed generation
-│   │   ├── html.ts               # Renders content type → HTML page
-│   │   ├── html.test.ts
-│   │   ├── rss.ts                # Generates feed.xml (RSS 2.0)
+│   │   ├── html.ts               # Content → semantic HTML5 page
+│   │   ├── html.test.ts          # 20 tests: all 5 types, a11y, XSS
+│   │   ├── rss.ts                # Posts → RSS 2.0 XML
 │   │   ├── rss.test.ts
-│   │   ├── json-feed.ts          # Generates feed.json (JSON Feed 1.1)
+│   │   ├── json-feed.ts          # Posts → JSON Feed 1.1
 │   │   ├── json-feed.test.ts
-│   │   ├── site.ts               # Manages site/ directory structure
-│   │   └── site.test.ts
+│   │   ├── site.ts               # Site scaffolding + content pipeline
+│   │   └── site.test.ts          # 14 tests: scaffold, add, rebuild
+│   ├── channels/                  # (Phase 4 — standalone only)
+│   ├── agent/                     # (Phase 2 — standalone only)
 │   ├── deploy/
 │   │   ├── git.ts                # git add, commit, push
 │   │   └── git.test.ts
-│   ├── config/
-│   │   ├── index.ts              # Loads SOUL.md + site config
-│   │   ├── soul.ts               # SOUL.md parser (YAML frontmatter + markdown)
-│   │   ├── soul.test.ts
-│   │   └── types.ts              # SiteConfig, SoulConfig interfaces
-│   └── templates/
-│       ├── index.ts              # Template loader + Mustache renderer
-│       └── index.test.ts
-├── templates/                     # Default HTML templates (shipped with package)
-│   ├── micro.html
-│   ├── post.html
-│   ├── image.html
-│   ├── carousel.html
-│   ├── link.html
-│   ├── index.html                # Home page / post listing
-│   └── base.html                 # Shared layout wrapper
-├── skills/
-│   └── publish/
-│       └── SKILL.md              # The one skill: classification + publishing rules
-├── test/
-│   ├── setup.ts                  # Global test setup
-│   ├── fixtures/                 # Sample messages, expected outputs
-│   │   ├── messages/             # Inbound message fixtures per content type
-│   │   ├── sites/                # Expected generated site snapshots
-│   │   └── feeds/                # Expected RSS/JSON feed snapshots
-│   └── e2e/
-│       └── publish-flow.e2e.test.ts  # Full message → published site test
-├── SOUL.md                        # Example/default SOUL.md
-├── package.json
+│   └── config/
+│       ├── types.ts              # All interfaces: SiteConfig, StyleConfig, Draft, etc.
+│       ├── soul.ts               # SOUL.md parser
+│       └── soul.test.ts
+├── skill/
+│   └── SKILL.md                  # OpenClaw skill definition (add-on path)
+├── SOUL.md                        # Example identity config
+├── package.json                   # prepare script auto-installs pre-commit hook
 ├── tsconfig.json
-├── vitest.config.ts
-├── .oxlintrc.json
+├── vitest.config.ts               # 80% coverage thresholds
 └── .github/
     └── workflows/
-        └── ci.yml                 # Test + lint + build on every push
+        └── ci.yml
 ```
-
-**~25 source files. ~15 test files. That's the whole thing.**
 
 ---
 
-## III. Core Interfaces
+## IV. Core Interfaces (Implemented)
 
 ```typescript
-// src/channels/types.ts
-export interface InboundMessage {
-  id: string
-  text: string
-  images?: Buffer[]
-  timestamp: Date
-  channel: 'telegram' // extensible later
-  raw: unknown // channel-specific payload for debugging
-}
+// src/config/types.ts — the full type system
 
-// src/config/types.ts
+export type ContentType = "micro" | "post" | "image" | "carousel" | "link";
+export type DraftStatus = "draft" | "scheduled" | "published";
+export type StylePreset = "minimal" | "brutalist" | "magazine" | "terminal";
+
 export interface SiteConfig {
-  domain: string
-  title: string
-  description: string
-  author: string
-  language: string
-  repo: string          // git remote URL
-  branch: string        // default: 'main'
-  postsDir: string      // default: 'posts'
-  feedPath: string      // default: 'feed.xml'
-  jsonFeedPath: string  // default: 'feed.json'
+  domain: string;
+  title: string;
+  description: string;
+  author: string;
+  language: string;
+  style: StyleConfig;        // NEW: style system
+  repo: string;
 }
 
-export interface SoulConfig {
-  voice: string         // writing style notes (passed to model)
-  defaults: Record<ContentType, Record<string, string>>
-  site: SiteConfig
+export interface StyleConfig {
+  preset?: StylePreset;      // Built-in preset
+  inheritFrom?: string;      // URL to inherit styles from
+  overrides?: StyleOverrides; // Custom overrides on top
 }
 
-// src/agent/classify.ts
-export type ContentType = 'micro' | 'post' | 'image' | 'carousel' | 'link'
+export interface StyleOverrides {
+  fontFamily?: string;
+  fontSize?: string;
+  lineHeight?: string;
+  maxWidth?: string;
+  colorText?: string;
+  colorBackground?: string;
+  colorAccent?: string;
+  colorMuted?: string;
+  borderRadius?: string;
+  customCss?: string;
+}
 
 export interface ClassifiedContent {
-  type: ContentType
-  title?: string        // undefined for micro
-  body: string
-  tags?: string[]
-  images?: Array<{ data: Buffer; alt: string }>
-  linkUrl?: string      // for 'link' type
-  linkMeta?: { title: string; description: string; image?: string }
-  isDraft: boolean
-  slug: string          // URL-safe identifier
-  publishedAt: Date
+  type: ContentType;
+  title?: string;
+  body: string;
+  slug: string;
+  tags: string[];
+  images?: ImageAttachment[];
+  linkUrl?: string;
+  linkTitle?: string;
+  linkDescription?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Draft extends ClassifiedContent {
+  status: DraftStatus;
+  scheduledAt?: string;      // ISO 8601 for scheduled drafts
+}
+
+export interface Post extends ClassifiedContent {
+  url: string;
+  publishedAt: string;
 }
 ```
 
@@ -237,63 +308,69 @@ Send confirmation back through the channel: "Published: https://yourname.com/pos
 
 ---
 
-## V. Testing Strategy
+## VI. Testing Strategy
 
-Following OpenClaw's pattern: Vitest with 70% line coverage minimum, but adapted for a small focused codebase.
+### Shift-Left: Pre-Commit Hook (Primary Gate)
 
-### Test Pyramid
+Tests run **before every commit**, not just in CI:
 
-```
-         ┌───────┐
-         │  E2E  │   1-2 tests: full message → site output
-         │       │   Uses real git repo (tmp), real templates
-        ┌┴───────┴┐
-        │ Integr. │  ~10 tests: classify+generate, generate+commit
-        │         │  Mock the LLM, real filesystem (tmp dirs)
-       ┌┴─────────┴┐
-       │   Unit    │  ~30 tests: each module in isolation
-       │           │  Pure functions, mocked dependencies
-       └───────────┘
+```bash
+# Auto-installed by pnpm install (prepare script)
+.git/hooks/pre-commit → pnpm check (lint + typecheck + test)
 ```
 
-### Unit Tests (the foundation)
+CI is a backup, not the frontline. No broken code enters the repo.
 
-Every module gets a colocated `.test.ts` file. These run in <5 seconds total.
+### Current Test Suite: 119 Tests Across 7 Files
 
-| Module | What We Test |
-|---|---|
-| `classify.ts` | Given model response JSON, returns correct ContentType. Edge cases: missing title, draft prefix, URL detection, multiple images |
-| `html.ts` | Given ClassifiedContent + template, outputs correct HTML. Snapshot tests for each content type |
-| `rss.ts` | Given array of posts, outputs valid RSS 2.0 XML. Validates required elements, date formatting, GUID uniqueness, enclosure for images |
-| `json-feed.ts` | Given array of posts, outputs valid JSON Feed 1.1. Schema validation |
-| `site.ts` | File operations: creates dirs, writes files, reads post index. Uses `tmp` dirs |
-| `soul.ts` | Parses SOUL.md with YAML frontmatter. Handles missing fields, malformed input |
-| `templates/index.ts` | Template loading, Mustache variable replacement, HTML escaping |
-| `model.ts` | HTTP client for OpenAI-compatible API. Tests request formation, response parsing, error handling. Mocked fetch |
-| `git.ts` | Constructs correct git commands. Uses real git in tmp repos |
+| File | Tests | What It Validates |
+|---|---|---|
+| `presets.test.ts` | 34 | All 4 presets have required properties; **UX ranges enforced** (max-width 480-800px, line-height 1.4-1.8, font-size >= 15px); resolveStyle defaults + overrides; CSS vars + stylesheet generation; skip-link, focus-visible, reduced-motion, 44px touch targets, scroll-snap |
+| `inherit.test.ts` | 6 | Extracts CSS vars from `:root`, body styles; prefers CSS vars over body; handles alternate naming; strips undefined keys |
+| `drafts.test.ts` | 30 | Create, list, get, update, delete; slug conflict resolution; schedule (rejects past dates, invalid dates); unschedule; mark published; due scheduled drafts; **UX safety**: exact slug for delete, consistent ordering, full feedback on every operation |
+| `html.test.ts` | 20 | All 5 content types; **UX standards**: viewport meta, skip-link, semantic HTML, feed autodiscovery, inline CSS (no external requests), ARIA labels on carousel, `loading="lazy"`, `rel="noopener"`, machine-readable `<time>`, XSS prevention |
+| `rss.test.ts` | 7 | Valid RSS 2.0 XML, channel metadata, atom:link self, items with all fields, enclosures, empty feed, XML entity escaping |
+| `json-feed.test.ts` | 8 | Valid JSON Feed 1.1, feed_url, authors, items mapping, attachments, empty feed, valid JSON output |
+| `site.test.ts` | 14 | Scaffold creates all dirs + files; addContent writes HTML + updates index + rebuilds feeds; newest-first ordering; feed limits to 20 items |
 
-### Integration Tests
+### UX-Specific Test Categories
 
-| Test | What It Covers |
-|---|---|
-| Classify → Generate | Real SKILL.md prompt + mocked model → real template rendering → valid HTML + RSS |
-| Generate → Deploy | Real file generation → real git commit in tmp repo → verify commit contents |
-| Template rendering | All 5 content types with realistic data → snapshot comparison |
+Tests explicitly validate FANG-grade UX standards:
 
-### E2E Test
+**Accessibility (WCAG 2.1 AA)**
+- Skip-to-content link present on every page
+- `lang` attribute on `<html>`
+- `aria-label` on carousel region
+- `alt` text on all images
+- `focus-visible` outlines in CSS
+- Touch targets >= 44px (WCAG 2.5.8)
 
-One test that exercises the full pipeline:
+**Performance**
+- Zero external CSS/font requests (inline `<style>`, system fonts)
+- Zero JavaScript shipped
+- `loading="lazy"` on images
+- No `rel="stylesheet"` links
 
-1. Creates a tmp directory with git repo + templates
-2. Sends a mock InboundMessage
-3. Mocks the LLM response (deterministic)
-4. Asserts: correct files generated, valid HTML, valid RSS, git commit exists, commit message correct
+**Responsive**
+- Viewport meta tag present
+- Mobile breakpoint at 480px
+- `prefers-reduced-motion` media query
+- Responsive images (`max-width: 100%`)
 
-### Snapshot Testing
+**Security**
+- XSS test: `<script>alert("xss")</script>` in content produces escaped output
+- `rel="noopener"` on external links
 
-Generated HTML and RSS are snapshot-tested. This catches regressions in template rendering without brittle string assertions. Snapshots are committed to the repo and reviewed in PRs.
+### Coverage Thresholds (from day one)
 
-### CI Pipeline
+```
+Lines:      80%
+Functions:  80%
+Branches:   80%
+Statements: 80%
+```
+
+### CI Pipeline (Backup)
 
 ```yaml
 # .github/workflows/ci.yml
@@ -307,22 +384,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint          # oxlint
-      - run: pnpm typecheck     # tsc --noEmit
-      - run: pnpm test          # vitest run --coverage
-      - run: pnpm build         # tsdown
+      - run: pnpm check     # lint + typecheck + test (same as pre-commit)
+      - run: pnpm build     # tsdown
 ```
-
-### Coverage Thresholds (from day one)
-
-```
-Lines:      80%
-Functions:  80%
-Branches:   65%
-Statements: 80%
-```
-
-Higher than OpenClaw's 70% because we have 1/20th the code. No excuse for gaps.
 
 ---
 

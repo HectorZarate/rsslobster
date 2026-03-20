@@ -126,65 +126,47 @@ Same as standalone — shipped with the npm package, copied to user's site repo 
 
 ---
 
-## IV. Directory Structure (the npm package)
+## IV. Directory Structure (Implemented)
 
 ```
 rsslobster/
 ├── src/
 │   ├── index.ts              # CLI entry point
 │   ├── cli/
-│   │   ├── init.ts           # Scaffold a new site repo
-│   │   ├── init.test.ts
 │   │   ├── generate.ts       # stdin JSON → HTML + feeds
-│   │   ├── generate.test.ts
-│   │   ├── publish.ts        # git add + commit + push
-│   │   ├── publish.test.ts
-│   │   ├── drafts.ts         # Draft management
-│   │   ├── drafts.test.ts
-│   │   └── preview.ts        # Local preview server
+│   │   ├── drafts.ts         # Full draft CRUD + schedule + publish CLI
+│   │   └── init.ts           # Scaffold site with style selection
+│   ├── styles/
+│   │   ├── presets.ts         # 4 style presets + CSS generator
+│   │   ├── presets.test.ts    # UX standards validated per preset
+│   │   ├── inherit.ts         # Extract styles from existing site URL
+│   │   └── inherit.test.ts
+│   ├── drafts/
+│   │   ├── drafts.ts         # Create, list, get, update, delete, schedule, unschedule, publish
+│   │   └── drafts.test.ts    # 30 tests
 │   ├── generator/
-│   │   ├── html.ts           # Content → HTML page
-│   │   ├── html.test.ts
-│   │   ├── rss.ts            # Posts → feed.xml
+│   │   ├── html.ts           # Content → semantic HTML5 page
+│   │   ├── html.test.ts      # 20 tests incl. a11y + XSS
+│   │   ├── rss.ts            # Posts → RSS 2.0 XML
 │   │   ├── rss.test.ts
-│   │   ├── json-feed.ts      # Posts → feed.json
+│   │   ├── json-feed.ts      # Posts → JSON Feed 1.1
 │   │   ├── json-feed.test.ts
-│   │   ├── site.ts           # Site directory operations
+│   │   ├── site.ts           # Site scaffolding + content pipeline
 │   │   └── site.test.ts
-│   ├── config/
-│   │   ├── types.ts          # SiteConfig, ContentType interfaces
-│   │   ├── soul.ts           # SOUL.md parser
-│   │   └── soul.test.ts
-│   └── templates/
-│       ├── index.ts          # Template loader + renderer
-│       └── index.test.ts
-├── templates/                 # Default HTML templates
-│   ├── micro.html
-│   ├── post.html
-│   ├── image.html
-│   ├── carousel.html
-│   ├── link.html
-│   ├── index.html
-│   └── base.html
+│   └── config/
+│       └── types.ts          # Full type system: Style, Draft, Post, Feed
 ├── skill/
 │   └── SKILL.md              # OpenClaw skill definition
-├── test/
-│   ├── setup.ts
-│   ├── fixtures/
-│   └── e2e/
-│       └── generate-publish.e2e.test.ts
 ├── SOUL.md                    # Example identity config
-├── package.json
+├── package.json               # prepare script auto-installs pre-commit hook
 ├── tsconfig.json
-├── vitest.config.ts
+├── vitest.config.ts           # 80% coverage thresholds
 └── .github/
     └── workflows/
         └── ci.yml
 ```
 
-**~18 source files. ~12 test files. Even smaller than standalone.**
-
-The critical difference: no `src/channels/`, no `src/agent/`, no `src/agent/model.ts`. OpenClaw owns all of that.
+**Currently: 12 source files, 7 test files, 119 passing tests.** No `src/channels/`, no `src/agent/`, no `src/agent/model.ts` — OpenClaw owns all of that.
 
 ---
 
@@ -216,22 +198,34 @@ The agent reads this, classifies the message, constructs the right JSON, pipes i
 
 ## VI. Testing Strategy
 
-Same rigor as standalone, but we test different boundaries.
+Same shared core, same rigor. **119 tests already passing.** Pre-commit hook enforces quality on every commit.
 
-### What We Test (our code)
+### Shift-Left: Pre-Commit Hook
 
-| Module | Tests |
-|---|---|
-| `generate.ts` | CLI stdin → correct file output. All 5 content types |
-| `html.ts` | ClassifiedContent → valid HTML. Snapshot tests |
-| `rss.ts` | Posts array → valid RSS 2.0 XML |
-| `json-feed.ts` | Posts array → valid JSON Feed 1.1 |
-| `site.ts` | File operations in tmp dirs |
-| `publish.ts` | Correct git commands executed. Tmp repo verification |
-| `drafts.ts` | CRUD operations on drafts/ directory |
-| `init.ts` | Scaffolds correct directory structure |
-| `soul.ts` | SOUL.md parsing |
-| `templates/` | Template loading + rendering |
+```bash
+# Auto-installed by pnpm install
+.git/hooks/pre-commit → pnpm check (lint + typecheck + 119 tests)
+```
+
+### What We Test (our code — already implemented)
+
+| File | Tests | Coverage |
+|---|---|---|
+| `presets.test.ts` | 34 | Style presets, UX range validation (max-width, line-height, font-size), CSS generation, a11y features |
+| `inherit.test.ts` | 6 | CSS extraction from existing sites |
+| `drafts.test.ts` | 30 | Full CRUD + schedule/unschedule + publish + conflict resolution + safety checks |
+| `html.test.ts` | 20 | All 5 content types, semantic HTML, a11y (skip-link, ARIA, focus), XSS prevention |
+| `rss.test.ts` | 7 | RSS 2.0 XML generation, entity escaping |
+| `json-feed.test.ts` | 8 | JSON Feed 1.1 spec compliance |
+| `site.test.ts` | 14 | Scaffold, add content, rebuild feeds, 20-item feed limit |
+
+### UX Standards Enforced By Tests
+
+- Typography: max-width 480-800px, line-height 1.4-1.8, font-size >= 15px
+- Accessibility: skip-link, `lang`, `aria-label`, `focus-visible`, 44px touch targets
+- Performance: inline CSS only (no external requests), zero JS, lazy loading
+- Security: XSS prevention, `rel="noopener"`
+- Responsive: viewport meta, mobile breakpoint, `prefers-reduced-motion`
 
 ### What We DON'T Test (OpenClaw owns it)
 
@@ -240,17 +234,8 @@ Same rigor as standalone, but we test different boundaries.
 - Model inference
 - Session management
 
-### E2E Test
-
-```
-JSON on stdin → rsslobster generate → files on disk → rsslobster publish → git commit exists
-```
-
-No mocked LLM needed. The CLI is deterministic — JSON in, files out.
-
 ### SKILL.md Quality Testing
 
-We can't unit-test a prompt, but we can:
 1. **Fixture-based evaluation:** Feed sample messages through OpenClaw with our skill, verify correct tool calls
 2. **Regression suite:** Maintain a set of input→expected-classification pairs
 3. **Manual smoke test:** Part of the release checklist
