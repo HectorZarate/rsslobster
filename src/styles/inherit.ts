@@ -35,7 +35,10 @@ export function extractStylesFromHtml(html: string): StyleOverrides {
   );
   if (rootVarsMatch) {
     const vars = rootVarsMatch.join(" ");
-    overrides.fontFamily = extractCssVar(vars, "font-family");
+    overrides.fontFamily =
+      extractCssVar(vars, "font-body") ??
+      extractCssVar(vars, "font-family");
+    overrides.fontFamilyHeading = extractCssVar(vars, "font-heading");
     overrides.fontSize = extractCssVar(vars, "font-size");
     overrides.lineHeight = extractCssVar(vars, "line-height");
     overrides.maxWidth = extractCssVar(vars, "max-width");
@@ -50,6 +53,15 @@ export function extractStylesFromHtml(html: string): StyleOverrides {
       extractCssVar(vars, "accent-color") ??
       extractCssVar(vars, "color-primary") ??
       extractCssVar(vars, "primary-color");
+    overrides.colorLink =
+      extractCssVar(vars, "color-link") ??
+      extractCssVar(vars, "link-color");
+    overrides.colorVisited =
+      extractCssVar(vars, "color-visited") ??
+      extractCssVar(vars, "visited-color");
+    overrides.colorBorder =
+      extractCssVar(vars, "color-border") ??
+      extractCssVar(vars, "border-color");
   }
 
   // Extract from inline body styles

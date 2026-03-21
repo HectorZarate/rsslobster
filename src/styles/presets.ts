@@ -155,16 +155,21 @@ export function resolveStyle(
     | "colorBorder"
     | "borderRadius"
   >
-> & { customCss: string } {
+> & { fontFamilyCode: string; customCss: string } {
   const base = PRESETS[preset ?? "minimal"];
+  const fontFamily =
+    overrides?.fontFamily ?? base.fontFamily ?? SYSTEM_SERIF;
+  const isMonoBody =
+    fontFamily.includes("Consolas") || fontFamily.includes("Mono");
   return {
-    fontFamily: overrides?.fontFamily ?? base.fontFamily ?? SYSTEM_SERIF,
+    fontFamily,
     fontFamilyHeading:
       overrides?.fontFamilyHeading ??
       base.fontFamilyHeading ??
       overrides?.fontFamily ??
       base.fontFamily ??
       SYSTEM_SANS,
+    fontFamilyCode: isMonoBody ? fontFamily : SYSTEM_MONO,
     fontSize: overrides?.fontSize ?? base.fontSize ?? "18px",
     lineHeight: overrides?.lineHeight ?? base.lineHeight ?? "1.6",
     maxWidth: overrides?.maxWidth ?? base.maxWidth ?? "640px",
@@ -308,8 +313,9 @@ blockquote {
 
 /* === Code — monospace stands out === */
 code {
-  font-family: ${resolved.fontFamily.includes("Consolas") || resolved.fontFamily.includes("Mono") ? "inherit" : `"SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace`};
+  font-family: ${resolved.fontFamilyCode};
   font-size: 0.9em;
+  background: var(--color-border);
   background: color-mix(in srgb, var(--color-text) 8%, transparent);
   padding: 0.1em 0.3em;
   border-radius: var(--border-radius);
@@ -319,6 +325,7 @@ pre {
   overflow-x: auto;
   padding: 1em;
   margin: 1em 0;
+  background: var(--color-border);
   background: color-mix(in srgb, var(--color-text) 5%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius);

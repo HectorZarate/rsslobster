@@ -6,25 +6,43 @@ describe("extractStylesFromHtml", () => {
     const html = `
       <style>
         :root {
-          --font-family: Inter, sans-serif;
+          --font-body: Inter, sans-serif;
+          --font-heading: Georgia, serif;
           --font-size: 18px;
           --line-height: 1.6;
           --max-width: 700px;
           --color-text: #222;
           --color-bg: #fff;
           --color-accent: #0055aa;
+          --color-link: #0066cc;
+          --color-visited: #551a8b;
+          --color-border: #ccc;
         }
       </style>
     `;
     const result = extractStylesFromHtml(html);
 
     expect(result.fontFamily).toBe("Inter, sans-serif");
+    expect(result.fontFamilyHeading).toBe("Georgia, serif");
     expect(result.fontSize).toBe("18px");
     expect(result.lineHeight).toBe("1.6");
     expect(result.maxWidth).toBe("700px");
     expect(result.colorText).toBe("#222");
     expect(result.colorBackground).toBe("#fff");
     expect(result.colorAccent).toBe("#0055aa");
+    expect(result.colorLink).toBe("#0066cc");
+    expect(result.colorVisited).toBe("#551a8b");
+    expect(result.colorBorder).toBe("#ccc");
+  });
+
+  it("falls back to legacy --font-family variable name", () => {
+    const html = `
+      <style>
+        :root { --font-family: Georgia, serif; }
+      </style>
+    `;
+    const result = extractStylesFromHtml(html);
+    expect(result.fontFamily).toBe("Georgia, serif");
   });
 
   it("extracts from body style block", () => {
