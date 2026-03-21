@@ -13,7 +13,7 @@ import { execFile } from "node:child_process";
  * - afterDeploy: Fired after git commit + push.
  *   Receives JSON on stdin: { url, slug, committed, pushError? }
  */
-export type HookEvent = "afterClassify" | "afterPublish" | "afterDeploy";
+export type HookEvent = "afterClassify" | "afterPublish" | "afterDeploy" | "afterPreview";
 
 export interface HookDefinition {
   /** Shell command to run, or path to a script */
@@ -26,6 +26,7 @@ export interface HooksConfig {
   afterClassify?: HookDefinition[];
   afterPublish?: HookDefinition[];
   afterDeploy?: HookDefinition[];
+  afterPreview?: HookDefinition[];
 }
 
 /** Result of running a hook. */

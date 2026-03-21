@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { processMessage } from "../agent/pipeline.js";
 import { scaffoldSite, readPostsIndex } from "../generator/site.js";
+import { createDraft } from "../drafts/drafts.js";
 import type { SiteConfig } from "../config/types.js";
 import type { InboundMessage } from "../channels/types.js";
 import type { CallModel } from "../agent/classify.js";
@@ -434,5 +435,145 @@ describe("E2E pipeline", () => {
     // Index page must escape the XSS payload (not the legitimate search script)
     const index = await readFile(join(siteDir, "index.html"), "utf-8");
     expect(index).not.toContain('<script>alert');
+  });
+
+  // --- Preview E2E tests ---
+
+  it("preview: prefix creates preview without polluting feeds", async () => {
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "micro",
+        body: "A thought I want to preview first.",
+        tags: ["preview"],
+        isDraft: false,
+      }),
+    );
+
+    const result = await processMessage(
+      msg({ text: "preview: A thought I want to preview first." }),
+      { siteDir, callModel, deploy: false },
+    );
+
+    // Preview should be returned
+    expect(result.preview).toBeDefined();
+    expect(result.preview!.previewId).toMatch(/^[a-f0-9]{12}$/);
+    expect(result.preview!.previewUrl).toContain("/_previews/");
+    expect(result.post).toBeUndefined();
+
+    // Preview HTML should exist with banner and noindex
+    const html = await readFile(
+      join(siteDir, "_previews", `${result.preview!.previewId}.html`),
+      "utf-8",
+    );
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain("A thought I want to preview first.");
+    expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
+    expect(html).toContain("Preview — not yet published");
+
+    // Feeds and index must NOT contain the preview content
+    const posts = await readPostsIndex(siteDir);
+    expect(posts).toHaveLength(0);
+
+    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    expect(rss).not.toContain("preview first");
+
+    const jsonFeed = JSON.parse(
+      await readFile(join(siteDir, "feed.json"), "utf-8"),
+    );
+    expect(jsonFeed.items).toHaveLength(0);
+
+    const index = await readFile(join(siteDir, "index.html"), "utf-8");
+    expect(index).not.toContain("preview first");
+  });
+
+  it("full preview → publish cycle", async () => {
+    // Step 1: Preview
+    const previewModel = cannedModel(
+      JSON.stringify({
+        type: "post",
+        title: "On Decentralization",
+        body: "The future of the web is decentralized.",
+        tags: ["tech", "web"],
+        isDraft: false,
+      }),
+    );
+
+    const previewResult = await processMessage(
+      msg({ text: "preview: On Decentralization" }),
+      { siteDir, callModel: previewModel, deploy: false },
+    );
+
+    expect(previewResult.preview).toBeDefined();
+    const slug = previewResult.preview!.slug;
+
+    // Verify preview exists, feeds empty
+    const postsBeforePublish = await readPostsIndex(siteDir);
+    expect(postsBeforePublish).toHaveLength(0);
+
+    // Step 2: Publish via "publish {slug}"
+    const publishResult = await processMessage(
+      msg({ text: `publish ${slug}` }),
+      { siteDir, callModel: cannedModel("unused"), deploy: false },
+    );
+
+    expect(publishResult.post).toBeDefined();
+    expect(publishResult.post!.url).toContain("example.com");
+    expect(publishResult.reply).toContain("Published");
+
+    // Published HTML should exist
+    const publishedHtml = await readFile(
+      join(siteDir, `${slug}.html`),
+      "utf-8",
+    );
+    expect(publishedHtml).toContain("<h1>On Decentralization</h1>");
+    expect(publishedHtml).toContain("decentralized");
+    // Published page should NOT have preview banner or noindex
+    expect(publishedHtml).not.toContain("noindex");
+    expect(publishedHtml).not.toContain("Preview — not yet published");
+
+    // Posts index should have exactly 1 post
+    const postsAfter = await readPostsIndex(siteDir);
+    expect(postsAfter).toHaveLength(1);
+    expect(postsAfter[0]!.title).toBe("On Decentralization");
+
+    // RSS should have the post
+    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    expect(rss).toContain("On Decentralization");
+
+    // Preview file should be cleaned up
+    const previewFiles = await readdir(join(siteDir, "_previews"));
+    expect(previewFiles.filter((f) => f.endsWith(".html"))).toHaveLength(0);
+  });
+
+  it("preview existing draft by slug", async () => {
+    // Create a draft directly
+    await createDraft(siteDir, {
+      type: "micro",
+      body: "Saved earlier, preview now.",
+      slug: "saved-earlier",
+      tags: [],
+      createdAt: "2026-03-20T10:00:00Z",
+      updatedAt: "2026-03-20T10:00:00Z",
+    });
+
+    const result = await processMessage(
+      msg({ text: "preview saved-earlier" }),
+      { siteDir, callModel: cannedModel("unused"), deploy: false },
+    );
+
+    expect(result.preview).toBeDefined();
+    expect(result.preview!.slug).toBe("saved-earlier");
+    expect(result.preview!.previewUrl).toContain("_previews/");
+
+    // Preview HTML should contain the draft content
+    const html = await readFile(
+      join(siteDir, "_previews", `${result.preview!.previewId}.html`),
+      "utf-8",
+    );
+    expect(html).toContain("Saved earlier, preview now.");
+
+    // No pollution of feeds
+    const posts = await readPostsIndex(siteDir);
+    expect(posts).toHaveLength(0);
   });
 });
