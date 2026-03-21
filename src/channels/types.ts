@@ -18,14 +18,33 @@ export interface InboundMessage {
   text: string;
   /** Attached images (downloaded to local paths) */
   images: InboundImage[];
+  /** Attached media files — video or audio (downloaded to local paths) */
+  mediaFiles: InboundMedia[];
   /** Channel-specific chat/conversation ID for replies */
   chatId: string;
   /** Photos pending download (channel-specific file references) */
   pendingImages?: PendingImage[];
+  /** Media files pending download */
+  pendingMedia?: PendingMedia[];
   /** Sender info for logging */
   sender: { id: string; name: string };
   /** ISO timestamp */
   receivedAt: string;
+}
+
+export interface InboundMedia {
+  /** Local file path after download */
+  localPath: string;
+  /** MIME type (e.g. "video/mp4", "audio/ogg") */
+  mimeType: string;
+  /** Original filename */
+  filename: string;
+}
+
+/** Raw media reference before download */
+export interface PendingMedia {
+  fileId: string;
+  mimeType?: string;
 }
 
 export interface InboundImage {
@@ -40,6 +59,11 @@ export interface InboundImage {
 /** Raw photo reference before download (file_id, URL, etc.) */
 export interface PendingImage {
   fileId: string;
+}
+
+/** Strip path traversal characters from a filename. */
+export function sanitizeFilename(name: string): string {
+  return name.replace(/[/\\]/g, "_").replace(/\.\./g, "_");
 }
 
 /** Callback for when a message arrives */
@@ -66,6 +90,6 @@ export interface Channel {
   /** Send a text reply back to the user */
   reply(chatId: string, text: string): Promise<void>;
 
-  /** Download pending images attached to a message */
-  downloadImages(message: InboundMessage): Promise<void>;
+  /** Download pending images and media attached to a message */
+  downloadAttachments(message: InboundMessage): Promise<void>;
 }

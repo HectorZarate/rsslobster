@@ -34,7 +34,7 @@ export function createWhatsappChannel(_config: WhatsappConfig): Channel {
       throw new Error("WhatsApp channel is not yet implemented.");
     },
 
-    downloadImages(_message: InboundMessage): Promise<void> {
+    downloadAttachments(_message: InboundMessage): Promise<void> {
       throw new Error("WhatsApp channel is not yet implemented.");
     },
   };

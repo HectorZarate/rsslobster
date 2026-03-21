@@ -32,7 +32,7 @@ export function createNostrChannel(_config: NostrConfig): Channel {
       throw new Error("Nostr channel is not yet implemented.");
     },
 
-    downloadImages(_message: InboundMessage): Promise<void> {
+    downloadAttachments(_message: InboundMessage): Promise<void> {
       // Nostr images are typically URLs in event content.
       return Promise.resolve();
     },

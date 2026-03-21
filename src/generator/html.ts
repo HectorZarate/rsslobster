@@ -1,5 +1,6 @@
 import type { ClassifiedContent, SiteConfig } from "../config/types.js";
 import { resolveStyle, generateStylesheet } from "../styles/presets.js";
+import { SEARCH_HTML, SEARCH_SCRIPT } from "./search.js";
 
 /**
  * Generate an HTML page from classified content.
@@ -50,15 +51,12 @@ export function generateHtmlPage(
 </html>`;
 }
 
-/** Generate the index page listing all posts */
-export function generateIndexPage(
-  posts: ClassifiedContent[],
-  config: SiteConfig,
-): string {
-  const resolved = resolveStyle(config.style.preset, config.style.overrides);
-  const css = generateStylesheet(resolved);
+/** Maximum posts shown on the index page before linking to archive */
+const INDEX_PAGE_LIMIT = 30;
 
-  const items = posts
+/** Render a list of post articles as HTML. */
+function renderPostList(posts: ClassifiedContent[]): string {
+  return posts
     .map(
       (p) => `    <article>
       <h2><a href="/${escAttr(p.slug)}.html">${escHtml(p.title ?? truncate(p.body, 80))}</a></h2>
@@ -67,6 +65,22 @@ export function generateIndexPage(
     </article>`,
     )
     .join("\n");
+}
+
+/** Generate the index page listing recent posts */
+export function generateIndexPage(
+  posts: ClassifiedContent[],
+  config: SiteConfig,
+): string {
+  const resolved = resolveStyle(config.style.preset, config.style.overrides);
+  const css = generateStylesheet(resolved);
+
+  const recentPosts = posts.slice(0, INDEX_PAGE_LIMIT);
+  const hasArchive = posts.length > INDEX_PAGE_LIMIT;
+  const items = renderPostList(recentPosts);
+  const archiveLink = hasArchive
+    ? `\n    <nav class="pagination"><a href="/archive.html">Older posts (${posts.length - INDEX_PAGE_LIMIT} more)</a></nav>`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="${escHtml(config.language)}">
@@ -86,8 +100,43 @@ export function generateIndexPage(
     <p>${escHtml(config.description)}</p>
   </header>
   <main id="main">
+    ${SEARCH_HTML}
+${items}${archiveLink}
+  </main>
+${SEARCH_SCRIPT}
+</body>
+</html>`;
+}
+
+/** Generate the archive page listing ALL posts */
+export function generateArchivePage(
+  posts: ClassifiedContent[],
+  config: SiteConfig,
+): string {
+  const resolved = resolveStyle(config.style.preset, config.style.overrides);
+  const css = generateStylesheet(resolved);
+  const items = renderPostList(posts);
+
+  return `<!DOCTYPE html>
+<html lang="${escHtml(config.language)}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Archive — ${escHtml(config.title)}</title>
+  <meta name="description" content="All posts on ${escAttr(config.title)}">
+  <style>${css}</style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header>
+    <nav><a href="/">${escHtml(config.title)}</a></nav>
+    <h1>Archive</h1>
+  </header>
+  <main id="main">
+    ${SEARCH_HTML}
 ${items}
   </main>
+${SEARCH_SCRIPT}
 </body>
 </html>`;
 }
@@ -116,6 +165,20 @@ function renderContentBody(content: ClassifiedContent): string {
         <h3>${escHtml(content.linkTitle ?? content.linkUrl ?? "")}</h3>
         ${content.linkDescription ? `<p>${escHtml(content.linkDescription)}</p>` : ""}
       </a>
+      <p>${escHtml(content.body)}</p>`;
+
+    case "video":
+      return `${content.media?.map((m) => `<video controls preload="metadata" playsinline>
+        <source src="${escAttr(m.src)}" type="${escAttr(m.mimeType)}">
+        Your browser does not support the video element.
+      </video>`).join("\n      ") ?? ""}
+      <p>${escHtml(content.body)}</p>`;
+
+    case "audio":
+      return `${content.media?.map((m) => `<audio controls preload="metadata">
+        <source src="${escAttr(m.src)}" type="${escAttr(m.mimeType)}">
+        Your browser does not support the audio element.
+      </audio>`).join("\n      ") ?? ""}
       <p>${escHtml(content.body)}</p>`;
   }
 }

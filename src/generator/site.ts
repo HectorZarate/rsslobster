@@ -7,9 +7,10 @@ import type {
   Post,
   SiteConfig,
 } from "../config/types.js";
-import { generateHtmlPage, generateIndexPage, escHtml } from "./html.js";
+import { generateHtmlPage, generateIndexPage, generateArchivePage, escHtml } from "./html.js";
 import { generateRss } from "./rss.js";
 import { generateJsonFeed } from "./json-feed.js";
+import { writeSearchIndex } from "./search.js";
 
 const POSTS_INDEX = "posts.json";
 
@@ -60,6 +61,17 @@ export async function addContent(
   const config = await readSiteConfig(siteDir);
   const posts = await readPostsIndex(siteDir);
 
+  // Resolve slug collisions — append -2, -3, etc. if slug already exists
+  const existingSlugs = new Set(posts.map((p) => p.slug));
+  let slug = content.slug;
+  let counter = 1;
+  while (existingSlugs.has(slug)) {
+    slug = `${content.slug}-${++counter}`;
+  }
+  if (slug !== content.slug) {
+    content = { ...content, slug };
+  }
+
   // Generate HTML page
   const html = generateHtmlPage(content, config);
   await writeFile(join(siteDir, `${content.slug}.html`), html);
@@ -75,9 +87,10 @@ export async function addContent(
   posts.unshift(post);
   await writePostsIndex(siteDir, posts);
 
-  // Rebuild feeds and index
+  // Rebuild feeds, index, and search
   await rebuildFeeds(siteDir, config, posts);
   await rebuildIndex(siteDir, config, posts);
+  await writeSearchIndex(siteDir, posts);
 
   return post;
 }
@@ -105,12 +118,17 @@ export async function rebuildFeeds(
     guid: p.url,
     author: config.author,
     categories: p.tags.length > 0 ? p.tags : undefined,
-    enclosure: p.images?.[0]
+    enclosure: p.media?.[0]
       ? {
-          url: `https://${config.domain}${p.images[0].src}`,
-          type: mimeFromSrc(p.images[0].src),
+          url: `https://${config.domain}${p.media[0].src}`,
+          type: p.media[0].mimeType,
         }
-      : undefined,
+      : p.images?.[0]
+        ? {
+            url: `https://${config.domain}${p.images[0].src}`,
+            type: mimeFromSrc(p.images[0].src),
+          }
+        : undefined,
   }));
 
   const rss = generateRss(feedConfig, items);
@@ -120,7 +138,7 @@ export async function rebuildFeeds(
   await writeFile(join(siteDir, "feed.json"), json);
 }
 
-/** Rebuild the index.html page */
+/** Rebuild the index.html and archive.html pages */
 async function rebuildIndex(
   siteDir: string,
   config: SiteConfig,
@@ -128,6 +146,12 @@ async function rebuildIndex(
 ): Promise<void> {
   const html = generateIndexPage(posts, config);
   await writeFile(join(siteDir, "index.html"), html);
+
+  // Generate archive page if there are enough posts
+  if (posts.length > 30) {
+    const archive = generateArchivePage(posts, config);
+    await writeFile(join(siteDir, "archive.html"), archive);
+  }
 }
 
 /** Scaffold a new site directory */
@@ -137,14 +161,16 @@ export async function scaffoldSite(
 ): Promise<void> {
   await mkdir(siteDir, { recursive: true });
   await mkdir(join(siteDir, "images"), { recursive: true });
+  await mkdir(join(siteDir, "media"), { recursive: true });
   await mkdir(join(siteDir, "drafts"), { recursive: true });
 
   await writeSiteConfig(siteDir, config);
   await writePostsIndex(siteDir, []);
 
-  // Generate empty index and feeds
+  // Generate empty index, feeds, and search
   await rebuildFeeds(siteDir, config, []);
   await rebuildIndex(siteDir, config, []);
+  await writeSearchIndex(siteDir, []);
 }
 
 function truncate(s: string, len: number): string {

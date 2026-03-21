@@ -36,6 +36,7 @@ function msg(overrides: Partial<InboundMessage>): InboundMessage {
     id: "e2e-1",
     text: "",
     images: [],
+    mediaFiles: [],
     chatId: "42",
     sender: { id: "42", name: "Ada" },
     receivedAt: "2025-03-15T10:00:00Z",
@@ -318,6 +319,90 @@ describe("E2E pipeline", () => {
     expect(rss).not.toContain("<item>");
   });
 
+  it("video post: renders video element and media enclosure in feed", async () => {
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "video",
+        body: "Check out this sunset timelapse",
+        tags: ["nature"],
+        isDraft: false,
+      }),
+    );
+
+    const result = await processMessage(
+      msg({ text: "Check out this sunset timelapse" }),
+      { siteDir, callModel, deploy: false },
+    );
+
+    expect(result.post).toBeDefined();
+    expect(result.post!.type).toBe("video");
+
+    // HTML page should contain video structure (no actual media file attached)
+    const html = await readFile(
+      join(siteDir, `${result.post!.slug}.html`),
+      "utf-8",
+    );
+    expect(html).toContain("sunset timelapse");
+    expect(html).toContain('<span class="tag">nature</span>');
+
+    // Posts index updated
+    const posts = await readPostsIndex(siteDir);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.type).toBe("video");
+  });
+
+  it("audio post: renders audio element and feed entry", async () => {
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "audio",
+        body: "Voice note about distributed systems",
+        tags: ["tech"],
+        isDraft: false,
+      }),
+    );
+
+    const result = await processMessage(
+      msg({ text: "Voice note about distributed systems" }),
+      { siteDir, callModel, deploy: false },
+    );
+
+    expect(result.post).toBeDefined();
+    expect(result.post!.type).toBe("audio");
+
+    const html = await readFile(
+      join(siteDir, `${result.post!.slug}.html`),
+      "utf-8",
+    );
+    expect(html).toContain("distributed systems");
+
+    // RSS should contain the item
+    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    expect(rss).toContain("distributed systems");
+  });
+
+  it("search index is generated after publishing", async () => {
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "micro",
+        body: "Searchable content here",
+        tags: ["search"],
+        isDraft: false,
+      }),
+    );
+
+    await processMessage(
+      msg({ text: "Searchable content here" }),
+      { siteDir, callModel, deploy: false },
+    );
+
+    const searchIndex = JSON.parse(
+      await readFile(join(siteDir, "search-index.json"), "utf-8"),
+    );
+    expect(searchIndex).toHaveLength(1);
+    expect(searchIndex[0].b).toContain("searchable content");
+    expect(searchIndex[0].g).toBe("search");
+  });
+
   it("XSS in user input is escaped in all outputs", async () => {
     const xssPayload = '<script>alert("xss")</script>';
     const callModel = cannedModel(
@@ -346,8 +431,8 @@ describe("E2E pipeline", () => {
     const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
     expect(rss).not.toContain("<script>alert");
 
-    // Index page must escape
+    // Index page must escape the XSS payload (not the legitimate search script)
     const index = await readFile(join(siteDir, "index.html"), "utf-8");
-    expect(index).not.toContain("<script>");
+    expect(index).not.toContain('<script>alert');
   });
 });

@@ -31,7 +31,7 @@ export function createSignalChannel(_config: SignalConfig): Channel {
       throw new Error("Signal channel is not yet implemented.");
     },
 
-    downloadImages(_message: InboundMessage): Promise<void> {
+    downloadAttachments(_message: InboundMessage): Promise<void> {
       throw new Error("Signal channel is not yet implemented.");
     },
   };

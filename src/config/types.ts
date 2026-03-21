@@ -1,5 +1,5 @@
 /** Content types supported by RSS Lobster */
-export type ContentType = "micro" | "post" | "image" | "carousel" | "link";
+export type ContentType = "micro" | "post" | "image" | "carousel" | "link" | "video" | "audio";
 
 /** Draft status lifecycle */
 export type DraftStatus = "draft" | "scheduled" | "published";
@@ -52,11 +52,21 @@ export interface ClassifiedContent {
   slug: string;
   tags: string[];
   images?: ImageAttachment[];
+  /** Video or audio attachments */
+  media?: MediaAttachment[];
   linkUrl?: string;
   linkTitle?: string;
   linkDescription?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface MediaAttachment {
+  src: string;
+  /** MIME type, e.g. "video/mp4", "audio/ogg" */
+  mimeType: string;
+  /** Duration in seconds, if known */
+  duration?: number;
 }
 
 export interface ImageAttachment {

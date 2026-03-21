@@ -23,10 +23,17 @@ export type CallModel = (
 export function buildClassificationPrompt(
   text: string,
   imageCount = 0,
+  mediaCount = 0,
+  mediaMimeTypes: string[] = [],
 ): string {
   const imageNote =
     imageCount > 0
       ? `\nThe user attached ${imageCount} image${imageCount > 1 ? "s" : ""} to this message.`
+      : "";
+
+  const mediaNote =
+    mediaCount > 0
+      ? `\nThe user attached ${mediaCount} media file${mediaCount > 1 ? "s" : ""} (${mediaMimeTypes.join(", ")}).`
       : "";
 
   return `Classify this message for a personal blog. Return ONLY a JSON object.
@@ -37,6 +44,8 @@ Types:
 - "image": Single image with caption
 - "carousel": Multiple images
 - "link": Shared URL with commentary
+- "video": Video clip with optional caption
+- "audio": Voice note or audio recording with optional caption
 
 Examples:
 
@@ -58,7 +67,9 @@ Rules:
 - title only for "post" type. null otherwise.
 - For "link": extract the URL into linkUrl
 - body = the cleaned content text (strip URLs for link type)
-${imageNote}
+- If a video file is attached, use type "video"
+- If an audio/voice file is attached, use type "audio"
+${imageNote}${mediaNote}
 Input: "${text.replace(/"/g, '\\"')}"`;
 }
 
@@ -153,8 +164,9 @@ export async function classifyContent(
   text: string,
   imagePaths: string[],
   callModel: CallModel,
+  mediaMimeTypes: string[] = [],
 ): Promise<ClassificationResult> {
-  const prompt = buildClassificationPrompt(text, imagePaths.length);
+  const prompt = buildClassificationPrompt(text, imagePaths.length, mediaMimeTypes.length, mediaMimeTypes);
 
   let lastError: Error | undefined;
   for (let attempt = 0; attempt < 2; attempt++) {

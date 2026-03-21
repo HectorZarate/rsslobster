@@ -7,6 +7,8 @@ export const VALID_TYPES: ReadonlySet<string> = new Set<ContentType>([
   "image",
   "carousel",
   "link",
+  "video",
+  "audio",
 ]);
 
 export const MAX_TAGS = 3;

@@ -30,7 +30,7 @@ export function createMatrixChannel(_config: MatrixConfig): Channel {
       throw new Error("Matrix channel is not yet implemented.");
     },
 
-    downloadImages(_message: InboundMessage): Promise<void> {
+    downloadAttachments(_message: InboundMessage): Promise<void> {
       throw new Error("Matrix channel is not yet implemented.");
     },
   };

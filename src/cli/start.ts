@@ -126,8 +126,8 @@ export const startCommand = new Command("start")
         );
 
         try {
-          // Download any pending images before processing
-          await channel.downloadImages(message);
+          // Download any pending attachments (images + media) before processing
+          await channel.downloadAttachments(message);
 
           const result = await processMessage(message, {
             siteDir,
