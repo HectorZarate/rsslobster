@@ -420,12 +420,12 @@ describe("E2E pipeline", () => {
       { siteDir, callModel, deploy: false },
     );
 
-    // HTML page must escape the script tag
+    // HTML page must escape the XSS script tag (JSON-LD script is legitimate)
     const html = await readFile(
       join(siteDir, `${result.post!.slug}.html`),
       "utf-8",
     );
-    expect(html).not.toContain("<script>");
+    expect(html).not.toContain('<script>alert');
     expect(html).toContain("&lt;script&gt;");
 
     // RSS must escape it too

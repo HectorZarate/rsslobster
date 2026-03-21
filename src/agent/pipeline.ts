@@ -15,6 +15,7 @@ import {
   parseHookOverride,
   type HooksConfig,
 } from "../hooks/hooks.js";
+import type { PageInjections } from "../plugins/types.js";
 
 export interface PipelineConfig {
   siteDir: string;
@@ -23,6 +24,8 @@ export interface PipelineConfig {
   deploy?: boolean;
   /** Lifecycle hooks configuration */
   hooks?: HooksConfig;
+  /** Plugin-contributed page injections */
+  pluginInjections?: PageInjections;
 }
 
 export interface PipelineResult {
@@ -164,7 +167,9 @@ export async function processMessage(
   // Step 5: Generate HTML + feeds
   let post: Post;
   try {
-    post = await addContent(config.siteDir, content);
+    post = await addContent(config.siteDir, content, {
+      pluginInjections: config.pluginInjections,
+    });
   } catch (err) {
     const error = err instanceof Error ? err.message : "Generation failed";
     return { deployed: false, reply: `Failed to generate: ${error}`, error };

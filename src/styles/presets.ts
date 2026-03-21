@@ -529,3 +529,22 @@ nav a, button, .tag {
 
 ${resolved.customCss}`;
 }
+
+/**
+ * Load a custom CSS file if configured.
+ * Returns the CSS content or empty string if not configured/not found.
+ */
+export async function loadCustomCss(
+  siteDir: string,
+  cssFile?: string,
+): Promise<string> {
+  if (!cssFile) return "";
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const { join } = await import("node:path");
+    return await readFile(join(siteDir, cssFile), "utf-8");
+  } catch {
+    console.error(`Custom CSS file "${cssFile}" not found, skipping`);
+    return "";
+  }
+}

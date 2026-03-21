@@ -11,6 +11,11 @@ import { generateHtmlPage, generateIndexPage, generateArchivePage, escHtml } fro
 import { generateRss } from "./rss.js";
 import { generateJsonFeed } from "./json-feed.js";
 import { writeSearchIndex } from "./search.js";
+import { writeSeo } from "./seo.js";
+import { writePages } from "../pages/pages.js";
+import { expandPermalink, permalinkDir } from "../config/permalink.js";
+import type { PageInjections } from "../plugins/types.js";
+import { loadCustomCss } from "../styles/presets.js";
 
 const POSTS_INDEX = "posts.json";
 
@@ -53,12 +58,29 @@ async function writePostsIndex(
   await writeFile(join(siteDir, POSTS_INDEX), JSON.stringify(posts, null, 2));
 }
 
+/** Optional injections from plugin system */
+export interface AddContentOptions {
+  pluginInjections?: PageInjections;
+}
+
 /** Add content to the site: generate HTML, update feeds, update index */
 export async function addContent(
   siteDir: string,
   content: ClassifiedContent,
+  options?: AddContentOptions,
 ): Promise<Post> {
   const config = await readSiteConfig(siteDir);
+
+  // Load custom CSS if configured and fold into style overrides
+  if (config.style.cssFile) {
+    const customCss = await loadCustomCss(siteDir, config.style.cssFile);
+    if (customCss) {
+      config.style.overrides = config.style.overrides ?? {};
+      config.style.overrides.customCss =
+        (config.style.overrides.customCss ?? "") + "\n" + customCss;
+    }
+  }
+
   const posts = await readPostsIndex(siteDir);
 
   // Resolve slug collisions — append -2, -3, etc. if slug already exists
@@ -72,14 +94,28 @@ export async function addContent(
     content = { ...content, slug };
   }
 
-  // Generate HTML page
-  const html = generateHtmlPage(content, config);
-  await writeFile(join(siteDir, `${content.slug}.html`), html);
+  // Resolve permalink path
+  const permalink = expandPermalink(config.permalink, content);
+  const dir = permalinkDir(permalink);
+  if (dir) {
+    await mkdir(join(siteDir, dir), { recursive: true });
+  }
+
+  // Generate HTML page with OG, JSON-LD, and plugin injections
+  const pageUrl = `https://${config.domain}${permalink}`;
+  const html = generateHtmlPage(content, config, {
+    pluginInjections: options?.pluginInjections,
+    pageUrl,
+  });
+
+  // Write to the permalink path (strip leading /)
+  const htmlPath = permalink.startsWith("/") ? permalink.slice(1) : permalink;
+  await writeFile(join(siteDir, htmlPath), html);
 
   // Create post record
   const post: Post = {
     ...content,
-    url: `https://${config.domain}/${content.slug}.html`,
+    url: pageUrl,
     publishedAt: new Date().toISOString(),
   };
 
@@ -87,10 +123,12 @@ export async function addContent(
   posts.unshift(post);
   await writePostsIndex(siteDir, posts);
 
-  // Rebuild feeds, index, and search
+  // Rebuild feeds, index, search, SEO, and pages
   await rebuildFeeds(siteDir, config, posts);
-  await rebuildIndex(siteDir, config, posts);
+  await rebuildIndex(siteDir, config, posts, options?.pluginInjections);
   await writeSearchIndex(siteDir, posts);
+  await writeSeo(siteDir, config, posts);
+  await writePages(siteDir, config, options?.pluginInjections);
 
   return post;
 }
@@ -143,13 +181,14 @@ async function rebuildIndex(
   siteDir: string,
   config: SiteConfig,
   posts: Post[],
+  injections?: PageInjections,
 ): Promise<void> {
-  const html = generateIndexPage(posts, config);
+  const html = generateIndexPage(posts, config, injections);
   await writeFile(join(siteDir, "index.html"), html);
 
   // Generate archive page if there are enough posts
   if (posts.length > 30) {
-    const archive = generateArchivePage(posts, config);
+    const archive = generateArchivePage(posts, config, injections);
     await writeFile(join(siteDir, "archive.html"), archive);
   }
 }
@@ -167,10 +206,12 @@ export async function scaffoldSite(
   await writeSiteConfig(siteDir, config);
   await writePostsIndex(siteDir, []);
 
-  // Generate empty index, feeds, and search
+  // Generate empty index, feeds, search, SEO, and pages
   await rebuildFeeds(siteDir, config, []);
   await rebuildIndex(siteDir, config, []);
   await writeSearchIndex(siteDir, []);
+  await writeSeo(siteDir, config, []);
+  await writePages(siteDir, config);
 }
 
 function truncate(s: string, len: number): string {
