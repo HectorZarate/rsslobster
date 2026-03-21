@@ -1,21 +1,38 @@
 import { Command } from "commander";
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { tmpdir } from "node:os";
 import pc from "picocolors";
 import { readSiteConfig } from "../generator/site.js";
 import { createModelCaller, type ModelConfig } from "../agent/model.js";
 import { processMessage } from "../agent/pipeline.js";
-import {
-  pollForUpdates,
-  sendReply,
-  downloadTelegramFile,
-} from "../channels/telegram.js";
 import type { InboundMessage } from "../channels/types.js";
+import type { ChannelType } from "../channels/types.js";
+import { createChannel, CHANNEL_LABELS } from "../channels/channel.js";
 import { publishDueScheduled } from "../agent/scheduler.js";
 
 interface LobsterConfig {
-  telegram: { token: string; allowedUsers?: string[] };
+  /** Which channel to use. Default: "telegram" */
+  channel?: ChannelType;
+  telegram?: { token: string; allowedUsers?: string[] };
+  discord?: { botToken: string; channelId: string };
+  slack?: { botToken: string; appToken: string; channelId?: string };
+  whatsapp?: {
+    phoneNumberId: string;
+    accessToken: string;
+    verifyToken: string;
+  };
+  signal?: { apiUrl: string; phoneNumber: string };
+  nostr?: { privateKey: string; relays: string[] };
+  matrix?: { homeserverUrl: string; accessToken: string; roomId: string };
+  webhook?: { port?: number; secret?: string };
+  irc?: {
+    server: string;
+    port?: number;
+    nick: string;
+    channel: string;
+    password?: string;
+    tls?: boolean;
+  };
   model: ModelConfig;
 }
 
@@ -24,31 +41,10 @@ async function loadLobsterConfig(siteDir: string): Promise<LobsterConfig> {
   return JSON.parse(raw) as LobsterConfig;
 }
 
-/** Download any pending Telegram photos and attach to the message. */
-async function downloadPendingImages(
-  message: InboundMessage,
-  token: string,
-): Promise<void> {
-  if (!message.pendingImages || message.pendingImages.length === 0) return;
-
-  const downloadDir = join(tmpdir(), `rsslobster-dl-${message.id}`);
-  for (const pending of message.pendingImages) {
-    try {
-      const localPath = await downloadTelegramFile(
-        token,
-        pending.fileId,
-        downloadDir,
-      );
-      const filename = localPath.split("/").pop() ?? `${pending.fileId}.jpg`;
-      message.images.push({ localPath, filename });
-    } catch {
-      // Skip failed downloads — pipeline handles partial images gracefully
-    }
-  }
-}
-
 export const startCommand = new Command("start")
-  .description("Start the lobster — listen for Telegram messages and publish")
+  .description(
+    "Start the lobster — listen for messages and publish",
+  )
   .argument("[site-dir]", "Path to the site directory", ".")
   .action(async (siteDirArg: string) => {
     const siteDir = resolve(siteDirArg);
@@ -79,15 +75,28 @@ export const startCommand = new Command("start")
     }
 
     const callModel = createModelCaller(lobsterConfig.model);
-    const token = lobsterConfig.telegram.token;
-    const allowedUsers = lobsterConfig.telegram.allowedUsers
-      ? new Set(lobsterConfig.telegram.allowedUsers)
-      : undefined;
+
+    // Resolve channel type (default to telegram for backward compat)
+    const channelType: ChannelType = lobsterConfig.channel ?? "telegram";
+    const channelConfig = lobsterConfig[channelType];
+
+    if (!channelConfig) {
+      console.error(
+        pc.red(
+          `No config found for channel "${channelType}" in lobster.json. ` +
+            `Add a "${channelType}" section or run \`rsslobster onboard\`.`,
+        ),
+      );
+      process.exit(1);
+    }
+
+    const channel = createChannel(channelType, channelConfig as never);
+    const channelLabel = CHANNEL_LABELS[channelType];
 
     console.log(pc.green("🦞 Lobster is live."));
     console.log(`   Site: ${pc.cyan(`https://${siteConfig.domain}`)}`);
     console.log(`   Model: ${pc.cyan(lobsterConfig.model.model)}`);
-    console.log("   Listening for Telegram messages...\n");
+    console.log(`   Listening on ${pc.cyan(channelLabel)}...\n`);
 
     // Start scheduled draft publisher (check every 60s)
     const schedulerInterval = setInterval(async () => {
@@ -108,11 +117,8 @@ export const startCommand = new Command("start")
       controller.abort();
     });
 
-    await pollForUpdates(
-      token,
+    await channel.poll(
       async (message: InboundMessage) => {
-        if (allowedUsers && !allowedUsers.has(message.sender.id)) return;
-
         console.log(
           pc.dim(
             `[${new Date().toISOString()}] ${message.sender.name}: ${message.text.slice(0, 60)}`,
@@ -120,8 +126,8 @@ export const startCommand = new Command("start")
         );
 
         try {
-          // Download any Telegram photos before processing
-          await downloadPendingImages(message, token);
+          // Download any pending images before processing
+          await channel.downloadImages(message);
 
           const result = await processMessage(message, {
             siteDir,
@@ -129,13 +135,13 @@ export const startCommand = new Command("start")
             deploy: true,
           });
 
-          await sendReply(token, message.chatId, result.reply);
+          await channel.reply(message.chatId, result.reply);
           console.log(pc.green(`  → ${result.reply}`));
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Unknown error";
           console.error(pc.red(`  ✗ ${msg}`));
           try {
-            await sendReply(token, message.chatId, `Error: ${msg}`);
+            await channel.reply(message.chatId, `Error: ${msg}`);
           } catch {
             // If we can't even send the error reply, just log it
           }

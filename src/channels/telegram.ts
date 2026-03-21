@@ -1,6 +1,7 @@
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { InboundMessage, MessageHandler } from "./types.js";
+import { tmpdir } from "node:os";
+import type { Channel, InboundMessage, MessageHandler } from "./types.js";
 
 // --- Telegram Bot API types (minimal subset) ---
 
@@ -177,4 +178,53 @@ export async function pollForUpdates(
       await new Promise((resolve) => setTimeout(resolve, 3000));
     }
   }
+}
+
+// --- Channel interface implementation ---
+
+export interface TelegramConfig {
+  token: string;
+  allowedUsers?: string[];
+}
+
+/** Create a Telegram Channel from config. */
+export function createTelegramChannel(config: TelegramConfig): Channel {
+  const allowedUsers = config.allowedUsers
+    ? new Set(config.allowedUsers)
+    : undefined;
+
+  return {
+    type: "telegram",
+
+    async poll(handler: MessageHandler, signal?: AbortSignal): Promise<void> {
+      const wrappedHandler: MessageHandler = async (message) => {
+        if (allowedUsers && !allowedUsers.has(message.sender.id)) return;
+        await handler(message);
+      };
+      await pollForUpdates(config.token, wrappedHandler, signal);
+    },
+
+    async reply(chatId: string, text: string): Promise<void> {
+      await sendReply(config.token, chatId, text);
+    },
+
+    async downloadImages(message: InboundMessage): Promise<void> {
+      if (!message.pendingImages || message.pendingImages.length === 0) return;
+      const downloadDir = join(tmpdir(), `rsslobster-dl-${message.id}`);
+      for (const pending of message.pendingImages) {
+        try {
+          const localPath = await downloadTelegramFile(
+            config.token,
+            pending.fileId,
+            downloadDir,
+          );
+          const filename =
+            localPath.split("/").pop() ?? `${pending.fileId}.jpg`;
+          message.images.push({ localPath, filename });
+        } catch {
+          // Skip failed downloads — pipeline handles partial images gracefully
+        }
+      }
+    },
+  };
 }
