@@ -1,0 +1,116 @@
+import { describe, it, expect } from "vitest";
+import { getNavPages, renderNav, generatePageHtml } from "./pages.js";
+import type { SiteConfig, PageConfig } from "../config/types.js";
+
+const CONFIG: SiteConfig = {
+  domain: "example.com",
+  title: "Test Blog",
+  description: "A test blog",
+  author: "Test Author",
+  language: "en",
+  style: { preset: "minimal" },
+  repo: "",
+};
+
+describe("getNavPages", () => {
+  it("returns empty array when no pages", () => {
+    expect(getNavPages(CONFIG)).toEqual([]);
+  });
+
+  it("returns only pages with navOrder", () => {
+    const config = {
+      ...CONFIG,
+      pages: [
+        { title: "About", slug: "about", body: "About", navOrder: 1 },
+        { title: "Hidden", slug: "hidden", body: "Hidden" },
+        { title: "Contact", slug: "contact", body: "Contact", navOrder: 2 },
+      ],
+    };
+    const nav = getNavPages(config);
+    expect(nav).toHaveLength(2);
+    expect(nav[0]!.slug).toBe("about");
+    expect(nav[1]!.slug).toBe("contact");
+  });
+
+  it("sorts by navOrder", () => {
+    const config = {
+      ...CONFIG,
+      pages: [
+        { title: "Contact", slug: "contact", body: "Contact", navOrder: 10 },
+        { title: "About", slug: "about", body: "About", navOrder: 1 },
+      ],
+    };
+    const nav = getNavPages(config);
+    expect(nav[0]!.slug).toBe("about");
+    expect(nav[1]!.slug).toBe("contact");
+  });
+});
+
+describe("renderNav", () => {
+  it("renders site title only when no pages", () => {
+    const nav = renderNav(CONFIG);
+    expect(nav).toContain("Test Blog");
+    expect(nav).toContain('href="/"');
+  });
+
+  it("includes page links", () => {
+    const config = {
+      ...CONFIG,
+      pages: [
+        { title: "About", slug: "about", body: "About", navOrder: 1 },
+      ],
+    };
+    const nav = renderNav(config);
+    expect(nav).toContain('href="/about.html"');
+    expect(nav).toContain("About");
+  });
+});
+
+describe("generatePageHtml", () => {
+  const page: PageConfig = {
+    title: "About Me",
+    slug: "about",
+    body: "I am a person who writes things.",
+    navOrder: 1,
+  };
+
+  it("renders valid HTML with correct structure", () => {
+    const html = generatePageHtml(page, CONFIG);
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain('<html lang="en">');
+    expect(html).toContain("<h1>About Me</h1>");
+    expect(html).toContain("I am a person who writes things.");
+    expect(html).toContain("<title>About Me — Test Blog</title>");
+  });
+
+  it("includes feed links", () => {
+    const html = generatePageHtml(page, CONFIG);
+    expect(html).toContain('href="/feed.xml"');
+    expect(html).toContain('href="/feed.json"');
+  });
+
+  it("includes nav", () => {
+    const configWithPages = {
+      ...CONFIG,
+      pages: [page],
+    };
+    const html = generatePageHtml(page, configWithPages);
+    expect(html).toContain('href="/about.html"');
+  });
+
+  it("escapes XSS in page content", () => {
+    const xssPage = { ...page, body: '<script>alert("xss")</script>' };
+    const html = generatePageHtml(xssPage, CONFIG);
+    expect(html).not.toContain('<script>alert');
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("accepts plugin injections", () => {
+    const html = generatePageHtml(page, CONFIG, {
+      head: '<meta name="custom" content="test">',
+      bodyEnd: '<script src="analytics.js"></script>',
+    });
+    expect(html).toContain('name="custom"');
+    expect(html).toContain("analytics.js");
+  });
+});

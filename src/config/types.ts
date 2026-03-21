@@ -13,6 +13,32 @@ export interface SiteConfig {
   language: string;
   style: StyleConfig;
   repo: string;
+  /** Permalink pattern for post URLs. Default: "/:slug.html" */
+  permalink?: string;
+  /** Static pages (About, Contact, etc.) */
+  pages?: PageConfig[];
+  /** Plugins to load */
+  plugins?: PluginConfigEntry[];
+}
+
+/** A static page — not part of the chronological feed */
+export interface PageConfig {
+  /** Page title */
+  title: string;
+  /** URL slug — becomes /{slug}.html */
+  slug: string;
+  /** Page body (plain text or HTML) */
+  body: string;
+  /** Nav order (lower = first). Omit to hide from nav. */
+  navOrder?: number;
+}
+
+/** Plugin entry in site config */
+export interface PluginConfigEntry {
+  /** Module path (relative to site dir) or package name */
+  name: string;
+  /** Plugin-specific options */
+  options?: Record<string, unknown>;
 }
 
 /** Style configuration — either a preset or inherited from a URL */
@@ -23,6 +49,8 @@ export interface StyleConfig {
   inheritFrom?: string;
   /** Custom overrides applied on top of preset or inherited styles */
   overrides?: StyleOverrides;
+  /** Path to a custom CSS file (relative to site dir). Appended after preset CSS. */
+  cssFile?: string;
 }
 
 export type StylePreset = "minimal" | "brutalist" | "magazine" | "terminal";
@@ -76,6 +104,18 @@ export interface ImageAttachment {
   height?: number;
 }
 
+/** A snapshot of draft content at a point in time */
+export interface DraftRevision {
+  /** Revision number (1-indexed, auto-incremented) */
+  revision: number;
+  /** ISO timestamp when this revision was saved */
+  savedAt: string;
+  /** Content snapshot */
+  title?: string;
+  body: string;
+  tags: string[];
+}
+
 /** A draft extends classified content with status, scheduling, and optional preview */
 export interface Draft extends ClassifiedContent {
   status: DraftStatus;
@@ -86,6 +126,8 @@ export interface Draft extends ClassifiedContent {
   previewUrl?: string;
   /** ISO timestamp when the preview expires */
   previewExpiresAt?: string;
+  /** Revision history — most recent last. First revision created on draft creation. */
+  revisions?: DraftRevision[];
 }
 
 /** A published post, written to the posts index */

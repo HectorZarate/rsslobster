@@ -1,6 +1,8 @@
 import type { ClassifiedContent, SiteConfig } from "../config/types.js";
 import { resolveStyle, generateStylesheet } from "../styles/presets.js";
 import { SEARCH_HTML, SEARCH_SCRIPT } from "./search.js";
+import { renderNav } from "../pages/pages.js";
+import type { PageInjections } from "../plugins/types.js";
 
 /**
  * Generate an HTML page from classified content.
@@ -11,6 +13,7 @@ import { SEARCH_HTML, SEARCH_SCRIPT } from "./search.js";
  * - Mobile-first: viewport meta, responsive images, touch targets
  * - Performance: inline critical CSS, no external font requests
  * - Progressive: works without JavaScript entirely
+ * - SEO: Open Graph, JSON-LD Article schema, semantic structure
  */
 
 /** Options for injecting extra content into generated HTML pages. */
@@ -19,6 +22,10 @@ export interface HtmlPageOptions {
   extraHead?: string;
   /** HTML to inject at start of <body>, before skip-link */
   bodyPrefix?: string;
+  /** Plugin-contributed injections */
+  pluginInjections?: PageInjections;
+  /** Override the URL for this page (used with permalink patterns) */
+  pageUrl?: string;
 }
 
 /** Return HtmlPageOptions for a preview page: noindex meta + banner. */
@@ -34,6 +41,84 @@ export function previewPageOptions(): HtmlPageOptions {
   };
 }
 
+/** Generate Open Graph meta tags */
+function generateOgTags(
+  content: ClassifiedContent,
+  config: SiteConfig,
+  pageUrl?: string,
+): string {
+  const url = pageUrl ?? `https://${config.domain}/${content.slug}.html`;
+  const title = content.title ?? truncate(content.body, 60);
+  const description = truncate(content.body, 200);
+  const ogType = content.type === "post" ? "article" : "website";
+
+  const tags = [
+    `<meta property="og:type" content="${escAttr(ogType)}">`,
+    `<meta property="og:title" content="${escAttr(title)}">`,
+    `<meta property="og:description" content="${escAttr(description)}">`,
+    `<meta property="og:url" content="${escAttr(url)}">`,
+    `<meta property="og:site_name" content="${escAttr(config.title)}">`,
+    `<meta property="og:locale" content="${escAttr(config.language)}">`,
+  ];
+
+  // Twitter/X card
+  tags.push(`<meta name="twitter:card" content="summary">`);
+  tags.push(`<meta name="twitter:title" content="${escAttr(title)}">`);
+  tags.push(`<meta name="twitter:description" content="${escAttr(description)}">`);
+
+  // Image for OG (first image if available)
+  if (content.images?.[0]) {
+    const imgUrl = `https://${config.domain}${content.images[0].src}`;
+    tags.push(`<meta property="og:image" content="${escAttr(imgUrl)}">`);
+    tags.push(`<meta name="twitter:card" content="summary_large_image">`);
+    if (content.images[0].alt) {
+      tags.push(`<meta property="og:image:alt" content="${escAttr(content.images[0].alt)}">`);
+    }
+  }
+
+  return tags.join("\n  ");
+}
+
+/** Generate JSON-LD structured data for a post */
+function generateJsonLd(
+  content: ClassifiedContent,
+  config: SiteConfig,
+  pageUrl?: string,
+): string {
+  const url = pageUrl ?? `https://${config.domain}/${content.slug}.html`;
+
+  const ld: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: content.title ?? truncate(content.body, 110),
+    url,
+    datePublished: content.createdAt,
+    dateModified: content.updatedAt,
+    author: {
+      "@type": "Person",
+      name: config.author,
+    },
+    publisher: {
+      "@type": "Person",
+      name: config.author,
+    },
+    description: truncate(content.body, 200),
+    inLanguage: config.language,
+  };
+
+  if (content.images?.[0]) {
+    ld["image"] = `https://${config.domain}${content.images[0].src}`;
+  }
+
+  if (content.tags.length > 0) {
+    ld["keywords"] = content.tags.join(", ");
+  }
+
+  // Escape < as \u003c in JSON-LD to prevent XSS breakout from script context
+  const jsonStr = JSON.stringify(ld).replace(/</g, "\\u003c");
+  return `<script type="application/ld+json">${jsonStr}</script>`;
+}
+
 export function generateHtmlPage(
   content: ClassifiedContent,
   config: SiteConfig,
@@ -42,8 +127,17 @@ export function generateHtmlPage(
   const resolved = resolveStyle(config.style.preset, config.style.overrides);
   const css = generateStylesheet(resolved);
   const inner = renderContentBody(content);
+  const nav = renderNav(config);
+
+  // Combine all head injections
+  const ogTags = generateOgTags(content, config, options?.pageUrl);
+  const jsonLd = generateJsonLd(content, config, options?.pageUrl);
+  const pluginHead = options?.pluginInjections?.head ?? "";
   const extraHead = options?.extraHead ? `\n  ${options.extraHead}` : "";
+
   const bodyPrefix = options?.bodyPrefix ? `\n  ${options.bodyPrefix}` : "";
+  const articleFooter = options?.pluginInjections?.articleFooter ?? "";
+  const bodyEnd = options?.pluginInjections?.bodyEnd ?? "";
 
   return `<!DOCTYPE html>
 <html lang="${escHtml(config.language)}">
@@ -53,14 +147,16 @@ export function generateHtmlPage(
   <title>${escHtml(content.title ?? truncate(content.body, 60))} — ${escHtml(config.title)}</title>
   <meta name="description" content="${escAttr(truncate(content.body, 160))}">
   <meta name="author" content="${escAttr(config.author)}">
+  ${ogTags}
+  ${jsonLd}
   <link rel="alternate" type="application/rss+xml" title="${escAttr(config.title)}" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="${escAttr(config.title)}" href="/feed.json">
-  <style>${css}</style>${extraHead}
+  <style>${css}</style>${pluginHead}${extraHead}
 </head>
 <body>${bodyPrefix}
   <a class="skip-link" href="#main">Skip to content</a>
   <header>
-    <nav><a href="/">${escHtml(config.title)}</a></nav>
+    ${nav}
   </header>
   <main id="main">
     <article>
@@ -68,9 +164,9 @@ export function generateHtmlPage(
       <footer class="meta">
         <time datetime="${escAttr(content.createdAt)}">${formatDate(content.createdAt)}</time>
         ${renderTags(content.tags)}
-      </footer>
+      </footer>${articleFooter}
     </article>
-  </main>
+  </main>${bodyEnd}
 </body>
 </html>`;
 }
@@ -79,32 +175,61 @@ export function generateHtmlPage(
 const INDEX_PAGE_LIMIT = 30;
 
 /** Render a list of post articles as HTML. */
-function renderPostList(posts: ClassifiedContent[]): string {
+function renderPostList(posts: ClassifiedContent[], permalink?: string): string {
   return posts
-    .map(
-      (p) => `    <article>
-      <h2><a href="/${escAttr(p.slug)}.html">${escHtml(p.title ?? truncate(p.body, 80))}</a></h2>
+    .map((p) => {
+      const url = resolvePostUrl(p, permalink);
+      return `    <article>
+      <h2><a href="${escAttr(url)}">${escHtml(p.title ?? truncate(p.body, 80))}</a></h2>
       <p>${escHtml(truncate(p.body, 200))}</p>
       <time datetime="${escAttr(p.createdAt)}">${formatDate(p.createdAt)}</time>
-    </article>`,
-    )
+    </article>`;
+    })
     .join("\n");
+}
+
+/** Resolve the relative URL for a post based on permalink pattern */
+function resolvePostUrl(content: ClassifiedContent, permalink?: string): string {
+  if (!permalink) return `/${content.slug}.html`;
+  const d = new Date(content.createdAt);
+  const year = String(d.getFullYear());
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return permalink
+    .replace(/:slug/g, content.slug)
+    .replace(/:year/g, year)
+    .replace(/:month/g, month)
+    .replace(/:day/g, day)
+    .replace(/:type/g, content.type);
 }
 
 /** Generate the index page listing recent posts */
 export function generateIndexPage(
   posts: ClassifiedContent[],
   config: SiteConfig,
+  injections?: PageInjections,
 ): string {
   const resolved = resolveStyle(config.style.preset, config.style.overrides);
   const css = generateStylesheet(resolved);
+  const nav = renderNav(config);
 
   const recentPosts = posts.slice(0, INDEX_PAGE_LIMIT);
   const hasArchive = posts.length > INDEX_PAGE_LIMIT;
-  const items = renderPostList(recentPosts);
+  const items = renderPostList(recentPosts, config.permalink);
   const archiveLink = hasArchive
     ? `\n    <nav class="pagination"><a href="/archive.html">Older posts (${posts.length - INDEX_PAGE_LIMIT} more)</a></nav>`
     : "";
+
+  const ogTags = [
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:title" content="${escAttr(config.title)}">`,
+    `<meta property="og:description" content="${escAttr(config.description)}">`,
+    `<meta property="og:url" content="https://${escAttr(config.domain)}/">`,
+    `<meta property="og:site_name" content="${escAttr(config.title)}">`,
+  ].join("\n  ");
+
+  const pluginHead = injections?.head ?? "";
+  const bodyEnd = injections?.bodyEnd ?? "";
 
   return `<!DOCTYPE html>
 <html lang="${escHtml(config.language)}">
@@ -113,21 +238,22 @@ export function generateIndexPage(
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escHtml(config.title)}</title>
   <meta name="description" content="${escAttr(config.description)}">
+  ${ogTags}
   <link rel="alternate" type="application/rss+xml" title="${escAttr(config.title)}" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="${escAttr(config.title)}" href="/feed.json">
-  <style>${css}</style>
+  <style>${css}</style>${pluginHead}
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header>
-    <h1>${escHtml(config.title)}</h1>
+    ${nav}
     <p>${escHtml(config.description)}</p>
   </header>
   <main id="main">
     ${SEARCH_HTML}
 ${items}${archiveLink}
   </main>
-${SEARCH_SCRIPT}
+${SEARCH_SCRIPT}${bodyEnd}
 </body>
 </html>`;
 }
@@ -136,10 +262,14 @@ ${SEARCH_SCRIPT}
 export function generateArchivePage(
   posts: ClassifiedContent[],
   config: SiteConfig,
+  injections?: PageInjections,
 ): string {
   const resolved = resolveStyle(config.style.preset, config.style.overrides);
   const css = generateStylesheet(resolved);
-  const items = renderPostList(posts);
+  const nav = renderNav(config);
+  const items = renderPostList(posts, config.permalink);
+  const pluginHead = injections?.head ?? "";
+  const bodyEnd = injections?.bodyEnd ?? "";
 
   return `<!DOCTYPE html>
 <html lang="${escHtml(config.language)}">
@@ -148,19 +278,19 @@ export function generateArchivePage(
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Archive — ${escHtml(config.title)}</title>
   <meta name="description" content="All posts on ${escAttr(config.title)}">
-  <style>${css}</style>
+  <style>${css}</style>${pluginHead}
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header>
-    <nav><a href="/">${escHtml(config.title)}</a></nav>
+    ${nav}
     <h1>Archive</h1>
   </header>
   <main id="main">
     ${SEARCH_HTML}
 ${items}
   </main>
-${SEARCH_SCRIPT}
+${SEARCH_SCRIPT}${bodyEnd}
 </body>
 </html>`;
 }

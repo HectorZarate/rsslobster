@@ -7,6 +7,8 @@ import {
   deleteDraft,
   scheduleDraft,
   unscheduleDraft,
+  getDraftRevisions,
+  restoreDraftRevision,
 } from "../drafts/drafts.js";
 import { promotePreview } from "../previews/previews.js";
 import { publishDueScheduled } from "../agent/scheduler.js";
@@ -150,4 +152,49 @@ draftsCommand
         count: published.length,
       }),
     );
+  });
+
+draftsCommand
+  .command("revisions <slug>")
+  .description("List revision history for a draft")
+  .argument("[site-dir]", "Path to site directory", ".")
+  .action(async (slug: string, siteDir: string) => {
+    const revisions = await getDraftRevisions(siteDir, slug);
+    if (revisions.length === 0) {
+      console.error(JSON.stringify({ ok: false, error: `No revisions for "${slug}"` }));
+      process.exitCode = 1;
+      return;
+    }
+    console.log(JSON.stringify(revisions.map((r) => ({
+      revision: r.revision,
+      savedAt: r.savedAt,
+      title: r.title,
+      bodyPreview: r.body.slice(0, 80),
+      tags: r.tags,
+    }))));
+  });
+
+draftsCommand
+  .command("restore <slug> <revision>")
+  .description("Restore a draft to a previous revision")
+  .argument("[site-dir]", "Path to site directory", ".")
+  .action(async (slug: string, revision: string, siteDir: string) => {
+    const revNum = parseInt(revision, 10);
+    if (isNaN(revNum) || revNum < 1) {
+      console.error(JSON.stringify({ ok: false, error: "Revision must be a positive number" }));
+      process.exitCode = 1;
+      return;
+    }
+    const draft = await restoreDraftRevision(siteDir, slug, revNum);
+    if (!draft) {
+      console.error(JSON.stringify({ ok: false, error: `Draft or revision not found` }));
+      process.exitCode = 1;
+      return;
+    }
+    console.log(JSON.stringify({
+      ok: true,
+      slug: draft.slug,
+      restoredFrom: revNum,
+      currentRevision: draft.revisions?.length ?? 0,
+    }));
   });

@@ -1,6 +1,6 @@
 import { readFile, writeFile, readdir, unlink, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { ClassifiedContent, Draft, DraftStatus } from "../config/types.js";
+import type { ClassifiedContent, Draft, DraftRevision, DraftStatus } from "../config/types.js";
 
 const DRAFTS_DIR = "drafts";
 
@@ -30,6 +30,21 @@ async function ensureDraftsDir(siteDir: string): Promise<void> {
   await mkdir(draftsDir(siteDir), { recursive: true });
 }
 
+/** Create a revision snapshot from draft content */
+function createRevision(
+  draft: { title?: string; body: string; tags: string[] },
+  existingRevisions?: DraftRevision[],
+): DraftRevision {
+  const revisionNumber = (existingRevisions?.length ?? 0) + 1;
+  return {
+    revision: revisionNumber,
+    savedAt: new Date().toISOString(),
+    title: draft.title,
+    body: draft.body,
+    tags: [...draft.tags],
+  };
+}
+
 /** Create a new draft from classified content */
 export async function createDraft(
   siteDir: string,
@@ -38,11 +53,13 @@ export async function createDraft(
   await ensureDraftsDir(siteDir);
 
   const slug = await resolveSlugConflict(siteDir, content.slug);
+  const revision = createRevision(content);
   const draft: Draft = {
     ...content,
     slug,
     status: "draft",
     updatedAt: new Date().toISOString(),
+    revisions: [revision],
   };
 
   await writeFile(draftPath(siteDir, slug), JSON.stringify(draft, null, 2));
@@ -90,7 +107,7 @@ export async function getDraft(
   }
 }
 
-/** Update a draft's content. Merges fields, preserves what's not provided. */
+/** Update a draft's content. Merges fields, preserves what's not provided. Saves a revision if content changed. */
 export async function updateDraft(
   siteDir: string,
   slug: string,
@@ -104,8 +121,20 @@ export async function updateDraft(
     ...updates,
     slug: existing.slug, // slug is immutable after creation
     status: existing.status, // status changes via dedicated methods
+    revisions: existing.revisions ?? [], // preserve revisions
     updatedAt: new Date().toISOString(),
   };
+
+  // Save a new revision if body, title, or tags changed
+  const contentChanged =
+    (updates.body !== undefined && updates.body !== existing.body) ||
+    (updates.title !== undefined && updates.title !== existing.title) ||
+    (updates.tags !== undefined && JSON.stringify(updates.tags) !== JSON.stringify(existing.tags));
+
+  if (contentChanged) {
+    const revision = createRevision(updated, updated.revisions);
+    updated.revisions = [...(updated.revisions ?? []), revision];
+  }
 
   await writeFile(
     draftPath(siteDir, existing.slug),
@@ -202,6 +231,59 @@ export async function getDueScheduledDrafts(
   return scheduled.filter(
     (d) => d.scheduledAt && new Date(d.scheduledAt).getTime() <= now,
   );
+}
+
+/** Get revision history for a draft */
+export async function getDraftRevisions(
+  siteDir: string,
+  slug: string,
+): Promise<DraftRevision[]> {
+  const draft = await getDraft(siteDir, slug);
+  if (!draft) return [];
+  return draft.revisions ?? [];
+}
+
+/** Get a specific revision by number */
+export async function getDraftRevision(
+  siteDir: string,
+  slug: string,
+  revisionNumber: number,
+): Promise<DraftRevision | null> {
+  const revisions = await getDraftRevisions(siteDir, slug);
+  return revisions.find((r) => r.revision === revisionNumber) ?? null;
+}
+
+/** Restore a draft to a previous revision. Creates a new revision with the restored content. */
+export async function restoreDraftRevision(
+  siteDir: string,
+  slug: string,
+  revisionNumber: number,
+): Promise<Draft | null> {
+  const draft = await getDraft(siteDir, slug);
+  if (!draft) return null;
+
+  const targetRevision = (draft.revisions ?? []).find(
+    (r) => r.revision === revisionNumber,
+  );
+  if (!targetRevision) return null;
+
+  // Apply the revision content and create a new revision entry
+  const updated: Draft = {
+    ...draft,
+    title: targetRevision.title,
+    body: targetRevision.body,
+    tags: [...targetRevision.tags],
+    updatedAt: new Date().toISOString(),
+  };
+
+  const restoreRevision = createRevision(updated, updated.revisions);
+  updated.revisions = [...(updated.revisions ?? []), restoreRevision];
+
+  await writeFile(
+    draftPath(siteDir, slug),
+    JSON.stringify(updated, null, 2),
+  );
+  return updated;
 }
 
 /** Resolve slug conflicts by appending -2, -3, etc. */

@@ -7,6 +7,7 @@ import { startCommand } from "./cli/start.js";
 import { onboardCommand } from "./cli/onboard.js";
 import { publishCommand } from "./cli/publish.js";
 import { previewsCommand } from "./cli/previews.js";
+import { pagesCommand } from "./cli/pages.js";
 
 const program = new Command();
 
@@ -22,5 +23,6 @@ program.addCommand(draftsCommand);
 program.addCommand(initCommand);
 program.addCommand(publishCommand);
 program.addCommand(previewsCommand);
+program.addCommand(pagesCommand);
 
 program.parse();

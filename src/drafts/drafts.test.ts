@@ -13,6 +13,9 @@ import {
   unscheduleDraft,
   markPublished,
   getDueScheduledDrafts,
+  getDraftRevisions,
+  getDraftRevision,
+  restoreDraftRevision,
 } from "./drafts.js";
 
 let siteDir: string;
@@ -325,5 +328,163 @@ describe("UX: feedback and safety", () => {
     const list2 = await listDrafts(siteDir);
 
     expect(list1.map((d) => d.slug)).toEqual(list2.map((d) => d.slug));
+  });
+});
+
+// --- Draft Revisions ---
+describe("Draft Revisions", () => {
+  it("createDraft saves initial revision (revision 1)", async () => {
+    const draft = await createDraft(siteDir, MICRO_CONTENT);
+    expect(draft.revisions).toBeDefined();
+    expect(draft.revisions).toHaveLength(1);
+    expect(draft.revisions![0]!.revision).toBe(1);
+    expect(draft.revisions![0]!.body).toBe(MICRO_CONTENT.body);
+    expect(draft.revisions![0]!.tags).toEqual(MICRO_CONTENT.tags);
+  });
+
+  it("updateDraft creates a new revision when body changes", async () => {
+    await createDraft(siteDir, MICRO_CONTENT);
+    const updated = await updateDraft(siteDir, "hello-world", {
+      body: "Updated body text",
+    });
+
+    expect(updated!.revisions).toHaveLength(2);
+    expect(updated!.revisions![0]!.revision).toBe(1);
+    expect(updated!.revisions![0]!.body).toBe(MICRO_CONTENT.body);
+    expect(updated!.revisions![1]!.revision).toBe(2);
+    expect(updated!.revisions![1]!.body).toBe("Updated body text");
+  });
+
+  it("updateDraft creates a new revision when title changes", async () => {
+    await createDraft(siteDir, POST_CONTENT);
+    const updated = await updateDraft(siteDir, "my-first-blog-post", {
+      title: "Updated Title",
+    });
+
+    expect(updated!.revisions).toHaveLength(2);
+    expect(updated!.revisions![1]!.title).toBe("Updated Title");
+  });
+
+  it("updateDraft creates a new revision when tags change", async () => {
+    await createDraft(siteDir, MICRO_CONTENT);
+    const updated = await updateDraft(siteDir, "hello-world", {
+      tags: ["new-tag"],
+    });
+
+    expect(updated!.revisions).toHaveLength(2);
+    expect(updated!.revisions![1]!.tags).toEqual(["new-tag"]);
+  });
+
+  it("updateDraft does NOT create revision when only non-content fields change", async () => {
+    await createDraft(siteDir, MICRO_CONTENT);
+    // Type is not body/title/tags, so no revision should be created
+    const updated = await updateDraft(siteDir, "hello-world", {
+      type: "post",
+    });
+
+    expect(updated!.revisions).toHaveLength(1);
+  });
+
+  it("multiple updates build up revision history", async () => {
+    await createDraft(siteDir, MICRO_CONTENT);
+    await updateDraft(siteDir, "hello-world", { body: "v2" });
+    await updateDraft(siteDir, "hello-world", { body: "v3" });
+    const final = await updateDraft(siteDir, "hello-world", { body: "v4" });
+
+    expect(final!.revisions).toHaveLength(4);
+    expect(final!.revisions![0]!.body).toBe(MICRO_CONTENT.body);
+    expect(final!.revisions![1]!.body).toBe("v2");
+    expect(final!.revisions![2]!.body).toBe("v3");
+    expect(final!.revisions![3]!.body).toBe("v4");
+  });
+
+  it("getDraftRevisions returns all revisions for a draft", async () => {
+    await createDraft(siteDir, MICRO_CONTENT);
+    await updateDraft(siteDir, "hello-world", { body: "v2" });
+
+    const revisions = await getDraftRevisions(siteDir, "hello-world");
+    expect(revisions).toHaveLength(2);
+    expect(revisions[0]!.revision).toBe(1);
+    expect(revisions[1]!.revision).toBe(2);
+  });
+
+  it("getDraftRevisions returns empty array for nonexistent draft", async () => {
+    const revisions = await getDraftRevisions(siteDir, "nonexistent");
+    expect(revisions).toEqual([]);
+  });
+
+  it("getDraftRevision returns a specific revision", async () => {
+    await createDraft(siteDir, MICRO_CONTENT);
+    await updateDraft(siteDir, "hello-world", { body: "v2" });
+
+    const rev1 = await getDraftRevision(siteDir, "hello-world", 1);
+    expect(rev1).not.toBeNull();
+    expect(rev1!.body).toBe(MICRO_CONTENT.body);
+
+    const rev2 = await getDraftRevision(siteDir, "hello-world", 2);
+    expect(rev2).not.toBeNull();
+    expect(rev2!.body).toBe("v2");
+  });
+
+  it("getDraftRevision returns null for nonexistent revision", async () => {
+    await createDraft(siteDir, MICRO_CONTENT);
+    const rev = await getDraftRevision(siteDir, "hello-world", 99);
+    expect(rev).toBeNull();
+  });
+
+  it("restoreDraftRevision restores content from a previous revision", async () => {
+    await createDraft(siteDir, MICRO_CONTENT);
+    await updateDraft(siteDir, "hello-world", { body: "v2 body", title: "v2 title" });
+    await updateDraft(siteDir, "hello-world", { body: "v3 body" });
+
+    // Restore to revision 1
+    const restored = await restoreDraftRevision(siteDir, "hello-world", 1);
+    expect(restored).not.toBeNull();
+    expect(restored!.body).toBe(MICRO_CONTENT.body);
+    expect(restored!.title).toBeUndefined(); // original had no title
+    expect(restored!.tags).toEqual(MICRO_CONTENT.tags);
+  });
+
+  it("restoreDraftRevision creates a new revision entry", async () => {
+    await createDraft(siteDir, MICRO_CONTENT);
+    await updateDraft(siteDir, "hello-world", { body: "v2" });
+
+    const restored = await restoreDraftRevision(siteDir, "hello-world", 1);
+    // Should have 3 revisions: create, update, restore
+    expect(restored!.revisions).toHaveLength(3);
+    expect(restored!.revisions![2]!.revision).toBe(3);
+    expect(restored!.revisions![2]!.body).toBe(MICRO_CONTENT.body);
+  });
+
+  it("restoreDraftRevision returns null for nonexistent draft", async () => {
+    const result = await restoreDraftRevision(siteDir, "nonexistent", 1);
+    expect(result).toBeNull();
+  });
+
+  it("restoreDraftRevision returns null for nonexistent revision", async () => {
+    await createDraft(siteDir, MICRO_CONTENT);
+    const result = await restoreDraftRevision(siteDir, "hello-world", 99);
+    expect(result).toBeNull();
+  });
+
+  it("revision timestamps are ordered chronologically", async () => {
+    await createDraft(siteDir, MICRO_CONTENT);
+    await updateDraft(siteDir, "hello-world", { body: "v2" });
+    await updateDraft(siteDir, "hello-world", { body: "v3" });
+
+    const revisions = await getDraftRevisions(siteDir, "hello-world");
+    for (let i = 1; i < revisions.length; i++) {
+      const prev = new Date(revisions[i - 1]!.savedAt).getTime();
+      const curr = new Date(revisions[i]!.savedAt).getTime();
+      expect(curr).toBeGreaterThanOrEqual(prev);
+    }
+  });
+
+  it("revision preserves tags as independent copy", async () => {
+    await createDraft(siteDir, MICRO_CONTENT);
+    await updateDraft(siteDir, "hello-world", { tags: ["new"] });
+
+    const rev1 = await getDraftRevision(siteDir, "hello-world", 1);
+    expect(rev1!.tags).toEqual(["test"]); // original tags preserved
   });
 });
