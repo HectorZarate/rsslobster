@@ -111,7 +111,7 @@ export const publishCommand = new Command("publish")
       }
 
       if (opts.deploy) {
-        const result = await deployToGit(siteDir, content.type, content.slug);
+        const result = await deployToGit(siteDir, `publish: ${content.type} — ${content.slug}`);
         if (result.committed && !result.pushError) {
           console.log(pc.green(`Published. ${post.url}`));
         } else if (result.committed) {

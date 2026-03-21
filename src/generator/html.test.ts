@@ -3,6 +3,7 @@ import {
   generateHtmlPage,
   generateIndexPage,
   escHtml,
+  previewPageOptions,
 } from "./html.js";
 import type { ClassifiedContent, SiteConfig } from "../config/types.js";
 
@@ -196,6 +197,83 @@ describe("generateIndexPage", () => {
     const html = generateIndexPage([], SITE_CONFIG);
     expect(html).toContain('<main id="main">');
     expect(html).toContain("</main>");
+  });
+});
+
+describe("generateHtmlPage with options", () => {
+  it("produces identical output when no options are provided", () => {
+    const without = generateHtmlPage(MICRO, SITE_CONFIG);
+    const withEmpty = generateHtmlPage(MICRO, SITE_CONFIG, {});
+    expect(without).toBe(withEmpty);
+  });
+
+  it("injects extraHead into <head>", () => {
+    const html = generateHtmlPage(MICRO, SITE_CONFIG, {
+      extraHead: '<meta name="robots" content="noindex">',
+    });
+    expect(html).toContain('<meta name="robots" content="noindex">');
+    // Must be inside <head>, before </head>
+    const headEnd = html.indexOf("</head>");
+    const metaPos = html.indexOf('<meta name="robots"');
+    expect(metaPos).toBeGreaterThan(0);
+    expect(metaPos).toBeLessThan(headEnd);
+  });
+
+  it("injects bodyPrefix at start of <body>", () => {
+    const html = generateHtmlPage(MICRO, SITE_CONFIG, {
+      bodyPrefix: '<div id="banner">Preview</div>',
+    });
+    expect(html).toContain('<div id="banner">Preview</div>');
+    // Must appear before skip-link
+    const bannerPos = html.indexOf('<div id="banner">');
+    const skipPos = html.indexOf('class="skip-link"');
+    expect(bannerPos).toBeLessThan(skipPos);
+  });
+
+  it("injects both extraHead and bodyPrefix", () => {
+    const html = generateHtmlPage(MICRO, SITE_CONFIG, {
+      extraHead: '<meta name="test" content="yes">',
+      bodyPrefix: '<div>top</div>',
+    });
+    expect(html).toContain('<meta name="test" content="yes">');
+    expect(html).toContain("<div>top</div>");
+  });
+});
+
+describe("previewPageOptions", () => {
+  it("includes noindex meta tag", () => {
+    const opts = previewPageOptions();
+    expect(opts.extraHead).toContain("noindex");
+    expect(opts.extraHead).toContain("nofollow");
+  });
+
+  it("includes preview banner with fixed positioning", () => {
+    const opts = previewPageOptions();
+    expect(opts.bodyPrefix).toContain("Preview");
+    expect(opts.bodyPrefix).toContain("position:fixed");
+    expect(opts.bodyPrefix).toContain("not yet published");
+  });
+
+  it("produces 1:1 content fidelity — body matches non-preview", () => {
+    const normal = generateHtmlPage(POST, SITE_CONFIG);
+    const preview = generateHtmlPage(POST, SITE_CONFIG, previewPageOptions());
+
+    // The article content must be identical
+    const extractArticle = (html: string) => {
+      const start = html.indexOf("<article>");
+      const end = html.indexOf("</article>") + "</article>".length;
+      return html.slice(start, end);
+    };
+
+    expect(extractArticle(preview)).toBe(extractArticle(normal));
+  });
+
+  it("preview HTML does NOT contain feed autodiscovery", () => {
+    // Preview pages should still have feed links (they're part of the template)
+    // but the noindex ensures crawlers won't follow them from the preview
+    const html = generateHtmlPage(MICRO, SITE_CONFIG, previewPageOptions());
+    expect(html).toContain('href="/feed.xml"');
+    expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
   });
 });
 

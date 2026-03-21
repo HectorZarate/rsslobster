@@ -140,8 +140,7 @@ export async function processMessage(
   if (shouldDeploy) {
     deployResult = await deployToGit(
       config.siteDir,
-      classification.type,
-      classification.slug,
+      `publish: ${classification.type} — ${classification.slug}`,
     );
   }
 

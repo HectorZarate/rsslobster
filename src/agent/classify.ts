@@ -8,6 +8,8 @@ export interface ClassificationResult {
   slug: string;
   tags: string[];
   isDraft: boolean;
+  /** True when user wants to preview before publishing */
+  isPreview: boolean;
   linkUrl?: string;
   linkTitle?: string;
   linkDescription?: string;
@@ -64,6 +66,7 @@ Input: "Draft: thinking about writing something on distributed systems"
 Rules:
 - 1-3 lowercase tags max. If nothing fits, empty array.
 - isDraft=true ONLY if user says "draft", "save for later", "wip"
+- isPreview=true ONLY if user says "preview", "preview this", "let me see"
 - title only for "post" type. null otherwise.
 - For "link": extract the URL into linkUrl
 - body = the cleaned content text (strip URLs for link type)
@@ -146,6 +149,7 @@ export function parseClassificationResponse(
     slug,
     tags: sanitizeTags(parsed["tags"]),
     isDraft: parsed["isDraft"] === true,
+    isPreview: parsed["isPreview"] === true,
     linkUrl:
       typeof parsed["linkUrl"] === "string" ? parsed["linkUrl"] : undefined,
     linkTitle:

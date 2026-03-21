@@ -94,7 +94,7 @@ export async function getDraft(
 export async function updateDraft(
   siteDir: string,
   slug: string,
-  updates: Partial<ClassifiedContent>,
+  updates: Partial<Draft>,
 ): Promise<Draft | null> {
   const existing = await getDraft(siteDir, slug);
   if (!existing) return null;

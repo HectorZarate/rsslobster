@@ -1,7 +1,5 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { ContentType } from "../config/types.js";
-
 const exec = promisify(execFile);
 
 export interface GitStatus {
@@ -56,8 +54,7 @@ export async function gitPush(siteDir: string): Promise<void> {
 /** Full deploy: stage all, commit, push. Returns result without throwing on push failure. */
 export async function deployToGit(
   siteDir: string,
-  contentType: ContentType,
-  slug: string,
+  commitMessage: string,
 ): Promise<DeployResult> {
   const status = await gitStatus(siteDir);
   if (status.clean) {
@@ -65,8 +62,7 @@ export async function deployToGit(
   }
 
   await gitAdd(siteDir);
-  const message = `publish: ${contentType} — ${slug}`;
-  const hash = await gitCommit(siteDir, message);
+  const hash = await gitCommit(siteDir, commitMessage);
 
   try {
     await gitPush(siteDir);

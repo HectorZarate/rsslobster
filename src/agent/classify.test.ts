@@ -157,6 +157,34 @@ describe("content classification", () => {
       expect(result.isDraft).toBe(false);
     });
 
+    it("defaults isPreview to false when missing", () => {
+      const json = JSON.stringify({ type: "micro", body: "hello", tags: [] });
+      const result = parseClassificationResponse(json);
+      expect(result.isPreview).toBe(false);
+    });
+
+    it("parses isPreview=true when set", () => {
+      const json = JSON.stringify({
+        type: "micro",
+        body: "preview this thought",
+        tags: [],
+        isPreview: true,
+      });
+      const result = parseClassificationResponse(json);
+      expect(result.isPreview).toBe(true);
+    });
+
+    it("ignores non-boolean isPreview values", () => {
+      const json = JSON.stringify({
+        type: "micro",
+        body: "hello",
+        tags: [],
+        isPreview: "yes",
+      });
+      const result = parseClassificationResponse(json);
+      expect(result.isPreview).toBe(false);
+    });
+
     it("coerces tags to strings and filters non-strings", () => {
       const json = JSON.stringify({
         type: "micro",

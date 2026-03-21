@@ -11,7 +11,7 @@ import {
 } from "../drafts/drafts.js";
 import { addContent } from "../generator/site.js";
 import { publishDueScheduled } from "../agent/scheduler.js";
-import type { ClassifiedContent } from "../config/types.js";
+import type { ClassifiedContent, Draft } from "../config/types.js";
 import { readFile } from "node:fs/promises";
 
 export const draftsCommand = new Command("drafts")
@@ -67,7 +67,7 @@ draftsCommand
   .argument("[site-dir]", "Path to site directory", ".")
   .action(async (slug: string, siteDir: string) => {
     const input = await readFile("/dev/stdin", "utf-8");
-    const updates = JSON.parse(input) as Partial<ClassifiedContent>;
+    const updates = JSON.parse(input) as Partial<Draft>;
     const draft = await updateDraft(siteDir, slug, updates);
     if (!draft) {
       console.error(JSON.stringify({ ok: false, error: `Draft "${slug}" not found` }));
