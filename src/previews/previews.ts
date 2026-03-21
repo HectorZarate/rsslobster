@@ -3,6 +3,7 @@ import { writeFile, unlink, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { Draft, Post } from "../config/types.js";
 import { generateHtmlPage, previewPageOptions } from "../generator/html.js";
+import { initMarkdown } from "../generator/markdown.js";
 import {
   getDraft,
   updateDraft,
@@ -28,6 +29,7 @@ export async function createPreview(
   draft: Draft,
 ): Promise<Draft> {
   await ensurePreviewsDir(siteDir);
+  await initMarkdown();
   const config = await readSiteConfig(siteDir);
 
   // Reuse existing token or generate new one

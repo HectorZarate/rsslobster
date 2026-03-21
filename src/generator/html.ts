@@ -3,6 +3,7 @@ import { resolveStyle, generateStylesheet } from "../styles/presets.js";
 import { SEARCH_HTML, SEARCH_SCRIPT } from "./search.js";
 import { renderNav, renderPageLinks } from "../pages/pages.js";
 import type { PageInjections } from "../plugins/types.js";
+import { renderMarkdown, renderInline } from "./markdown.js";
 
 /**
  * Generate an HTML page from classified content.
@@ -299,42 +300,42 @@ ${SEARCH_SCRIPT}${bodyEnd}
 function renderContentBody(content: ClassifiedContent): string {
   switch (content.type) {
     case "micro":
-      return `<p>${escHtml(content.body)}</p>`;
+      return renderMarkdown(content.body);
 
     case "post":
       return `${content.title ? `<h1>${escHtml(content.title)}</h1>` : ""}
-      <div>${escHtml(content.body)}</div>`;
+      <div>${renderMarkdown(content.body, !!content.title)}</div>`;
 
     case "image":
       return `${content.images?.map((img) => `<img src="${escAttr(img.src)}" alt="${escAttr(img.alt)}" loading="lazy"${img.width ? ` width="${img.width}"` : ""}${img.height ? ` height="${img.height}"` : ""}>`).join("\n      ") ?? ""}
-      <p>${escHtml(content.body)}</p>`;
+      <p>${renderInline(content.body)}</p>`;
 
     case "carousel":
       return `<div class="carousel" role="region" aria-label="Image gallery">
         ${content.images?.map((img) => `<img src="${escAttr(img.src)}" alt="${escAttr(img.alt)}" loading="lazy">`).join("\n        ") ?? ""}
       </div>
-      <p>${escHtml(content.body)}</p>`;
+      <p>${renderInline(content.body)}</p>`;
 
     case "link":
       return `<a class="link-card" href="${escAttr(content.linkUrl ?? "")}" rel="noopener">
         <h3>${escHtml(content.linkTitle ?? content.linkUrl ?? "")}</h3>
         ${content.linkDescription ? `<p>${escHtml(content.linkDescription)}</p>` : ""}
       </a>
-      <p>${escHtml(content.body)}</p>`;
+      <p>${renderInline(content.body)}</p>`;
 
     case "video":
       return `${content.media?.map((m) => `<video controls preload="metadata" playsinline>
         <source src="${escAttr(m.src)}" type="${escAttr(m.mimeType)}">
         Your browser does not support the video element.
       </video>`).join("\n      ") ?? ""}
-      <p>${escHtml(content.body)}</p>`;
+      <p>${renderInline(content.body)}</p>`;
 
     case "audio":
       return `${content.media?.map((m) => `<audio controls preload="metadata">
         <source src="${escAttr(m.src)}" type="${escAttr(m.mimeType)}">
         Your browser does not support the audio element.
       </audio>`).join("\n      ") ?? ""}
-      <p>${escHtml(content.body)}</p>`;
+      <p>${renderInline(content.body)}</p>`;
   }
 }
 

@@ -1,11 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import {
   generateHtmlPage,
   generateIndexPage,
   escHtml,
   previewPageOptions,
 } from "./html.js";
+import { initMarkdown } from "./markdown.js";
 import type { ClassifiedContent, SiteConfig } from "../config/types.js";
+
+beforeAll(async () => {
+  await initMarkdown();
+});
 
 const SITE_CONFIG: SiteConfig = {
   domain: "example.com",
@@ -295,7 +300,8 @@ describe("escHtml", () => {
       body: '<img src=x onerror="alert(1)">',
     };
     const html = generateHtmlPage(malicious, SITE_CONFIG);
-    expect(html).not.toContain('onerror="alert(1)"');
+    // The critical security boundary: <img is escaped so no HTML element is created
     expect(html).toContain("&lt;img");
+    expect(html).not.toContain("<img src=x");
   });
 });

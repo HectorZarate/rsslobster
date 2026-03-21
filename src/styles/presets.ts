@@ -155,8 +155,9 @@ export function resolveStyle(
     | "colorBorder"
     | "borderRadius"
   >
-> & { fontFamilyCode: string; customCss: string } {
-  const base = PRESETS[preset ?? "minimal"];
+> & { fontFamilyCode: string; customCss: string; preset: StylePreset } {
+  const resolvedPreset = preset ?? "minimal";
+  const base = PRESETS[resolvedPreset];
   const fontFamily =
     overrides?.fontFamily ?? base.fontFamily ?? SYSTEM_SERIF;
   const isMonoBody =
@@ -183,13 +184,86 @@ export function resolveStyle(
     colorBorder: overrides?.colorBorder ?? base.colorBorder ?? "#CCCCCC",
     borderRadius: overrides?.borderRadius ?? base.borderRadius ?? "0px",
     customCss: overrides?.customCss ?? "",
+    preset: resolvedPreset,
   };
 }
+
+/**
+ * Shiki CSS variable palettes per preset.
+ *
+ * These map to shiki's `css-variables` theme tokens:
+ * --shiki-foreground, --shiki-background, --shiki-token-keyword, etc.
+ * Each preset gets syntax highlighting that matches its aesthetic.
+ */
+const SHIKI_PALETTES: Record<StylePreset, Record<string, string>> = {
+  /** Minimal: muted earth tones on cream — gentle, readable. */
+  minimal: {
+    "--shiki-foreground": "#383a42",
+    "--shiki-background": "color-mix(in srgb, #222222 5%, transparent)",
+    "--shiki-token-constant": "#986801",
+    "--shiki-token-string": "#50a14f",
+    "--shiki-token-comment": "#a0a1a7",
+    "--shiki-token-keyword": "#a626a4",
+    "--shiki-token-parameter": "#383a42",
+    "--shiki-token-function": "#4078f2",
+    "--shiki-token-string-expression": "#50a14f",
+    "--shiki-token-punctuation": "#383a42",
+    "--shiki-token-link": "#0000EE",
+  },
+  /** Brutalist: stark, high-contrast — red keywords on white. */
+  brutalist: {
+    "--shiki-foreground": "#000000",
+    "--shiki-background": "color-mix(in srgb, #000000 5%, transparent)",
+    "--shiki-token-constant": "#0000CC",
+    "--shiki-token-string": "#008800",
+    "--shiki-token-comment": "#888888",
+    "--shiki-token-keyword": "#CC0000",
+    "--shiki-token-parameter": "#000000",
+    "--shiki-token-function": "#0000CC",
+    "--shiki-token-string-expression": "#008800",
+    "--shiki-token-punctuation": "#000000",
+    "--shiki-token-link": "#0000EE",
+  },
+  /** Magazine: warm editorial palette on linen — literary, refined. */
+  magazine: {
+    "--shiki-foreground": "#2e3440",
+    "--shiki-background": "color-mix(in srgb, #1A1A1A 5%, transparent)",
+    "--shiki-token-constant": "#b48ead",
+    "--shiki-token-string": "#a3be8c",
+    "--shiki-token-comment": "#939ba8",
+    "--shiki-token-keyword": "#8B0000",
+    "--shiki-token-parameter": "#2e3440",
+    "--shiki-token-function": "#5e81ac",
+    "--shiki-token-string-expression": "#a3be8c",
+    "--shiki-token-punctuation": "#2e3440",
+    "--shiki-token-link": "#8B0000",
+  },
+  /** Terminal: phosphor glow — green/amber/cyan on near-black. */
+  terminal: {
+    "--shiki-foreground": "#FFB000",
+    "--shiki-background": "#1A1A1A",
+    "--shiki-token-constant": "#00CCCC",
+    "--shiki-token-string": "#33CC33",
+    "--shiki-token-comment": "#AA7700",
+    "--shiki-token-keyword": "#FF6600",
+    "--shiki-token-parameter": "#FFB000",
+    "--shiki-token-function": "#00CCCC",
+    "--shiki-token-string-expression": "#33CC33",
+    "--shiki-token-punctuation": "#AA7700",
+    "--shiki-token-link": "#00CCCC",
+  },
+};
 
 /** Generate CSS custom properties from resolved styles */
 export function styleToCssVars(
   resolved: ReturnType<typeof resolveStyle>,
 ): string {
+  const preset = resolved.preset ?? "minimal";
+  const shikiVars = SHIKI_PALETTES[preset];
+  const shikiLines = Object.entries(shikiVars)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join("\n");
+
   return `:root {
   --font-body: ${resolved.fontFamily};
   --font-heading: ${resolved.fontFamilyHeading};
@@ -204,6 +278,7 @@ export function styleToCssVars(
   --color-muted: ${resolved.colorMuted};
   --color-border: ${resolved.colorBorder};
   --border-radius: ${resolved.borderRadius};
+${shikiLines}
 }`;
 }
 
@@ -334,6 +409,24 @@ pre {
 pre code {
   background: none;
   padding: 0;
+}
+
+/* === Shiki code blocks — override pre defaults with shiki vars === */
+pre.shiki {
+  background: var(--shiki-background) !important;
+  border: 1px solid var(--color-border);
+}
+
+/* === Math (MathML) === */
+math {
+  font-size: 1.1em;
+}
+
+math[display="block"] {
+  display: block;
+  text-align: center;
+  margin: 1em 0;
+  overflow-x: auto;
 }
 
 /* === Lists — properly indented === */
