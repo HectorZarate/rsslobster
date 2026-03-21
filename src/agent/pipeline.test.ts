@@ -3,7 +3,8 @@ import { mkdtemp, rm, readFile, writeFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { processMessage, type PipelineConfig } from "./pipeline.js";
-import { scaffoldSite } from "../generator/site.js";
+import { scaffoldSite, readPostsIndex } from "../generator/site.js";
+import { createDraft } from "../drafts/drafts.js";
 import type { SiteConfig } from "../config/types.js";
 
 describe("agent pipeline", () => {
@@ -175,6 +176,172 @@ describe("agent pipeline", () => {
 
     expect(result.error).toBeDefined();
     expect(result.reply).toContain("Failed");
+  });
+
+  describe("preview flow", () => {
+    it("'preview: text' creates a draft with preview HTML", async () => {
+      const mockCallModel = vi.fn().mockResolvedValue(
+        JSON.stringify({
+          type: "micro",
+          body: "Preview this thought",
+          tags: ["test"],
+          isDraft: false,
+        }),
+      );
+
+      const result = await processMessage(
+        {
+          id: "p1",
+          text: "preview: Preview this thought",
+          images: [],
+          mediaFiles: [],
+          chatId: "99",
+          sender: { id: "99", name: "Hector" },
+          receivedAt: new Date().toISOString(),
+        },
+        { siteDir, callModel: mockCallModel, deploy: false },
+      );
+
+      // Should return a preview draft
+      expect(result.preview).toBeDefined();
+      expect(result.preview!.previewId).toMatch(/^[a-f0-9]{12}$/);
+      expect(result.preview!.previewUrl).toContain("_previews/");
+      expect(result.post).toBeUndefined();
+
+      // Reply should include preview URL and publish hint
+      expect(result.reply).toContain("Preview:");
+      expect(result.reply).toContain("_previews/");
+      expect(result.reply).toContain("publish");
+
+      // Preview HTML should exist
+      const htmlPath = join(siteDir, "_previews", `${result.preview!.previewId}.html`);
+      const html = await readFile(htmlPath, "utf-8");
+      expect(html).toContain("Preview this thought");
+      expect(html).toContain("noindex");
+
+      // posts.json should be empty — preview doesn't pollute feeds
+      const posts = await readPostsIndex(siteDir);
+      expect(posts).toHaveLength(0);
+    });
+
+    it("'publish {slug}' promotes a draft to published", async () => {
+      // First, create a draft manually
+      await createDraft(siteDir, {
+        type: "micro",
+        body: "Ready to publish",
+        slug: "ready-to-publish",
+        tags: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      const mockCallModel = vi.fn(); // Should NOT be called for publish command
+
+      const result = await processMessage(
+        {
+          id: "p2",
+          text: "publish ready-to-publish",
+          images: [],
+          mediaFiles: [],
+          chatId: "99",
+          sender: { id: "99", name: "Hector" },
+          receivedAt: new Date().toISOString(),
+        },
+        { siteDir, callModel: mockCallModel, deploy: false },
+      );
+
+      // Should have published
+      expect(result.post).toBeDefined();
+      expect(result.post!.url).toContain("test.com");
+      expect(result.reply).toContain("Published");
+
+      // Model should NOT have been called
+      expect(mockCallModel).not.toHaveBeenCalled();
+
+      // posts.json should have the post
+      const posts = await readPostsIndex(siteDir);
+      expect(posts).toHaveLength(1);
+    });
+
+    it("'preview {slug}' generates preview for existing draft", async () => {
+      // Create a draft
+      await createDraft(siteDir, {
+        type: "post",
+        title: "Draft Post",
+        body: "This is a draft that needs preview",
+        slug: "draft-post",
+        tags: ["test"],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      const mockCallModel = vi.fn(); // Should NOT be called
+
+      const result = await processMessage(
+        {
+          id: "p3",
+          text: "preview draft-post",
+          images: [],
+          mediaFiles: [],
+          chatId: "99",
+          sender: { id: "99", name: "Hector" },
+          receivedAt: new Date().toISOString(),
+        },
+        { siteDir, callModel: mockCallModel, deploy: false },
+      );
+
+      expect(result.preview).toBeDefined();
+      expect(result.preview!.previewUrl).toContain("_previews/");
+      expect(result.reply).toContain("Preview:");
+      expect(mockCallModel).not.toHaveBeenCalled();
+    });
+
+    it("'publish {slug}' returns error for nonexistent draft", async () => {
+      const result = await processMessage(
+        {
+          id: "p4",
+          text: "publish nonexistent-slug",
+          images: [],
+          mediaFiles: [],
+          chatId: "99",
+          sender: { id: "99", name: "Hector" },
+          receivedAt: new Date().toISOString(),
+        },
+        { siteDir, callModel: vi.fn(), deploy: false },
+      );
+
+      expect(result.error).toBeDefined();
+      expect(result.reply).toContain("not found");
+    });
+
+    it("isPreview from classifier routes to preview flow", async () => {
+      const mockCallModel = vi.fn().mockResolvedValue(
+        JSON.stringify({
+          type: "micro",
+          body: "Let me see this",
+          tags: [],
+          isDraft: false,
+          isPreview: true,
+        }),
+      );
+
+      const result = await processMessage(
+        {
+          id: "p5",
+          text: "let me see this",
+          images: [],
+          mediaFiles: [],
+          chatId: "99",
+          sender: { id: "99", name: "Hector" },
+          receivedAt: new Date().toISOString(),
+        },
+        { siteDir, callModel: mockCallModel, deploy: false },
+      );
+
+      expect(result.preview).toBeDefined();
+      expect(result.preview!.previewId).toBeDefined();
+      expect(result.post).toBeUndefined();
+    });
   });
 
   describe("image handling", () => {

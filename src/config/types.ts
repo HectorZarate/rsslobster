@@ -76,10 +76,16 @@ export interface ImageAttachment {
   height?: number;
 }
 
-/** A draft extends classified content with status and scheduling */
+/** A draft extends classified content with status, scheduling, and optional preview */
 export interface Draft extends ClassifiedContent {
   status: DraftStatus;
   scheduledAt?: string;
+  /** Hex token for active preview (12-char, crypto-random) */
+  previewId?: string;
+  /** Full preview URL on the site domain */
+  previewUrl?: string;
+  /** ISO timestamp when the preview expires */
+  previewExpiresAt?: string;
 }
 
 /** A published post, written to the posts index */

@@ -2,10 +2,14 @@ import type { InboundMessage } from "../channels/types.js";
 import type { ClassifiedContent, Draft, Post } from "../config/types.js";
 import { classifyContent, type CallModel } from "./classify.js";
 import { addContent } from "../generator/site.js";
-import { createDraft } from "../drafts/drafts.js";
+import { createDraft, getDraft } from "../drafts/drafts.js";
 import { deployToGit, type DeployResult } from "../deploy/git.js";
 import { ingestImages } from "../images/images.js";
 import { ingestMedia } from "../images/media.js";
+import {
+  createPreview,
+  promotePreview,
+} from "../previews/previews.js";
 import {
   fireHooks,
   parseHookOverride,
@@ -24,6 +28,8 @@ export interface PipelineConfig {
 export interface PipelineResult {
   post?: Post;
   draft?: Draft;
+  /** Draft with active preview (set when preview flow is used) */
+  preview?: Draft;
   deployed: boolean;
   deployResult?: DeployResult;
   reply: string;
@@ -36,6 +42,35 @@ export async function processMessage(
   config: PipelineConfig,
 ): Promise<PipelineResult> {
   const shouldDeploy = config.deploy !== false;
+
+  // --- Command dispatch (before classification) ---
+  let wantsPreview = false;
+
+  // Handle "publish {slug}" — promote a draft (with or without preview)
+  const publishMatch = message.text.match(/^publish\s+(\S+)$/i);
+  if (publishMatch) {
+    return handlePublishCommand(publishMatch[1]!, config, shouldDeploy);
+  }
+
+  // Handle "preview {slug}" — preview an existing draft if it exists,
+  // otherwise fall through to classification as new content
+  const previewSlugMatch = message.text.match(/^preview\s+(\S+)$/i);
+  if (previewSlugMatch) {
+    const existingDraft = await getDraft(config.siteDir, previewSlugMatch[1]!);
+    if (existingDraft) {
+      return handlePreviewExistingDraft(existingDraft, config, shouldDeploy);
+    }
+    // Draft not found — treat as "preview: {text}" (new content preview)
+    wantsPreview = true;
+    message = { ...message, text: previewSlugMatch[1]! };
+  }
+
+  // --- Strip "preview:" prefix, mark for preview flow ---
+  const previewPrefix = message.text.match(/^preview:\s*/i);
+  if (previewPrefix) {
+    wantsPreview = true;
+    message = { ...message, text: message.text.slice(previewPrefix[0].length) };
+  }
 
   // Step 1: Classify
   const mediaMimeTypes = message.mediaFiles.map((m) => m.mimeType);
@@ -73,6 +108,11 @@ export async function processMessage(
     if (typeof overrides["isDraft"] === "boolean") classification.isDraft = overrides["isDraft"];
   }
 
+  // Override for preview flow: previews are always backed by drafts
+  if (wantsPreview || classification.isPreview) {
+    classification.isDraft = true;
+  }
+
   // Step 2: Ingest images into site/images/ directory
   const images = await ingestImages(
     config.siteDir,
@@ -102,7 +142,11 @@ export async function processMessage(
     updatedAt: now,
   };
 
-  // Step 4: Draft or publish
+  // Step 4: Route — preview, draft, or publish
+  if (wantsPreview || classification.isPreview) {
+    return handlePreviewNew(content, config, shouldDeploy);
+  }
+
   if (classification.isDraft) {
     try {
       const draft = await createDraft(config.siteDir, content);
@@ -140,8 +184,7 @@ export async function processMessage(
   if (shouldDeploy) {
     deployResult = await deployToGit(
       config.siteDir,
-      classification.type,
-      classification.slug,
+      `publish: ${classification.type} — ${classification.slug}`,
     );
   }
 
@@ -167,4 +210,134 @@ export async function processMessage(
   }
 
   return { post, deployed, deployResult, reply };
+}
+
+// --- Preview & Promote helpers ---
+
+/** Create a new preview from freshly classified content. */
+async function handlePreviewNew(
+  content: ClassifiedContent,
+  config: PipelineConfig,
+  shouldDeploy: boolean,
+): Promise<PipelineResult> {
+  try {
+    const draft = await createDraft(config.siteDir, content);
+    const preview = await createPreview(config.siteDir, draft);
+
+    // Hook: afterPreview
+    await fireHooks(
+      "afterPreview",
+      config.hooks,
+      { previewUrl: preview.previewUrl, slug: preview.slug, type: preview.type, tags: preview.tags },
+      config.siteDir,
+      preview.type,
+    );
+
+    // Deploy preview
+    let deployResult: DeployResult | undefined;
+    if (shouldDeploy) {
+      deployResult = await deployToGit(config.siteDir, `preview: ${preview.slug}`);
+    }
+
+    const deployed = deployResult?.committed === true && !deployResult.pushError;
+    return {
+      preview,
+      deployed,
+      deployResult,
+      reply: `Preview: ${preview.previewUrl}\nPublish with: publish ${preview.slug}`,
+    };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : "Preview failed";
+    return { deployed: false, reply: `Failed to create preview: ${error}`, error };
+  }
+}
+
+/** Generate a preview for an existing draft (already fetched). */
+async function handlePreviewExistingDraft(
+  draft: Draft,
+  config: PipelineConfig,
+  shouldDeploy: boolean,
+): Promise<PipelineResult> {
+  try {
+    const preview = await createPreview(config.siteDir, draft);
+
+    // Hook: afterPreview
+    await fireHooks(
+      "afterPreview",
+      config.hooks,
+      { previewUrl: preview.previewUrl, slug: preview.slug, type: preview.type, tags: preview.tags },
+      config.siteDir,
+      preview.type,
+    );
+
+    let deployResult: DeployResult | undefined;
+    if (shouldDeploy) {
+      deployResult = await deployToGit(config.siteDir, `preview: ${preview.slug}`);
+    }
+
+    const deployed = deployResult?.committed === true && !deployResult.pushError;
+    return {
+      preview,
+      deployed,
+      deployResult,
+      reply: `Preview: ${preview.previewUrl}\nPublish with: publish ${preview.slug}`,
+    };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : "Preview failed";
+    return { deployed: false, reply: `Failed to preview: ${error}`, error };
+  }
+}
+
+/** Promote a draft to published post. */
+async function handlePublishCommand(
+  slug: string,
+  config: PipelineConfig,
+  shouldDeploy: boolean,
+): Promise<PipelineResult> {
+  try {
+    const post = await promotePreview(config.siteDir, slug);
+
+    // Hook: afterPublish
+    await fireHooks(
+      "afterPublish",
+      config.hooks,
+      { url: post.url, slug: post.slug, type: post.type, tags: post.tags },
+      config.siteDir,
+      post.type,
+    );
+
+    let deployResult: DeployResult | undefined;
+    if (shouldDeploy) {
+      deployResult = await deployToGit(
+        config.siteDir,
+        `publish: ${post.type} — ${post.slug}`,
+      );
+    }
+
+    const deployed = deployResult?.committed === true && !deployResult.pushError;
+    const reply = deployed
+      ? `Published. ${post.url}`
+      : `Published locally. ${post.url}`;
+
+    // Hook: afterDeploy
+    if (shouldDeploy) {
+      await fireHooks(
+        "afterDeploy",
+        config.hooks,
+        {
+          url: post.url,
+          slug: post.slug,
+          committed: deployResult?.committed ?? false,
+          pushError: deployResult?.pushError,
+        },
+        config.siteDir,
+        post.type,
+      );
+    }
+
+    return { post, deployed, deployResult, reply };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : "Publish failed";
+    return { deployed: false, reply: `Failed to publish: ${error}`, error };
+  }
 }

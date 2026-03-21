@@ -7,11 +7,10 @@ import {
   deleteDraft,
   scheduleDraft,
   unscheduleDraft,
-  markPublished,
 } from "../drafts/drafts.js";
-import { addContent } from "../generator/site.js";
+import { promotePreview } from "../previews/previews.js";
 import { publishDueScheduled } from "../agent/scheduler.js";
-import type { ClassifiedContent } from "../config/types.js";
+import type { ClassifiedContent, Draft } from "../config/types.js";
 import { readFile } from "node:fs/promises";
 
 export const draftsCommand = new Command("drafts")
@@ -67,7 +66,7 @@ draftsCommand
   .argument("[site-dir]", "Path to site directory", ".")
   .action(async (slug: string, siteDir: string) => {
     const input = await readFile("/dev/stdin", "utf-8");
-    const updates = JSON.parse(input) as Partial<ClassifiedContent>;
+    const updates = JSON.parse(input) as Partial<Draft>;
     const draft = await updateDraft(siteDir, slug, updates);
     if (!draft) {
       console.error(JSON.stringify({ ok: false, error: `Draft "${slug}" not found` }));
@@ -129,16 +128,13 @@ draftsCommand
   .description("Publish a draft (generates HTML + feeds, marks as published)")
   .argument("[site-dir]", "Path to site directory", ".")
   .action(async (slug: string, siteDir: string) => {
-    const draft = await getDraft(siteDir, slug);
-    if (!draft) {
-      console.error(JSON.stringify({ ok: false, error: `Draft "${slug}" not found` }));
+    try {
+      const post = await promotePreview(siteDir, slug);
+      console.log(JSON.stringify({ ok: true, url: post.url, slug: post.slug }));
+    } catch (err) {
+      console.error(JSON.stringify({ ok: false, error: (err as Error).message }));
       process.exitCode = 1;
-      return;
     }
-
-    const post = await addContent(siteDir, draft);
-    await markPublished(siteDir, slug);
-    console.log(JSON.stringify({ ok: true, url: post.url, slug: post.slug }));
   });
 
 draftsCommand

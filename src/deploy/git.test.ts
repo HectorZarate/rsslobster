@@ -138,7 +138,7 @@ describe("git deploy", () => {
       await writeFile(join(siteDir, "feed.xml"), "<rss/>");
       await writeFile(join(siteDir, "hello.html"), "post");
 
-      const result = await deployToGit(siteDir, "micro", "hello-world");
+      const result = await deployToGit(siteDir, "publish: micro — hello-world");
       expect(result.committed).toBe(true);
       expect(result.hash).toMatch(/^[\da-f]{7,40}$/);
 
@@ -149,7 +149,7 @@ describe("git deploy", () => {
     });
 
     it("skips commit when nothing changed", async () => {
-      const result = await deployToGit(siteDir, "micro", "nothing");
+      const result = await deployToGit(siteDir, "publish: micro — nothing");
       expect(result.committed).toBe(false);
       expect(result.hash).toBeUndefined();
     });
@@ -159,9 +159,21 @@ describe("git deploy", () => {
       git(siteDir, "remote remove origin");
       await writeFile(join(siteDir, "post.html"), "content");
 
-      const result = await deployToGit(siteDir, "micro", "fail-push");
+      const result = await deployToGit(siteDir, "publish: micro — fail-push");
       expect(result.committed).toBe(true);
       expect(result.pushError).toBeDefined();
+    });
+
+    it("accepts arbitrary commit messages for preview and cleanup", async () => {
+      await writeFile(join(siteDir, "preview.html"), "preview");
+
+      const result = await deployToGit(siteDir, "preview: my-draft");
+      expect(result.committed).toBe(true);
+
+      const bareLog = execSync(`git -C "${bareRepo}" log --oneline -1`, {
+        encoding: "utf-8",
+      }).trim();
+      expect(bareLog).toContain("preview: my-draft");
     });
   });
 });

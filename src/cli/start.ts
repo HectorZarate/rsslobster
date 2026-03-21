@@ -9,6 +9,8 @@ import type { InboundMessage } from "../channels/types.js";
 import type { ChannelType } from "../channels/types.js";
 import { createChannel, CHANNEL_LABELS } from "../channels/channel.js";
 import { publishDueScheduled } from "../agent/scheduler.js";
+import { cleanExpiredPreviews } from "../previews/previews.js";
+import { deployToGit } from "../deploy/git.js";
 import type { HooksConfig } from "../hooks/hooks.js";
 
 interface LobsterConfig {
@@ -101,7 +103,7 @@ export const startCommand = new Command("start")
     console.log(`   Model: ${pc.cyan(lobsterConfig.model.model)}`);
     console.log(`   Listening on ${pc.cyan(channelLabel)}...\n`);
 
-    // Start scheduled draft publisher (check every 60s)
+    // Start scheduled draft publisher + preview cleanup (check every 60s)
     const schedulerInterval = setInterval(async () => {
       try {
         const published = await publishDueScheduled(siteDir);
@@ -110,6 +112,17 @@ export const startCommand = new Command("start")
         }
       } catch {
         // Scheduler errors are non-fatal
+      }
+
+      // Clean expired previews
+      try {
+        const cleaned = await cleanExpiredPreviews(siteDir);
+        if (cleaned > 0) {
+          await deployToGit(siteDir, "chore: clean expired previews");
+          console.log(pc.dim(`  Cleaned ${cleaned} expired preview(s)`));
+        }
+      } catch {
+        // Cleanup errors are non-fatal
       }
     }, 60_000);
 

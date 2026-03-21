@@ -13,13 +13,37 @@ import { SEARCH_HTML, SEARCH_SCRIPT } from "./search.js";
  * - Progressive: works without JavaScript entirely
  */
 
+/** Options for injecting extra content into generated HTML pages. */
+export interface HtmlPageOptions {
+  /** Extra HTML to inject into <head> (after <style>) */
+  extraHead?: string;
+  /** HTML to inject at start of <body>, before skip-link */
+  bodyPrefix?: string;
+}
+
+/** Return HtmlPageOptions for a preview page: noindex meta + banner. */
+export function previewPageOptions(): HtmlPageOptions {
+  return {
+    extraHead: '<meta name="robots" content="noindex, nofollow">',
+    bodyPrefix:
+      '<div style="position:fixed;top:0;left:0;right:0;background:#1a1a2e;color:#e0e0e0;' +
+      "text-align:center;padding:8px 16px;font:14px/1.4 system-ui,sans-serif;" +
+      'z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.3)">' +
+      "Preview — not yet published</div>" +
+      '<div style="height:40px"></div>',
+  };
+}
+
 export function generateHtmlPage(
   content: ClassifiedContent,
   config: SiteConfig,
+  options?: HtmlPageOptions,
 ): string {
   const resolved = resolveStyle(config.style.preset, config.style.overrides);
   const css = generateStylesheet(resolved);
   const inner = renderContentBody(content);
+  const extraHead = options?.extraHead ? `\n  ${options.extraHead}` : "";
+  const bodyPrefix = options?.bodyPrefix ? `\n  ${options.bodyPrefix}` : "";
 
   return `<!DOCTYPE html>
 <html lang="${escHtml(config.language)}">
@@ -31,9 +55,9 @@ export function generateHtmlPage(
   <meta name="author" content="${escAttr(config.author)}">
   <link rel="alternate" type="application/rss+xml" title="${escAttr(config.title)}" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="${escAttr(config.title)}" href="/feed.json">
-  <style>${css}</style>
+  <style>${css}</style>${extraHead}
 </head>
-<body>
+<body>${bodyPrefix}
   <a class="skip-link" href="#main">Skip to content</a>
   <header>
     <nav><a href="/">${escHtml(config.title)}</a></nav>
