@@ -195,7 +195,7 @@ describe("publish command integration", () => {
     });
 
     const { addContent } = await import("../generator/site.js");
-    const post = await addContent(siteDir, content);
+    await addContent(siteDir, content);
 
     const html = await readFile(
       join(siteDir, "great-article-on-indieweb.html"),
