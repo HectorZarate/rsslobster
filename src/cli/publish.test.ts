@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { scaffoldSite, readPostsIndex } from "../generator/site.js";
+import { scaffoldSite, readPostsIndex, addContent } from "../generator/site.js";
 import { buildPublishContent } from "./publish.js";
 import type { SiteConfig } from "../config/types.js";
 
@@ -144,14 +144,12 @@ describe("publish command integration", () => {
       text: "The coffee in Lisbon is incredible.",
     });
 
-    const { addContent } = await import("../generator/site.js");
     const post = await addContent(siteDir, content);
 
     expect(post.url).toBe(
       "https://example.com/the-coffee-in-lisbon-is-incredible.html",
     );
 
-    // Verify HTML was written
     const html = await readFile(
       join(siteDir, "the-coffee-in-lisbon-is-incredible.html"),
       "utf-8",
@@ -159,7 +157,6 @@ describe("publish command integration", () => {
     expect(html).toContain("The coffee in Lisbon is incredible.");
     expect(html).toContain("<!DOCTYPE html>");
 
-    // Verify posts index was updated
     const posts = await readPostsIndex(siteDir);
     expect(posts).toHaveLength(1);
     expect(posts[0].type).toBe("micro");
@@ -173,7 +170,6 @@ describe("publish command integration", () => {
       tags: "rss,indieweb",
     });
 
-    const { addContent } = await import("../generator/site.js");
     const post = await addContent(siteDir, content);
 
     expect(post.url).toBe("https://example.com/why-rss-matters.html");
@@ -194,7 +190,6 @@ describe("publish command integration", () => {
       linkUrl: "https://indieweb.org/why",
     });
 
-    const { addContent } = await import("../generator/site.js");
     await addContent(siteDir, content);
 
     const html = await readFile(
@@ -210,7 +205,6 @@ describe("publish command integration", () => {
       text: "Feed test post",
     });
 
-    const { addContent } = await import("../generator/site.js");
     await addContent(siteDir, content);
 
     const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");

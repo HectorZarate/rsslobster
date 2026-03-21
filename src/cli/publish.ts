@@ -2,19 +2,9 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import pc from "picocolors";
 import type { ClassifiedContent, ContentType } from "../config/types.js";
-import { slugify } from "../agent/classify.js";
+import { VALID_TYPES, MAX_TAGS, slugify } from "../config/content.js";
 import { addContent } from "../generator/site.js";
 import { deployToGit } from "../deploy/git.js";
-
-const VALID_TYPES: ReadonlySet<string> = new Set<ContentType>([
-  "micro",
-  "post",
-  "image",
-  "carousel",
-  "link",
-]);
-
-const MAX_TAGS = 3;
 
 export interface PublishOptions {
   type: ContentType;
@@ -79,11 +69,10 @@ export const publishCommand = new Command("publish")
   .option("--tags <tags>", "Comma-separated tags (max 3)")
   .option("--link-url <url>", "URL for link-type posts")
   .option("--no-deploy", "Skip git commit and push")
-  .argument("[site-dir]", "Path to site directory", ".")
+  .option("--site-dir <dir>", "Path to site directory", ".")
   .action(
     async (
       text: string,
-      siteDirArg: string,
       opts: {
         type: string;
         title?: string;
@@ -91,9 +80,10 @@ export const publishCommand = new Command("publish")
         tags?: string;
         linkUrl?: string;
         deploy: boolean;
+        siteDir: string;
       },
     ) => {
-      const siteDir = resolve(siteDirArg);
+      const siteDir = resolve(opts.siteDir);
 
       let content: ClassifiedContent;
       try {
