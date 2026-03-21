@@ -108,7 +108,7 @@ export async function rebuildFeeds(
     enclosure: p.images?.[0]
       ? {
           url: `https://${config.domain}${p.images[0].src}`,
-          type: "image/jpeg",
+          type: mimeFromSrc(p.images[0].src),
         }
       : undefined,
   }));
@@ -150,4 +150,18 @@ export async function scaffoldSite(
 function truncate(s: string, len: number): string {
   if (s.length <= len) return s;
   return s.slice(0, len - 1) + "\u2026";
+}
+
+const MIME_MAP: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+};
+
+function mimeFromSrc(src: string): string {
+  const ext = src.slice(src.lastIndexOf(".")).toLowerCase();
+  return MIME_MAP[ext] ?? "image/jpeg";
 }

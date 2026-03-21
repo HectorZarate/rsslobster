@@ -3,120 +3,60 @@
 **Unplatform yourself.**
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen.svg)](https://nodejs.org)
-[![TypeScript](https://img.shields.io/badge/typescript-5.9%2B-blue.svg)](https://www.typescriptlang.org)
 
-A lightweight publishing platform for personal websites. Message your Lobster on Telegram, Signal, iMessage, or WhatsApp — it builds HTML + RSS and deploys to your site in four seconds.
+Message your Lobster on Telegram — it publishes to your site in four seconds. HTML + RSS, deployed, done.
 
 No database. No CMS. Just files, git, and the open web.
 
----
+**Cost:** $12/year for a domain. Hosting: free.
 
-## Why
+## How It Works
 
-You post on platforms you don't control. You don't need them anymore. Own your website, publish from your phone, and let RSS handle subscriptions.
+```
+You (Telegram) → Lobster classifies → HTML + RSS generated → git push → live
+```
 
-**Cost:** $12/year for a domain. Hosting and reader: free.
+Send a message. The lobster figures out what it is (short post, long article, image, link share), generates a static page, commits to git, and Cloudflare Pages deploys it. Four seconds.
 
-## Quick Start
+## Install
 
 ```bash
-git clone https://github.com/HectorZarate/rsslobster.git
-cd rsslobster
-pnpm install
-pnpm build
-
-# Initialize a new site
-./dist/index.js init --domain yourname.com --title "Your Name"
-
-# Generate your site from content
-cat posts.json | ./dist/index.js generate --site-dir ./my-site
-
-# Manage drafts
-./dist/index.js drafts list --site-dir ./my-site
-./dist/index.js drafts publish <slug> --site-dir ./my-site
+npm install -g rsslobster
+rsslobster onboard
+rsslobster start
 ```
 
 ## Content Types
 
-| Type | Description |
-|------|-------------|
-| **Micro** | Short-form text (tweet-length) |
-| **Post** | Long-form article with title |
-| **Image** | Single image with caption |
-| **Carousel** | Multiple images |
-| **Link** | Shared URL with commentary |
+| Type | You send... |
+|------|------------|
+| **Micro** | A short thought (tweet-length) |
+| **Post** | Longer writing with a title |
+| **Image** | A photo with a caption |
+| **Carousel** | Multiple photos |
+| **Link** | A URL with commentary |
 
 ## Style Presets
 
-Four built-in presets with WCAG AA compliance, system font stacks, and zero external dependencies:
+Pick one during setup. All use system fonts, zero external requests, WCAG AA contrast.
 
 - **Minimal** — clean, whitespace-forward
 - **Brutalist** — raw, monospace, high-contrast
 - **Magazine** — serif headers, editorial feel
 - **Terminal** — green-on-black, hacker aesthetic
 
-## Architecture
-
-```
-src/
-├── cli/          # CLI commands (generate, init, drafts)
-├── config/       # TypeScript interfaces
-├── drafts/       # Draft CRUD + scheduling
-├── generator/    # HTML, RSS 2.0, JSON Feed 1.1
-└── styles/       # Style presets + CSS inheritance
-```
-
-**Key decisions:**
-- Static HTML output — no JavaScript required in the browser
-- Git as the database — everything version-controlled
-- 3 runtime dependencies (`commander`, `gray-matter`, `picocolors`)
-- Pure TypeScript feed generation — no XML libraries
-
 ## Development
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org) >= 22.0.0
-- [pnpm](https://pnpm.io) >= 10
-
-### Setup
 
 ```bash
 git clone https://github.com/HectorZarate/rsslobster.git
 cd rsslobster
 pnpm install
+pnpm check    # lint + typecheck + test
 ```
-
-### Commands
-
-```bash
-pnpm check          # Lint + typecheck + test (runs on pre-commit)
-pnpm test           # Run tests
-pnpm test:watch     # Run tests in watch mode
-pnpm test:coverage  # Run tests with coverage report
-pnpm lint           # Lint with oxlint
-pnpm typecheck      # TypeScript type checking
-pnpm build          # Build with tsdown
-```
-
-### Testing
-
-119+ tests with 80% coverage thresholds enforced via a pre-commit hook. Tests cover:
-
-- All 5 content types and HTML generation
-- RSS 2.0 and JSON Feed 1.1 spec compliance
-- Draft lifecycle (create, update, schedule, publish, delete)
-- Style presets and UX standards (typography, accessibility, touch targets)
-- XSS prevention and input sanitization
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, coding standards, and how to submit changes.
-
-## Security
-
-To report a vulnerability, see [SECURITY.md](SECURITY.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

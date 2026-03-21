@@ -7,8 +7,7 @@
     "rsslobster": "./dist/index.js"
   },
   "exports": {
-    ".": "./dist/index.js",
-    "./skill": "./skill/SKILL.md"
+    ".": "./dist/index.js"
   },
   "scripts": {
     "build": "tsdown src/index.ts --format esm --dts",
@@ -25,7 +24,8 @@
     "blog",
     "publish",
     "indieweb",
-    "openclaw"
+    "static-site",
+    "telegram"
   ],
   "author": "Hector Zarate",
   "license": "MIT",

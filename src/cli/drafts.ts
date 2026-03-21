@@ -10,6 +10,7 @@ import {
   markPublished,
 } from "../drafts/drafts.js";
 import { addContent } from "../generator/site.js";
+import { publishDueScheduled } from "../agent/scheduler.js";
 import type { ClassifiedContent } from "../config/types.js";
 import { readFile } from "node:fs/promises";
 
@@ -138,4 +139,19 @@ draftsCommand
     const post = await addContent(siteDir, draft);
     await markPublished(siteDir, slug);
     console.log(JSON.stringify({ ok: true, url: post.url, slug: post.slug }));
+  });
+
+draftsCommand
+  .command("publish-due")
+  .description("Publish all scheduled drafts that are past their time")
+  .argument("[site-dir]", "Path to site directory", ".")
+  .action(async (siteDir: string) => {
+    const published = await publishDueScheduled(siteDir);
+    console.log(
+      JSON.stringify({
+        ok: true,
+        published: published.map((p) => ({ slug: p.slug, url: p.url })),
+        count: published.length,
+      }),
+    );
   });
