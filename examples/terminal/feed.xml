@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>ada@localhost</title>
+    <link>https://terminal.example.com</link>
+    <description>dispatches from /dev/brain</description>
+    <language>en</language>
+    <atom:link href="https://terminal.example.com/feed.xml" rel="self" type="application/rss+xml"/>
+    <lastBuildDate>Sat, 21 Mar 2026 07:03:53 GMT</lastBuildDate>
+    <item>
+      <title>The mass of men lead lives of quiet desperation. What is called resignation is …</title>
+      <link>https://terminal.example.com/quiet-desperation.html</link>
+      <description>The mass of men lead lives of quiet desperation. What is called resignation is confirmed desperation.</description>
+      <pubDate>Sat, 21 Mar 2026 07:03:53 GMT</pubDate>
+      <guid isPermaLink="true">https://terminal.example.com/quiet-desperation.html</guid>
+      <author>Ada Lovelace</author>
+      <category>quote</category>
+      <category>thoreau</category>
+    </item>
+    <item>
+      <title>Why RSS Still Matters</title>
+      <link>https://terminal.example.com/why-rss-still-matters.html</link>
+      <description>In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can enshittify your timeline. You subscribe, you read, you move on. The protocol is simple: an XML file at a known URL. Any client can fetch it. No API key, no OAuth dance, no rate limits. This is how the web was supposed to work.</description>
+      <pubDate>Sat, 21 Mar 2026 07:03:53 GMT</pubDate>
+      <guid isPermaLink="true">https://terminal.example.com/why-rss-still-matters.html</guid>
+      <author>Ada Lovelace</author>
+      <category>rss</category>
+      <category>indieweb</category>
+      <category>web</category>
+    </item>
+    <item>
+      <title>The best explanation of the indie web I&apos;ve found. Start here if you want to own…</title>
+      <link>https://terminal.example.com/getting-started-indieweb.html</link>
+      <description>The best explanation of the indie web I&apos;ve found. Start here if you want to own your corner of the internet.</description>
+      <pubDate>Sat, 21 Mar 2026 07:03:53 GMT</pubDate>
+      <guid isPermaLink="true">https://terminal.example.com/getting-started-indieweb.html</guid>
+      <author>Ada Lovelace</author>
+      <category>indieweb</category>
+    </item>
+    <item>
+      <title>Sunset from the office window. Sometimes you have to stop and look up.</title>
+      <link>https://terminal.example.com/sunset-from-the-office.html</link>
+      <description>Sunset from the office window. Sometimes you have to stop and look up.</description>
+      <pubDate>Sat, 21 Mar 2026 07:03:53 GMT</pubDate>
+      <guid isPermaLink="true">https://terminal.example.com/sunset-from-the-office.html</guid>
+      <author>Ada Lovelace</author>
+      <category>photo</category>
+      <enclosure url="https://terminal.example.com/images/sunset-1.jpg" type="image/jpeg"/>
+    </item>
+    <item>
+      <title>Just shipped a new feature. Zero dependencies, zero JavaScript in the output, f…</title>
+      <link>https://terminal.example.com/just-shipped.html</link>
+      <description>Just shipped a new feature. Zero dependencies, zero JavaScript in the output, four seconds to deploy. This is what building for the web should feel like.</description>
+      <pubDate>Sat, 21 Mar 2026 07:03:53 GMT</pubDate>
+      <guid isPermaLink="true">https://terminal.example.com/just-shipped.html</guid>
+      <author>Ada Lovelace</author>
+      <category>building</category>
+    </item>
+  </channel>
+</rss>
