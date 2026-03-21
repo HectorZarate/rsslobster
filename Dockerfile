@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Install dependencies
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --prod=false
+RUN pnpm install --frozen-lockfile
 
 # Build
 COPY tsconfig.json ./
@@ -18,6 +18,9 @@ FROM node:22-slim AS runtime
 
 RUN corepack enable pnpm
 
+# Create non-root user
+RUN addgroup --system lobster && adduser --system --ingroup lobster lobster
+
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
@@ -25,9 +28,11 @@ RUN pnpm install --frozen-lockfile --prod
 
 COPY --from=base /app/dist/ dist/
 
-# Site data is mounted as a volume
-VOLUME /site
+# Site data directory — mount via -v /your/site:/site
+RUN mkdir -p /site && chown lobster:lobster /site
 ENV RSSLOBSTER_SITE_DIR=/site
+
+USER lobster
 
 EXPOSE 3000
 

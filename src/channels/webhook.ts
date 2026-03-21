@@ -226,7 +226,7 @@ export function createWebhookChannel(config: WebhookConfig): Channel {
       return Promise.resolve();
     },
 
-    async downloadImages(message: InboundMessage): Promise<void> {
+    async downloadAttachments(message: InboundMessage): Promise<void> {
       if (!message.pendingImages || message.pendingImages.length === 0) return;
       const downloadDir = join(tmpdir(), `rsslobster-dl-${message.id}`);
       for (const pending of message.pendingImages) {

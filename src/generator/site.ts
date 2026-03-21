@@ -7,7 +7,7 @@ import type {
   Post,
   SiteConfig,
 } from "../config/types.js";
-import { generateHtmlPage, generateIndexPage, escHtml } from "./html.js";
+import { generateHtmlPage, generateIndexPage, generateArchivePage, escHtml } from "./html.js";
 import { generateRss } from "./rss.js";
 import { generateJsonFeed } from "./json-feed.js";
 import { writeSearchIndex } from "./search.js";
@@ -61,6 +61,17 @@ export async function addContent(
   const config = await readSiteConfig(siteDir);
   const posts = await readPostsIndex(siteDir);
 
+  // Resolve slug collisions — append -2, -3, etc. if slug already exists
+  const existingSlugs = new Set(posts.map((p) => p.slug));
+  let slug = content.slug;
+  let counter = 1;
+  while (existingSlugs.has(slug)) {
+    slug = `${content.slug}-${++counter}`;
+  }
+  if (slug !== content.slug) {
+    content = { ...content, slug };
+  }
+
   // Generate HTML page
   const html = generateHtmlPage(content, config);
   await writeFile(join(siteDir, `${content.slug}.html`), html);
@@ -107,10 +118,10 @@ export async function rebuildFeeds(
     guid: p.url,
     author: config.author,
     categories: p.tags.length > 0 ? p.tags : undefined,
-    enclosure: p.media
+    enclosure: p.media?.[0]
       ? {
-          url: `https://${config.domain}${p.media.src}`,
-          type: p.media.mimeType,
+          url: `https://${config.domain}${p.media[0].src}`,
+          type: p.media[0].mimeType,
         }
       : p.images?.[0]
         ? {
@@ -127,7 +138,7 @@ export async function rebuildFeeds(
   await writeFile(join(siteDir, "feed.json"), json);
 }
 
-/** Rebuild the index.html page */
+/** Rebuild the index.html and archive.html pages */
 async function rebuildIndex(
   siteDir: string,
   config: SiteConfig,
@@ -135,6 +146,12 @@ async function rebuildIndex(
 ): Promise<void> {
   const html = generateIndexPage(posts, config);
   await writeFile(join(siteDir, "index.html"), html);
+
+  // Generate archive page if there are enough posts
+  if (posts.length > 30) {
+    const archive = generateArchivePage(posts, config);
+    await writeFile(join(siteDir, "archive.html"), archive);
+  }
 }
 
 /** Scaffold a new site directory */

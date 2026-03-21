@@ -229,7 +229,7 @@ export function createTelegramChannel(config: TelegramConfig): Channel {
       await sendReply(config.token, chatId, text);
     },
 
-    async downloadImages(message: InboundMessage): Promise<void> {
+    async downloadAttachments(message: InboundMessage): Promise<void> {
       const downloadDir = join(tmpdir(), `rsslobster-dl-${message.id}`);
 
       // Download images

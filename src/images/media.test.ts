@@ -78,7 +78,7 @@ describe("ingestMedia", () => {
     await rm(srcDir, { recursive: true, force: true });
   });
 
-  it("returns the first successfully ingested media file", async () => {
+  it("returns all successfully ingested media files", async () => {
     const srcPath = join(srcDir, "clip.mp4");
     await writeFile(srcPath, "fake video data");
 
@@ -86,17 +86,17 @@ describe("ingestMedia", () => {
       { localPath: srcPath, mimeType: "video/mp4", filename: "clip.mp4" },
     ], "test-post");
 
-    expect(result).toBeDefined();
-    expect(result!.src).toBe("/media/test-post-media-1.mp4");
-    expect(result!.mimeType).toBe("video/mp4");
+    expect(result).toHaveLength(1);
+    expect(result[0]!.src).toBe("/media/test-post-media-1.mp4");
+    expect(result[0]!.mimeType).toBe("video/mp4");
   });
 
-  it("returns undefined for empty media list", async () => {
+  it("returns empty array for empty media list", async () => {
     const result = await ingestMedia(siteDir, [], "test-post");
-    expect(result).toBeUndefined();
+    expect(result).toEqual([]);
   });
 
-  it("skips failed ingestions and returns first success", async () => {
+  it("skips failed ingestions and returns successes", async () => {
     const goodPath = join(srcDir, "good.ogg");
     await writeFile(goodPath, "good data");
 
@@ -105,7 +105,23 @@ describe("ingestMedia", () => {
       { localPath: goodPath, mimeType: "audio/ogg", filename: "good.ogg" },
     ], "test-post");
 
-    expect(result).toBeDefined();
-    expect(result!.mimeType).toBe("audio/ogg");
+    expect(result).toHaveLength(1);
+    expect(result[0]!.mimeType).toBe("audio/ogg");
+  });
+
+  it("ingests multiple media files", async () => {
+    const videoPath = join(srcDir, "video.mp4");
+    const audioPath = join(srcDir, "audio.ogg");
+    await writeFile(videoPath, "video data");
+    await writeFile(audioPath, "audio data");
+
+    const result = await ingestMedia(siteDir, [
+      { localPath: videoPath, mimeType: "video/mp4", filename: "video.mp4" },
+      { localPath: audioPath, mimeType: "audio/ogg", filename: "audio.ogg" },
+    ], "multi-post");
+
+    expect(result).toHaveLength(2);
+    expect(result[0]!.src).toBe("/media/multi-post-media-1.mp4");
+    expect(result[1]!.src).toBe("/media/multi-post-media-2.ogg");
   });
 });

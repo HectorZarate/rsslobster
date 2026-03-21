@@ -55,7 +55,7 @@ export async function processMessage(
   // Step 2b: Ingest media (video/audio) into site/media/ directory
   const media = message.mediaFiles.length > 0
     ? await ingestMedia(config.siteDir, message.mediaFiles, classification.slug)
-    : undefined;
+    : [];
 
   // Step 3: Build ClassifiedContent
   const now = new Date().toISOString();
@@ -66,7 +66,7 @@ export async function processMessage(
     slug: classification.slug,
     tags: classification.tags,
     images: images.length > 0 ? images : undefined,
-    media,
+    media: media.length > 0 ? media : undefined,
     linkUrl: classification.linkUrl,
     linkTitle: classification.linkTitle,
     linkDescription: classification.linkDescription,

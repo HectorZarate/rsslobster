@@ -52,8 +52,8 @@ export interface ClassifiedContent {
   slug: string;
   tags: string[];
   images?: ImageAttachment[];
-  /** Video or audio attachment */
-  media?: MediaAttachment;
+  /** Video or audio attachments */
+  media?: MediaAttachment[];
   linkUrl?: string;
   linkTitle?: string;
   linkDescription?: string;

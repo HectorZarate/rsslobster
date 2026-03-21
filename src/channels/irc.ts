@@ -38,7 +38,7 @@ export function createIrcChannel(_config: IrcConfig): Channel {
       throw new Error("IRC channel is not yet implemented.");
     },
 
-    downloadImages(_message: InboundMessage): Promise<void> {
+    downloadAttachments(_message: InboundMessage): Promise<void> {
       // IRC doesn't support native image attachments.
       // Images would arrive as URLs in the message text.
       return Promise.resolve();

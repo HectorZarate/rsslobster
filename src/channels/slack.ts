@@ -306,7 +306,7 @@ export function createSlackChannel(config: SlackConfig): Channel {
       await sendSlackMessage(config.botToken, chatId, text);
     },
 
-    async downloadImages(message: InboundMessage): Promise<void> {
+    async downloadAttachments(message: InboundMessage): Promise<void> {
       const downloadDir = join(tmpdir(), `rsslobster-dl-${message.id}`);
 
       if (message.pendingImages && message.pendingImages.length > 0) {

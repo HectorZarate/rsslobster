@@ -90,6 +90,6 @@ export interface Channel {
   /** Send a text reply back to the user */
   reply(chatId: string, text: string): Promise<void>;
 
-  /** Download pending images attached to a message */
-  downloadImages(message: InboundMessage): Promise<void>;
+  /** Download pending images and media attached to a message */
+  downloadAttachments(message: InboundMessage): Promise<void>;
 }

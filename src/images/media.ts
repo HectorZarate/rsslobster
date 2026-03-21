@@ -57,19 +57,22 @@ export async function ingestMediaFile(
 
 /**
  * Ingest all inbound media files into the site.
- * Returns the first successful attachment (video/audio posts typically have one).
- * Skips individual failures.
+ * Returns all successfully ingested attachments.
+ * Skips individual failures so one bad file doesn't block the rest.
  */
 export async function ingestMedia(
   siteDir: string,
   mediaFiles: InboundMedia[],
   slug: string,
   cleanupSource = false,
-): Promise<MediaAttachment | undefined> {
+): Promise<MediaAttachment[]> {
+  const attachments: MediaAttachment[] = [];
+
   for (let i = 0; i < mediaFiles.length; i++) {
     const media = mediaFiles[i]!;
     try {
       const attachment = await ingestMediaFile(siteDir, media, slug, i);
+      attachments.push(attachment);
       if (cleanupSource) {
         try {
           await unlink(media.localPath);
@@ -77,10 +80,10 @@ export async function ingestMedia(
           // Non-critical
         }
       }
-      return attachment;
     } catch {
       continue;
     }
   }
-  return undefined;
+
+  return attachments;
 }
