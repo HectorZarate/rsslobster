@@ -88,12 +88,6 @@ Before making significant changes, familiarize yourself with the project's desig
 - **Minimal dependencies** — pure TypeScript where possible
 - **Test-first** — write the test before the implementation
 
-See [PLAN.md](PLAN.md) for the full technical architecture.
-
 ## Code of Conduct
 
 This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to uphold it.
-
-## Questions?
-
-Open a discussion or issue — we're happy to help.

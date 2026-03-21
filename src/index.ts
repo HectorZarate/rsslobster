@@ -3,6 +3,8 @@ import { Command } from "commander";
 import { generateCommand } from "./cli/generate.js";
 import { draftsCommand } from "./cli/drafts.js";
 import { initCommand } from "./cli/init.js";
+import { startCommand } from "./cli/start.js";
+import { onboardCommand } from "./cli/onboard.js";
 
 const program = new Command();
 
@@ -11,6 +13,8 @@ program
   .description("Publish to the open web from your phone. Unplatform yourself.")
   .version("0.1.0");
 
+program.addCommand(onboardCommand);
+program.addCommand(startCommand);
 program.addCommand(generateCommand);
 program.addCommand(draftsCommand);
 program.addCommand(initCommand);
