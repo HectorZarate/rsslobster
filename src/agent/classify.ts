@@ -1,14 +1,5 @@
 import type { ContentType } from "../config/types.js";
-
-const VALID_TYPES: ReadonlySet<string> = new Set<ContentType>([
-  "micro",
-  "post",
-  "image",
-  "carousel",
-  "link",
-]);
-
-const MAX_TAGS = 3;
+import { VALID_TYPES, MAX_TAGS, slugify } from "../config/content.js";
 
 export interface ClassificationResult {
   type: ContentType;
@@ -69,26 +60,6 @@ Rules:
 - body = the cleaned content text (strip URLs for link type)
 ${imageNote}
 Input: "${text.replace(/"/g, '\\"')}"`;
-}
-
-// --- Slug generation ---
-
-/** Generate a URL-friendly slug from text. */
-export function slugify(text: string, maxLen = 60): string {
-  const slug = text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, maxLen);
-
-  // Trim to last word boundary if we truncated
-  const trimmed =
-    slug.length >= maxLen && slug.includes("-")
-      ? slug.slice(0, slug.lastIndexOf("-"))
-      : slug;
-  return trimmed.replace(/-$/, "");
 }
 
 // --- Response parsing ---
