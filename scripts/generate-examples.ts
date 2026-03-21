@@ -1,13 +1,13 @@
 /**
  * Generate example sites for each style preset.
  *
- * Run: npx tsx scripts/generate-examples.ts
+ * Run: pnpm examples
  *
  * Produces examples/{preset}/ directories with index.html, post pages,
  * feed.xml, and feed.json — ready to open in a browser.
  */
 
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { scaffoldSite, addContent } from "../src/generator/site.js";
 import type {
@@ -16,9 +16,27 @@ import type {
   StylePreset,
 } from "../src/config/types.js";
 
-const PRESETS: StylePreset[] = ["minimal", "brutalist", "magazine", "terminal"];
-
 const EXAMPLES_DIR = join(import.meta.dirname, "..", "examples");
+
+const PRESET_META: Record<StylePreset, { title: string; description: string }> =
+  {
+    minimal: {
+      title: "Ada's Notes",
+      description: "Thoughts on the open web",
+    },
+    brutalist: {
+      title: "RAW FEED",
+      description: "No CSS was harmed in the making of this site.",
+    },
+    magazine: {
+      title: "The Evening Page",
+      description: "Long reads and quiet links",
+    },
+    terminal: {
+      title: "ada@localhost",
+      description: "dispatches from /dev/brain",
+    },
+  };
 
 const SAMPLE_CONTENT: ClassifiedContent[] = [
   {
@@ -78,28 +96,14 @@ const SAMPLE_CONTENT: ClassifiedContent[] = [
 
 async function generatePresetExample(preset: StylePreset): Promise<void> {
   const siteDir = join(EXAMPLES_DIR, preset);
+  const meta = PRESET_META[preset];
 
-  // Clean and create
   await rm(siteDir, { recursive: true, force: true });
 
   const config: SiteConfig = {
     domain: `${preset}.example.com`,
-    title:
-      preset === "minimal"
-        ? "Ada's Notes"
-        : preset === "brutalist"
-          ? "RAW FEED"
-          : preset === "magazine"
-            ? "The Evening Page"
-            : "ada@localhost",
-    description:
-      preset === "minimal"
-        ? "Thoughts on the open web"
-        : preset === "brutalist"
-          ? "No CSS was harmed in the making of this site."
-          : preset === "magazine"
-            ? "Long reads and quiet links"
-            : "dispatches from /dev/brain",
+    title: meta.title,
+    description: meta.description,
     author: "Ada Lovelace",
     language: "en",
     style: { preset },
@@ -108,30 +112,23 @@ async function generatePresetExample(preset: StylePreset): Promise<void> {
 
   await scaffoldSite(siteDir, config);
 
-  // Create a placeholder image directory and a 1x1 JPEG placeholder
-  // so the image post doesn't reference a missing file
-  const placeholder = Buffer.from(
-    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoH" +
-      "BwYIDAoMCwsKCwsNCxAPDhANDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQME" +
-      "BAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU" +
-      "FBQUFBQUFBQUFBT/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAA" +
-      "AAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEG" +
-      "E1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RF" +
-      "RkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKj" +
-      "pKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP0" +
-      "9fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgEC" +
-      "BAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLR" +
-      "ChYkNOEl8RcYI4Q/RFhScJMnZGj/xAAZAQADAQEBAAAAAAAAAAAAAAAAAgMEAQX/" +
-      "xAAiEQACAgICAQUBAAAAAAAAAAAAAQIRAyESMUFRYXGB8JH/2gAMAwEAAhEDEQA/AP1T" +
-      "ooooA//Z",
+  // Write a minimal 1x1 pixel JPEG so the image post has a valid file reference
+  // GIF89a 1x1 transparent pixel — smallest valid image at 35 bytes
+  const pixel = Buffer.from(
+    "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
     "base64",
   );
-  await writeFile(join(siteDir, "images", "sunset-1.jpg"), placeholder);
+  await writeFile(join(siteDir, "images", "sunset-1.jpg"), pixel);
 
-  // Add content in chronological order (oldest first, so newest ends up on top)
+  // Add content oldest-first so newest ends up on top (addContent uses unshift)
   for (const content of [...SAMPLE_CONTENT].reverse()) {
     await addContent(siteDir, content);
   }
+
+  // Remove internal config/state files — examples should only contain servable output
+  await unlink(join(siteDir, "rsslobster.json"));
+  await unlink(join(siteDir, "posts.json"));
+  await rm(join(siteDir, "drafts"), { recursive: true, force: true });
 
   console.log(`  ✓ ${preset}`);
 }
@@ -141,7 +138,7 @@ async function main(): Promise<void> {
 
   await mkdir(EXAMPLES_DIR, { recursive: true });
 
-  for (const preset of PRESETS) {
+  for (const preset of Object.keys(PRESET_META) as StylePreset[]) {
     await generatePresetExample(preset);
   }
 

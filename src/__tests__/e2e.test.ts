@@ -2,10 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { processMessage } from "./agent/pipeline.js";
-import { scaffoldSite, readPostsIndex } from "./generator/site.js";
-import type { SiteConfig } from "./config/types.js";
-import type { InboundMessage } from "./channels/types.js";
+import { processMessage } from "../agent/pipeline.js";
+import { scaffoldSite, readPostsIndex } from "../generator/site.js";
+import type { SiteConfig } from "../config/types.js";
+import type { InboundMessage } from "../channels/types.js";
+import type { CallModel } from "../agent/classify.js";
 
 /**
  * End-to-end pipeline tests with canned model responses.
@@ -24,6 +25,11 @@ const SITE_CONFIG: SiteConfig = {
   style: { preset: "minimal" },
   repo: "",
 };
+
+/** Create a canned model that always returns the same response regardless of prompt. */
+function cannedModel(response: string): CallModel {
+  return async (_prompt: string) => response;
+}
 
 function msg(overrides: Partial<InboundMessage>): InboundMessage {
   return {
@@ -50,16 +56,18 @@ describe("E2E pipeline", () => {
   });
 
   it("micro post: message → HTML page + RSS + JSON Feed + index", async () => {
-    const cannedResponse = JSON.stringify({
-      type: "micro",
-      body: "The mass of men lead lives of quiet desperation.",
-      tags: ["quote"],
-      isDraft: false,
-    });
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "micro",
+        body: "The mass of men lead lives of quiet desperation.",
+        tags: ["quote"],
+        isDraft: false,
+      }),
+    );
 
     const result = await processMessage(
       msg({ text: "The mass of men lead lives of quiet desperation." }),
-      { siteDir, callModel: async () => cannedResponse, deploy: false },
+      { siteDir, callModel, deploy: false },
     );
 
     // Published, not a draft
@@ -113,19 +121,21 @@ describe("E2E pipeline", () => {
   });
 
   it("long post: title and body render with correct structure", async () => {
-    const cannedResponse = JSON.stringify({
-      type: "post",
-      title: "Why RSS Still Matters",
-      body: "In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can take it away.",
-      tags: ["rss", "indieweb", "web"],
-      isDraft: false,
-    });
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "post",
+        title: "Why RSS Still Matters",
+        body: "In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can take it away.",
+        tags: ["rss", "indieweb", "web"],
+        isDraft: false,
+      }),
+    );
 
     const result = await processMessage(
       msg({
         text: "# Why RSS Still Matters\nIn an age of algorithmic feeds and walled gardens, RSS remains the only open standard...",
       }),
-      { siteDir, callModel: async () => cannedResponse, deploy: false },
+      { siteDir, callModel, deploy: false },
     );
 
     expect(result.post!.type).toBe("post");
@@ -148,22 +158,24 @@ describe("E2E pipeline", () => {
   });
 
   it("link share: renders link card with URL and metadata", async () => {
-    const cannedResponse = JSON.stringify({
-      type: "link",
-      body: "Best explanation of how the indieweb works that I've seen.",
-      tags: ["indieweb"],
-      isDraft: false,
-      linkUrl: "https://indieweb.org/Getting_Started",
-      linkTitle: "Getting Started with the IndieWeb",
-      linkDescription:
-        "A step-by-step guide to owning your online identity.",
-    });
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "link",
+        body: "Best explanation of how the indieweb works that I've seen.",
+        tags: ["indieweb"],
+        isDraft: false,
+        linkUrl: "https://indieweb.org/Getting_Started",
+        linkTitle: "Getting Started with the IndieWeb",
+        linkDescription:
+          "A step-by-step guide to owning your online identity.",
+      }),
+    );
 
     const result = await processMessage(
       msg({
         text: "https://indieweb.org/Getting_Started — best explanation of how the indieweb works",
       }),
-      { siteDir, callModel: async () => cannedResponse, deploy: false },
+      { siteDir, callModel, deploy: false },
     );
 
     expect(result.post!.type).toBe("link");
@@ -180,17 +192,19 @@ describe("E2E pipeline", () => {
   });
 
   it("draft: saved but NOT published, no HTML page generated", async () => {
-    const cannedResponse = JSON.stringify({
-      type: "post",
-      title: "Unfinished Thoughts on Decentralization",
-      body: "Need to think more about this...",
-      tags: ["tech"],
-      isDraft: true,
-    });
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "post",
+        title: "Unfinished Thoughts on Decentralization",
+        body: "Need to think more about this...",
+        tags: ["tech"],
+        isDraft: true,
+      }),
+    );
 
     const result = await processMessage(
       msg({ text: "Draft: unfinished thoughts on decentralization" }),
-      { siteDir, callModel: async () => cannedResponse, deploy: false },
+      { siteDir, callModel, deploy: false },
     );
 
     expect(result.draft).toBeDefined();
@@ -249,12 +263,13 @@ describe("E2E pipeline", () => {
     for (const m of messages) {
       await processMessage(msg({ text: m.text }), {
         siteDir,
-        callModel: async () => m.response,
+        callModel: cannedModel(m.response),
         deploy: false,
       });
     }
 
-    // Three posts in index, newest first
+    // Ordering is by insertion (unshift), not by timestamp — all posts
+    // get new Date() at processing time, so the last processed is first.
     const posts = await readPostsIndex(siteDir);
     expect(posts).toHaveLength(3);
     expect(posts[0]!.title).toBe("On Writing");
@@ -282,7 +297,7 @@ describe("E2E pipeline", () => {
   });
 
   it("classification failure returns error, does not corrupt site", async () => {
-    const failingModel = async () => {
+    const failingModel: CallModel = async () => {
       throw new Error("Model API is down");
     };
 
@@ -305,16 +320,18 @@ describe("E2E pipeline", () => {
 
   it("XSS in user input is escaped in all outputs", async () => {
     const xssPayload = '<script>alert("xss")</script>';
-    const cannedResponse = JSON.stringify({
-      type: "micro",
-      body: xssPayload,
-      tags: ["test"],
-      isDraft: false,
-    });
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "micro",
+        body: xssPayload,
+        tags: ["test"],
+        isDraft: false,
+      }),
+    );
 
     const result = await processMessage(
       msg({ text: xssPayload }),
-      { siteDir, callModel: async () => cannedResponse, deploy: false },
+      { siteDir, callModel, deploy: false },
     );
 
     // HTML page must escape the script tag
