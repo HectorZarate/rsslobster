@@ -21,18 +21,20 @@ You post on platforms you don't control. You don't need them anymore. Own your w
 ## Quick Start
 
 ```bash
-# Install
-pnpm add rsslobster
+git clone https://github.com/HectorZarate/rsslobster.git
+cd rsslobster
+pnpm install
+pnpm build
 
 # Initialize a new site
-rsslobster init --domain yourname.com --title "Your Name"
+./dist/index.js init --domain yourname.com --title "Your Name"
 
 # Generate your site from content
-cat posts.json | rsslobster generate --site-dir ./my-site
+cat posts.json | ./dist/index.js generate --site-dir ./my-site
 
 # Manage drafts
-rsslobster drafts list --site-dir ./my-site
-rsslobster drafts publish <slug> --site-dir ./my-site
+./dist/index.js drafts list --site-dir ./my-site
+./dist/index.js drafts publish <slug> --site-dir ./my-site
 ```
 
 ## Content Types
