@@ -44,6 +44,7 @@ export async function processMessage(
   const shouldDeploy = config.deploy !== false;
 
   // --- Command dispatch (before classification) ---
+  let wantsPreview = false;
 
   // Handle "publish {slug}" — promote a draft (with or without preview)
   const publishMatch = message.text.match(/^publish\s+(\S+)$/i);
@@ -51,14 +52,20 @@ export async function processMessage(
     return handlePublishCommand(publishMatch[1]!, config, shouldDeploy);
   }
 
-  // Handle "preview {slug}" — preview an existing draft (no colon = existing slug)
+  // Handle "preview {slug}" — preview an existing draft if it exists,
+  // otherwise fall through to classification as new content
   const previewSlugMatch = message.text.match(/^preview\s+(\S+)$/i);
   if (previewSlugMatch) {
-    return handlePreviewExistingDraft(previewSlugMatch[1]!, config, shouldDeploy);
+    const existingDraft = await getDraft(config.siteDir, previewSlugMatch[1]!);
+    if (existingDraft) {
+      return handlePreviewExistingDraft(existingDraft, config, shouldDeploy);
+    }
+    // Draft not found — treat as "preview: {text}" (new content preview)
+    wantsPreview = true;
+    message = { ...message, text: previewSlugMatch[1]! };
   }
 
   // --- Strip "preview:" prefix, mark for preview flow ---
-  let wantsPreview = false;
   const previewPrefix = message.text.match(/^preview:\s*/i);
   if (previewPrefix) {
     wantsPreview = true;
@@ -245,22 +252,13 @@ async function handlePreviewNew(
   }
 }
 
-/** Generate a preview for an existing draft by slug. */
+/** Generate a preview for an existing draft (already fetched). */
 async function handlePreviewExistingDraft(
-  slug: string,
+  draft: Draft,
   config: PipelineConfig,
   shouldDeploy: boolean,
 ): Promise<PipelineResult> {
   try {
-    const draft = await getDraft(config.siteDir, slug);
-    if (!draft) {
-      return {
-        deployed: false,
-        reply: `Draft "${slug}" not found.`,
-        error: `Draft "${slug}" not found`,
-      };
-    }
-
     const preview = await createPreview(config.siteDir, draft);
 
     // Hook: afterPreview

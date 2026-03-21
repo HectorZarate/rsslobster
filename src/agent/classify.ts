@@ -61,7 +61,10 @@ Input: "Check out https://example.com/great-article — best thing I read this w
 {"type":"link","body":"Best thing I read this week","tags":["reading"],"isDraft":false,"linkUrl":"https://example.com/great-article"}
 
 Input: "Draft: thinking about writing something on distributed systems"
-{"type":"post","body":"thinking about writing something on distributed systems","tags":["tech"],"isDraft":true}
+{"type":"post","body":"thinking about writing something on distributed systems","tags":["tech"],"isDraft":true,"isPreview":false}
+
+Input: "Preview this: my take on why RSS still matters in 2026"
+{"type":"post","body":"my take on why RSS still matters in 2026","tags":["rss"],"isDraft":false,"isPreview":true}
 
 Rules:
 - 1-3 lowercase tags max. If nothing fits, empty array.

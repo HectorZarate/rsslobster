@@ -34,18 +34,22 @@ export async function createPreview(
   const token = draft.previewId ?? generateToken();
   const previewUrl = `https://${config.domain}/${PREVIEWS_DIR}/${token}.html`;
 
-  // Generate 1:1 HTML with preview banner + noindex
-  const html = generateHtmlPage(draft, config, previewPageOptions());
-  await writeFile(join(siteDir, PREVIEWS_DIR, `${token}.html`), html);
-
-  // Update draft with preview metadata
+  // Write metadata first (source of truth), then HTML
   const updated = await updateDraft(siteDir, draft.slug, {
     previewId: token,
     previewUrl,
     previewExpiresAt: new Date(Date.now() + DEFAULT_TTL_MS).toISOString(),
   });
 
-  return updated!;
+  if (!updated) {
+    throw new Error(`Draft "${draft.slug}" not found during preview creation`);
+  }
+
+  // Generate 1:1 HTML with preview banner + noindex
+  const html = generateHtmlPage(draft, config, previewPageOptions());
+  await writeFile(join(siteDir, PREVIEWS_DIR, `${token}.html`), html);
+
+  return updated;
 }
 
 /** Delete preview HTML file and clear preview fields from draft. */
@@ -77,6 +81,9 @@ export async function promotePreview(
 ): Promise<Post> {
   const draft = await getDraft(siteDir, slug);
   if (!draft) throw new Error(`Draft "${slug}" not found`);
+  if (draft.status === "published") {
+    throw new Error(`Draft "${slug}" is already published`);
+  }
 
   // Clean up preview file if one exists
   if (draft.previewId) {
@@ -89,11 +96,19 @@ export async function promotePreview(
     }
   }
 
+  // Mark draft as published BEFORE addContent to prevent duplicate publish
+  // on retry if addContent succeeds but a later step fails
+  await markPublished(siteDir, slug);
+
+  // Clear preview metadata from the draft record
+  await updateDraft(siteDir, slug, {
+    previewId: undefined,
+    previewUrl: undefined,
+    previewExpiresAt: undefined,
+  });
+
   // Publish via normal path
   const post = await addContent(siteDir, draft);
-
-  // Mark draft as published
-  await markPublished(siteDir, slug);
 
   return post;
 }
