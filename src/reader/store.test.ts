@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ParsedItem } from "./types.js";
@@ -526,5 +526,24 @@ describe("UX: workflows", () => {
     const counts = await getItemCounts(siteDir);
     expect(counts.total).toBe(2);
     expect(counts.unread).toBe(1); // only the new one
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Corrupt data handling
+// ---------------------------------------------------------------------------
+
+describe("corrupt data", () => {
+  it("throws with clear message when items.json contains invalid JSON", async () => {
+    const dir = join(siteDir, "reader");
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, "items.json"), "NOT VALID JSON{{{");
+
+    await expect(listItems(siteDir)).rejects.toThrow("Corrupt items file");
+  });
+
+  it("returns empty array when items.json does not exist (not corrupt)", async () => {
+    const items = await listItems(siteDir);
+    expect(items).toEqual([]);
   });
 });

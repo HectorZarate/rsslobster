@@ -138,20 +138,23 @@ function escXml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Decode XML entities. &amp; is decoded last to prevent double-decoding. */
 function decodeXmlEntities(s: string): string {
   return s
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'");
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
 }
 
-/** Extract block content between tags (matches empty content too) */
+/** Extract block content between tags */
 function extractBlock(xml: string, tag: string): string | undefined {
   const re = new RegExp(
-    `<${tag}(?:\\s[^>]*)?>([\\s\\S]*)</${tag}>`,
+    `<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`,
     "i",
   );
-  return re.exec(xml)?.[1];
+  const m = re.exec(xml);
+  // Distinguish "tag not found" (undefined) from "tag found but empty" ("")
+  return m === null ? undefined : m[1]!;
 }

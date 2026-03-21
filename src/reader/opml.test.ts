@@ -116,6 +116,37 @@ describe("parseOpml", () => {
     expect(outlines).toHaveLength(1);
     expect(outlines[0]!.title).toBe("Real Feed");
   });
+
+  it("handles nested folders (assigns outermost matched folder)", () => {
+    const xml = `<opml version="2.0">
+      <head><title>T</title></head>
+      <body>
+        <outline text="Level1">
+          <outline text="Level2">
+            <outline type="rss" text="Deep Feed" xmlUrl="https://deep.com/f"/>
+          </outline>
+        </outline>
+      </body>
+    </opml>`;
+
+    const outlines = parseOpml(xml);
+    expect(outlines).toHaveLength(1);
+    expect(outlines[0]!.title).toBe("Deep Feed");
+    // Regex-based parser assigns the outermost folder
+    expect(outlines[0]!.folder).toBe("Level1");
+  });
+
+  it("handles double-encoded entities in attributes", () => {
+    const xml = `<opml version="2.0">
+      <head><title>T</title></head>
+      <body>
+        <outline type="rss" text="AT&amp;T News" title="AT&amp;T News"
+                 xmlUrl="https://att.com/feed"/>
+      </body>
+    </opml>`;
+    const outlines = parseOpml(xml);
+    expect(outlines[0]!.title).toBe("AT&T News");
+  });
 });
 
 // ---------------------------------------------------------------------------

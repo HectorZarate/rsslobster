@@ -1,7 +1,7 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { createHash } from "node:crypto";
 import type { ParsedItem, StoredItem } from "./types.js";
+import { readerDir, ensureReaderDir, contentHash } from "./paths.js";
 
 const ITEMS_FILE = "items.json";
 
@@ -14,6 +14,8 @@ const ITEMS_FILE = "items.json";
  *   2. Item link
  *   3. SHA-256 hash of title + content
  *
+ * NOT concurrency-safe — callers must serialize access.
+ *
  * UX principles:
  * - New items default to unread
  * - Star/unstar is idempotent
@@ -21,25 +23,25 @@ const ITEMS_FILE = "items.json";
  * - List operations support filtering by feed, read state, starred
  */
 
-function readerDir(siteDir: string): string {
-  return join(siteDir, "reader");
-}
-
 function itemsPath(siteDir: string): string {
   return join(readerDir(siteDir), ITEMS_FILE);
 }
 
-async function ensureReaderDir(siteDir: string): Promise<void> {
-  await mkdir(readerDir(siteDir), { recursive: true });
-}
-
-/** Load all items from disk */
+/** Load all items from disk. Throws on corrupt JSON; returns [] if file missing. */
 async function loadItems(siteDir: string): Promise<StoredItem[]> {
+  const path = itemsPath(siteDir);
+  let raw: string;
   try {
-    const raw = await readFile(itemsPath(siteDir), "utf-8");
-    return JSON.parse(raw) as StoredItem[];
+    raw = await readFile(path, "utf-8");
   } catch {
     return [];
+  }
+  try {
+    return JSON.parse(raw) as StoredItem[];
+  } catch (e) {
+    throw new Error(
+      `Corrupt items file at ${path}: ${e instanceof Error ? e.message : String(e)}`,
+    );
   }
 }
 
@@ -56,11 +58,7 @@ async function saveItems(
 export function dedupKey(item: ParsedItem): string {
   if (item.id) return `id:${item.id}`;
   if (item.link) return `link:${item.link}`;
-  const hash = createHash("sha256")
-    .update(item.title + "|" + item.content)
-    .digest("hex")
-    .slice(0, 16);
-  return `hash:${hash}`;
+  return `hash:${contentHash(item.title, item.content)}`;
 }
 
 /**
@@ -191,7 +189,7 @@ export async function markAllRead(
   return count;
 }
 
-/** Star an item (idempotent) */
+/** Star an item (idempotent — skips write if already starred) */
 export async function starItem(
   siteDir: string,
   key: string,
@@ -199,13 +197,14 @@ export async function starItem(
   const items = await loadItems(siteDir);
   const item = items.find((i) => i.dedupKey === key);
   if (!item) return false;
+  if (item.starred) return true;
 
   item.starred = true;
   await saveItems(siteDir, items);
   return true;
 }
 
-/** Unstar an item (idempotent) */
+/** Unstar an item (idempotent — skips write if already unstarred) */
 export async function unstarItem(
   siteDir: string,
   key: string,
@@ -213,27 +212,31 @@ export async function unstarItem(
   const items = await loadItems(siteDir);
   const item = items.find((i) => i.dedupKey === key);
   if (!item) return false;
+  if (!item.starred) return true;
 
   item.starred = false;
   await saveItems(siteDir, items);
   return true;
 }
 
-/** Get counts: total, unread, starred */
+/** Get counts: total, unread, starred — single O(n) pass */
 export async function getItemCounts(
   siteDir: string,
   feedUrl?: string,
 ): Promise<{ total: number; unread: number; starred: number }> {
-  let items = await loadItems(siteDir);
-  if (feedUrl) {
-    items = items.filter((i) => i.feedUrl === feedUrl);
+  const items = await loadItems(siteDir);
+  let total = 0;
+  let unread = 0;
+  let starred = 0;
+
+  for (const item of items) {
+    if (feedUrl && item.feedUrl !== feedUrl) continue;
+    total++;
+    if (!item.read) unread++;
+    if (item.starred) starred++;
   }
 
-  return {
-    total: items.length,
-    unread: items.filter((i) => !i.read).length,
-    starred: items.filter((i) => i.starred).length,
-  };
+  return { total, unread, starred };
 }
 
 /** Remove all items for a feed (used when unsubscribing) */

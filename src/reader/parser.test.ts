@@ -392,6 +392,14 @@ describe("parseFeed — errors", () => {
     const feed = parseFeed(xml);
     expect(feed.title).toBe("Padded");
   });
+
+  it("handles BOM prefix", () => {
+    const xml = `\uFEFF<?xml version="1.0"?><rss version="2.0">
+      <channel><title>BOM Feed</title><link>https://x.com</link>
+      <description>d</description></channel></rss>`;
+    const feed = parseFeed(xml);
+    expect(feed.title).toBe("BOM Feed");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -453,6 +461,18 @@ describe("parseFeed — edge cases", () => {
     expect(feed.items[0]!.categories).toEqual(["tech", "rss"]);
     expect(feed.items[1]!.categories).toEqual([]);
   });
+
+  it("does not double-decode entities in feed content", () => {
+    const xml = `<rss version="2.0"><channel><title>T</title>
+      <item><title>Code: &amp;lt;div&amp;gt;</title>
+      <link>https://x.com/1</link>
+      <description>Use &amp;amp; for ampersands</description>
+      <guid>1</guid></item></channel></rss>`;
+    const feed = parseFeed(xml);
+    // &amp;lt; → &lt; (NOT <)
+    expect(feed.items[0]!.title).toBe("Code: &lt;div&gt;");
+    expect(feed.items[0]!.content).toBe("Use &amp; for ampersands");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -483,6 +503,20 @@ describe("decodeXml", () => {
 
   it("handles multiple entities in sequence", () => {
     expect(decodeXml("A &amp; B &amp; C")).toBe("A & B & C");
+  });
+
+  it("does not double-decode &amp;lt; (double-encoded entities)", () => {
+    // &amp;lt; should become &lt; (not <)
+    expect(decodeXml("&amp;lt;")).toBe("&lt;");
+    expect(decodeXml("&amp;amp;")).toBe("&amp;");
+    expect(decodeXml("&amp;gt;")).toBe("&gt;");
+    expect(decodeXml("&amp;quot;")).toBe("&quot;");
+  });
+
+  it("handles mixed entities and character references", () => {
+    expect(decodeXml("&#60;b&#62; &amp; &#x3C;i&#x3E;")).toBe(
+      "<b> & <i>",
+    );
   });
 });
 

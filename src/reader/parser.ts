@@ -1,5 +1,5 @@
 import type { ParsedFeed, ParsedItem } from "./types.js";
-import { createHash } from "node:crypto";
+import { contentHash } from "./paths.js";
 
 /**
  * Parse RSS 2.0 or Atom XML into a normalized ParsedFeed.
@@ -14,7 +14,8 @@ import { createHash } from "node:crypto";
  * - Graceful fallbacks for missing fields
  */
 export function parseFeed(xml: string): ParsedFeed {
-  const trimmed = xml.trim();
+  // Strip BOM and whitespace
+  const trimmed = xml.replace(/^\uFEFF/, "").trim();
 
   if (/<feed[\s>]/i.test(trimmed)) {
     return parseAtom(trimmed);
@@ -276,18 +277,18 @@ function stripCdata(s: string): string {
   return m ? m[1]! : s;
 }
 
-/** Decode XML entities */
+/** Decode XML entities. &amp; is decoded last to prevent double-decoding. */
 export function decodeXml(s: string): string {
   return s
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
     .replace(/&#x([0-9a-fA-F]+);/g, (_, h) =>
       String.fromCharCode(parseInt(h as string, 16)),
-    );
+    )
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
 }
 
 /** Parse various date formats into ISO string */
@@ -306,10 +307,7 @@ function parseTtl(s: string | undefined): number | undefined {
 
 /** Generate a content-addressable ID when guid/id is missing */
 export function generateId(title: string, content: string): string {
-  return createHash("sha256")
-    .update(title + "|" + content)
-    .digest("hex")
-    .slice(0, 16);
+  return contentHash(title, content);
 }
 
 /** Escape special regex characters */

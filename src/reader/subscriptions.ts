@@ -1,6 +1,7 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Subscription } from "./types.js";
+import { readerDir, ensureReaderDir } from "./paths.js";
 
 const SUBS_FILE = "subscriptions.json";
 
@@ -8,7 +9,7 @@ const SUBS_FILE = "subscriptions.json";
  * Subscription management for the RSS reader.
  *
  * Subscriptions are stored in {siteDir}/reader/subscriptions.json
- * as a JSON array. All operations are atomic (read-modify-write).
+ * as a JSON array. NOT concurrency-safe — callers must serialize access.
  *
  * UX principles:
  * - Subscribe returns the subscription for confirmation
@@ -17,25 +18,25 @@ const SUBS_FILE = "subscriptions.json";
  * - Duplicate URLs are rejected with a clear error
  */
 
-function readerDir(siteDir: string): string {
-  return join(siteDir, "reader");
-}
-
 function subsPath(siteDir: string): string {
   return join(readerDir(siteDir), SUBS_FILE);
 }
 
-async function ensureReaderDir(siteDir: string): Promise<void> {
-  await mkdir(readerDir(siteDir), { recursive: true });
-}
-
-/** Load all subscriptions from disk */
+/** Load all subscriptions from disk. Throws on corrupt JSON; returns [] if file missing. */
 async function loadSubs(siteDir: string): Promise<Subscription[]> {
+  const path = subsPath(siteDir);
+  let raw: string;
   try {
-    const raw = await readFile(subsPath(siteDir), "utf-8");
-    return JSON.parse(raw) as Subscription[];
+    raw = await readFile(path, "utf-8");
   } catch {
     return [];
+  }
+  try {
+    return JSON.parse(raw) as Subscription[];
+  } catch (e) {
+    throw new Error(
+      `Corrupt subscriptions file at ${path}: ${e instanceof Error ? e.message : String(e)}`,
+    );
   }
 }
 
@@ -55,6 +56,12 @@ export async function subscribe(
   title: string,
   opts?: { siteUrl?: string; folder?: string },
 ): Promise<Subscription> {
+  if (!feedUrl || !/^https?:\/\//i.test(feedUrl)) {
+    throw new Error(
+      `Invalid feed URL: ${feedUrl || "(empty)"}. Must start with http:// or https://`,
+    );
+  }
+
   const subs = await loadSubs(siteDir);
 
   const existing = subs.find((s) => s.feedUrl === feedUrl);
@@ -153,19 +160,19 @@ export async function recordFetchSuccess(
   });
 }
 
-/** Record a fetch failure */
+/** Record a fetch failure — single load+save instead of two */
 export async function recordFetchError(
   siteDir: string,
   feedUrl: string,
   error: string,
 ): Promise<void> {
-  const sub = await getSubscription(siteDir, feedUrl);
+  const subs = await loadSubs(siteDir);
+  const sub = subs.find((s) => s.feedUrl === feedUrl);
   if (!sub) return;
 
-  await updateSubscription(siteDir, feedUrl, {
-    errorCount: sub.errorCount + 1,
-    lastError: error,
-  });
+  sub.errorCount++;
+  sub.lastError = error;
+  await saveSubs(siteDir, subs);
 }
 
 /** Get all unique folder names */
