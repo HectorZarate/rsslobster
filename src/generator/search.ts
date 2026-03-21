@@ -53,7 +53,7 @@ export const SEARCH_SCRIPT = `<script>
     var q=input.value.trim().toLowerCase();
     if(!q){results.innerHTML='';return;}
     if(index){show(q);return;}
-    fetch('/search-index.json').then(function(r){return r.json()}).then(function(data){
+    fetch('search-index.json').then(function(r){return r.json()}).then(function(data){
       index=data;show(q);
     }).catch(function(){results.innerHTML='<p>Search unavailable.</p>';});
   });

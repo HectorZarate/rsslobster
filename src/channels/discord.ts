@@ -1,7 +1,7 @@
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import type { Channel, InboundMessage, MessageHandler } from "./types.js";
+import { sanitizeFilename, type Channel, type InboundMessage, type MessageHandler } from "./types.js";
 
 // --- Discord API types (minimal subset) ---
 
@@ -9,6 +9,7 @@ interface DiscordUser {
   id: string;
   username: string;
   discriminator: string;
+  bot?: boolean;
 }
 
 interface DiscordAttachment {
@@ -46,6 +47,12 @@ const OP_HEARTBEAT = 1;
 const OP_IDENTIFY = 2;
 const OP_HEARTBEAT_ACK = 11;
 const OP_HELLO = 10;
+
+// --- Discord Gateway intents ---
+
+const INTENT_GUILD_MESSAGES = 1 << 9;
+const INTENT_DIRECT_MESSAGES = 1 << 12;
+const INTENT_MESSAGE_CONTENT = 1 << 15;
 
 const GATEWAY_URL = "wss://gateway.discord.gg/?v=10&encoding=json";
 const API_BASE = "https://discord.com/api/v10";
@@ -116,7 +123,7 @@ export function parseDiscordMessage(
   // Only process messages from the target channel
   if (msg.channel_id !== targetChannelId) return null;
   // Ignore bot messages
-  if (msg.author.username === undefined) return null;
+  if (msg.author.bot) return null;
 
   const imageAttachments = msg.attachments.filter(isImageAttachment);
   const pendingImages = imageAttachments.map((a) => ({ fileId: a.url }));
@@ -139,13 +146,13 @@ export function parseDiscordMessage(
       id: msg.author.id,
       name: msg.author.username,
     },
-    receivedAt: new Date(msg.timestamp).toISOString(),
+    receivedAt: msg.timestamp,
   };
 }
 
 /**
  * Connect to the Discord Gateway via WebSocket and listen for messages.
- * Uses the Gateway Intents for MESSAGE_CONTENT (requires privileged intent).
+ * Uses the Gateway Intents for GUILD_MESSAGES, DIRECT_MESSAGES, and MESSAGE_CONTENT.
  */
 export async function pollDiscordGateway(
   config: DiscordConfig,
@@ -156,13 +163,17 @@ export async function pollDiscordGateway(
     ? new Set(config.allowedUsers)
     : undefined;
 
+  let consecutiveFailures = 0;
+
   while (!signal?.aborted) {
     try {
       await connectAndListen(config, allowedUsers, handler, signal);
+      consecutiveFailures = 0;
     } catch {
       if (signal?.aborted) break;
-      // Reconnect after delay on error
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      consecutiveFailures++;
+      const delay = Math.min(5000 * Math.pow(2, consecutiveFailures - 1), 300_000) + Math.random() * 1000;
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 }
@@ -177,6 +188,7 @@ async function connectAndListen(
   const ws = new WebSocket(GATEWAY_URL);
   let sequenceNumber: number | null = null;
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+  let lastAckReceived = true;
 
   const cleanup = () => {
     if (heartbeatTimer) clearInterval(heartbeatTimer);
@@ -193,7 +205,12 @@ async function connectAndListen(
     });
 
     ws.addEventListener("message", async (event) => {
-      const payload = JSON.parse(String(event.data)) as GatewayPayload;
+      let payload: GatewayPayload;
+      try {
+        payload = JSON.parse(String(event.data)) as GatewayPayload;
+      } catch {
+        return; // Skip malformed frames
+      }
 
       if (payload.s !== undefined && payload.s !== null) {
         sequenceNumber = payload.s;
@@ -202,8 +219,22 @@ async function connectAndListen(
       switch (payload.op) {
         case OP_HELLO: {
           const hello = payload.d as HelloEvent;
-          // Start heartbeat
+
+          // First heartbeat with jitter per Discord spec
+          const jitter = Math.random();
+          setTimeout(() => {
+            if (ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({ op: OP_HEARTBEAT, d: sequenceNumber }));
+          }, hello.heartbeat_interval * jitter);
+
+          // Subsequent heartbeats on fixed interval
           heartbeatTimer = setInterval(() => {
+            if (!lastAckReceived) {
+              // Zombie connection — no ACK received, force reconnect
+              ws.close(4000, "Zombie connection - no heartbeat ACK");
+              return;
+            }
+            lastAckReceived = false;
             ws.send(JSON.stringify({ op: OP_HEARTBEAT, d: sequenceNumber }));
           }, hello.heartbeat_interval);
 
@@ -213,7 +244,7 @@ async function connectAndListen(
               op: OP_IDENTIFY,
               d: {
                 token: config.botToken,
-                intents: 1 << 9 | 1 << 15, // GUILD_MESSAGES | MESSAGE_CONTENT
+                intents: INTENT_GUILD_MESSAGES | INTENT_DIRECT_MESSAGES | INTENT_MESSAGE_CONTENT,
                 properties: {
                   os: "linux",
                   browser: "rsslobster",
@@ -226,11 +257,11 @@ async function connectAndListen(
         }
 
         case OP_HEARTBEAT_ACK:
-          // Heartbeat acknowledged
+          lastAckReceived = true;
           break;
 
         case OP_HEARTBEAT:
-          // Server requested heartbeat
+          // Server requested immediate heartbeat
           ws.send(JSON.stringify({ op: OP_HEARTBEAT, d: sequenceNumber }));
           break;
 
@@ -290,8 +321,8 @@ export function createDiscordChannel(config: DiscordConfig): Channel {
         for (const pending of message.pendingImages) {
           try {
             const url = new URL(pending.fileId);
-            const filename =
-              url.pathname.split("/").pop() ?? `${message.id}.jpg`;
+            const rawName = url.pathname.split("/").pop() ?? `${message.id}.jpg`;
+            const filename = sanitizeFilename(rawName);
             const localPath = await downloadDiscordAttachment(
               pending.fileId,
               filename,
@@ -308,8 +339,8 @@ export function createDiscordChannel(config: DiscordConfig): Channel {
         for (const pending of message.pendingMedia) {
           try {
             const url = new URL(pending.fileId);
-            const filename =
-              url.pathname.split("/").pop() ?? `${message.id}.mp4`;
+            const rawName = url.pathname.split("/").pop() ?? `${message.id}.mp4`;
+            const filename = sanitizeFilename(rawName);
             const localPath = await downloadDiscordAttachment(
               pending.fileId,
               filename,

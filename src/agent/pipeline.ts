@@ -31,7 +31,7 @@ export async function processMessage(
   const shouldDeploy = config.deploy !== false;
 
   // Step 1: Classify
-  const mediaMimeTypes = (message.mediaFiles ?? []).map((m) => m.mimeType);
+  const mediaMimeTypes = message.mediaFiles.map((m) => m.mimeType);
   let classification;
   try {
     classification = await classifyContent(
@@ -53,7 +53,7 @@ export async function processMessage(
   );
 
   // Step 2b: Ingest media (video/audio) into site/media/ directory
-  const media = message.mediaFiles?.length
+  const media = message.mediaFiles.length > 0
     ? await ingestMedia(config.siteDir, message.mediaFiles, classification.slug)
     : undefined;
 

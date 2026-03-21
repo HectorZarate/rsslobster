@@ -1,9 +1,11 @@
 import { createServer, type Server } from "node:http";
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import type { Channel, InboundMessage, MessageHandler } from "./types.js";
+import { sanitizeFilename, type Channel, type InboundMessage, type MessageHandler } from "./types.js";
+
+const MAX_BODY_SIZE = 1_048_576; // 1 MB
 
 export interface WebhookConfig {
   /** Port to listen on. Default: 3000 */
@@ -28,20 +30,16 @@ interface WebhookPayload {
   sender?: { id: string; name: string };
 }
 
-/** Verify HMAC-SHA256 signature. */
+/** Verify HMAC-SHA256 signature using constant-time comparison. */
 export function verifySignature(
   body: string,
   secret: string,
   signature: string,
 ): boolean {
-  const expected = createHmac("sha256", secret).update(body).digest("hex");
-  // Constant-time comparison
-  if (expected.length !== signature.length) return false;
-  let result = 0;
-  for (let i = 0; i < expected.length; i++) {
-    result |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
-  }
-  return result === 0;
+  const expected = createHmac("sha256", secret).update(body).digest();
+  const signatureBuffer = Buffer.from(signature, "hex");
+  if (expected.length !== signatureBuffer.length) return false;
+  return timingSafeEqual(expected, signatureBuffer);
 }
 
 /** Parse and validate a webhook payload. */
@@ -72,7 +70,12 @@ export function parseWebhookPayload(
     mediaFiles: [],
     chatId: "webhook",
     pendingImages: pendingImages.length > 0 ? pendingImages : undefined,
-    sender: payload.sender ?? { id: "webhook", name: "Webhook" },
+    sender:
+      payload.sender &&
+      typeof payload.sender.id === "string" &&
+      typeof payload.sender.name === "string"
+        ? payload.sender
+        : { id: "webhook", name: "Webhook" },
     receivedAt: new Date().toISOString(),
   };
 }
@@ -111,7 +114,6 @@ export function startWebhookServer(
 ): Promise<void> {
   const port = config.port ?? 3000;
   const allowedIps = config.allowedIps ? new Set(config.allowedIps) : undefined;
-  let requestCounter = 0;
 
   return new Promise<void>((resolve, reject) => {
     const server: Server = createServer(async (req, res) => {
@@ -139,10 +141,18 @@ export function startWebhookServer(
         }
       }
 
-      // Read body
+      // Read body with size limit
       const chunks: Buffer[] = [];
+      let totalSize = 0;
       for await (const chunk of req) {
-        chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+        const buf = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+        totalSize += buf.length;
+        if (totalSize > MAX_BODY_SIZE) {
+          res.writeHead(413, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Payload too large" }));
+          return;
+        }
+        chunks.push(buf);
       }
       const body = Buffer.concat(chunks).toString("utf-8");
 
@@ -160,7 +170,7 @@ export function startWebhookServer(
       }
 
       // Parse payload
-      const requestId = `webhook-${++requestCounter}-${Date.now()}`;
+      const requestId = `webhook-${randomUUID()}`;
       const message = parseWebhookPayload(body, requestId);
       if (!message) {
         res.writeHead(400, { "Content-Type": "application/json" });
@@ -222,8 +232,8 @@ export function createWebhookChannel(config: WebhookConfig): Channel {
       for (const pending of message.pendingImages) {
         try {
           const url = new URL(pending.fileId);
-          const filename =
-            url.pathname.split("/").pop() ?? `${message.id}.jpg`;
+          const rawName = url.pathname.split("/").pop() ?? `${message.id}.jpg`;
+          const filename = sanitizeFilename(rawName);
           const localPath = await downloadWebhookImage(
             pending.fileId,
             filename,

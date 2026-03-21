@@ -61,6 +61,11 @@ export interface PendingImage {
   fileId: string;
 }
 
+/** Strip path traversal characters from a filename. */
+export function sanitizeFilename(name: string): string {
+  return name.replace(/[/\\]/g, "_").replace(/\.\./g, "_");
+}
+
 /** Callback for when a message arrives */
 export type MessageHandler = (message: InboundMessage) => Promise<void>;
 

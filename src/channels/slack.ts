@@ -1,7 +1,7 @@
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import type { Channel, InboundMessage, MessageHandler } from "./types.js";
+import { sanitizeFilename, type Channel, type InboundMessage, type MessageHandler } from "./types.js";
 
 // --- Slack API types (minimal subset) ---
 
@@ -193,14 +193,18 @@ export async function pollSlackSocketMode(
     ? new Set(config.allowedUsers)
     : undefined;
 
+  let consecutiveFailures = 0;
+
   while (!signal?.aborted) {
     try {
       const wsUrl = await getSocketModeUrl(config.appToken);
       await connectAndListen(wsUrl, config, allowedUsers, handler, signal);
+      consecutiveFailures = 0;
     } catch {
       if (signal?.aborted) break;
-      // Reconnect after delay
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      consecutiveFailures++;
+      const delay = Math.min(5000 * Math.pow(2, consecutiveFailures - 1), 300_000) + Math.random() * 1000;
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 }
@@ -238,6 +242,8 @@ async function connectAndListen(
 
       if (data.type === "disconnect") {
         cleanup();
+        // Slack is asking us to reconnect — resolve to trigger reconnect loop
+        resolve();
         return;
       }
 
@@ -307,7 +313,8 @@ export function createSlackChannel(config: SlackConfig): Channel {
         for (const pending of message.pendingImages) {
           try {
             const url = new URL(pending.fileId);
-            const filename = url.pathname.split("/").pop() ?? `${message.id}.jpg`;
+            const rawName = url.pathname.split("/").pop() ?? `${message.id}.jpg`;
+            const filename = sanitizeFilename(rawName);
             const localPath = await downloadSlackFile(
               config.botToken,
               pending.fileId,
@@ -325,7 +332,8 @@ export function createSlackChannel(config: SlackConfig): Channel {
         for (const pending of message.pendingMedia) {
           try {
             const url = new URL(pending.fileId);
-            const filename = url.pathname.split("/").pop() ?? `${message.id}.mp4`;
+            const rawName = url.pathname.split("/").pop() ?? `${message.id}.mp4`;
+            const filename = sanitizeFilename(rawName);
             const localPath = await downloadSlackFile(
               config.botToken,
               pending.fileId,
