@@ -4,6 +4,7 @@ import { classifyContent, type CallModel } from "./classify.js";
 import { addContent } from "../generator/site.js";
 import { createDraft } from "../drafts/drafts.js";
 import { deployToGit, type DeployResult } from "../deploy/git.js";
+import { ingestImages } from "../images/images.js";
 
 export interface PipelineConfig {
   siteDir: string;
@@ -13,17 +14,11 @@ export interface PipelineConfig {
 }
 
 export interface PipelineResult {
-  /** The published post (if not a draft) */
   post?: Post;
-  /** The saved draft (if isDraft) */
   draft?: Draft;
-  /** Whether git deploy succeeded */
   deployed: boolean;
-  /** Deploy details */
   deployResult?: DeployResult;
-  /** Reply text to send back to the user */
   reply: string;
-  /** Error message if pipeline failed */
   error?: string;
 }
 
@@ -44,14 +39,17 @@ export async function processMessage(
     );
   } catch (err) {
     const error = err instanceof Error ? err.message : "Classification failed";
-    return {
-      deployed: false,
-      reply: `Failed to process: ${error}`,
-      error,
-    };
+    return { deployed: false, reply: `Failed to process: ${error}`, error };
   }
 
-  // Step 2: Build ClassifiedContent
+  // Step 2: Ingest images into site/images/ directory
+  const images = await ingestImages(
+    config.siteDir,
+    message.images,
+    classification.slug,
+  );
+
+  // Step 3: Build ClassifiedContent
   const now = new Date().toISOString();
   const content: ClassifiedContent = {
     type: classification.type,
@@ -59,6 +57,7 @@ export async function processMessage(
     body: classification.body,
     slug: classification.slug,
     tags: classification.tags,
+    images: images.length > 0 ? images : undefined,
     linkUrl: classification.linkUrl,
     linkTitle: classification.linkTitle,
     linkDescription: classification.linkDescription,
@@ -66,7 +65,7 @@ export async function processMessage(
     updatedAt: now,
   };
 
-  // Step 3: Draft or publish
+  // Step 4: Draft or publish
   if (classification.isDraft) {
     try {
       const draft = await createDraft(config.siteDir, content);
@@ -81,7 +80,7 @@ export async function processMessage(
     }
   }
 
-  // Step 4: Generate HTML + feeds
+  // Step 5: Generate HTML + feeds
   let post: Post;
   try {
     post = await addContent(config.siteDir, content);
@@ -90,7 +89,7 @@ export async function processMessage(
     return { deployed: false, reply: `Failed to generate: ${error}`, error };
   }
 
-  // Step 5: Deploy (if enabled)
+  // Step 6: Deploy (if enabled)
   let deployResult: DeployResult | undefined;
   if (shouldDeploy) {
     deployResult = await deployToGit(

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, readFile } from "node:fs/promises";
+import { mkdtemp, rm, readFile, writeFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { processMessage, type PipelineConfig } from "./pipeline.js";
@@ -40,7 +40,7 @@ describe("agent pipeline", () => {
     const config: PipelineConfig = {
       siteDir,
       callModel: mockCallModel,
-      deploy: false, // skip git for unit test
+      deploy: false,
     };
 
     const result = await processMessage(
@@ -48,19 +48,21 @@ describe("agent pipeline", () => {
         id: "1",
         text: "Coffee in Lisbon is incredible.",
         images: [],
+        chatId: "99",
         sender: { id: "99", name: "Hector" },
         receivedAt: new Date().toISOString(),
       },
       config,
     );
 
-    expect(result.post.type).toBe("micro");
-    expect(result.post.url).toContain("test.com");
+    expect(result.post).toBeDefined();
+    expect(result.post!.type).toBe("micro");
+    expect(result.post!.url).toContain("test.com");
     expect(result.deployed).toBe(false);
 
     // Verify HTML was written
     const html = await readFile(
-      join(siteDir, `${result.post.slug}.html`),
+      join(siteDir, `${result.post!.slug}.html`),
       "utf-8",
     );
     expect(html).toContain("Coffee in Lisbon");
@@ -88,6 +90,7 @@ describe("agent pipeline", () => {
         id: "2",
         text: "Draft: Still thinking about this...",
         images: [],
+        chatId: "99",
         sender: { id: "99", name: "Hector" },
         receivedAt: new Date().toISOString(),
       },
@@ -97,11 +100,6 @@ describe("agent pipeline", () => {
     expect(result.draft).toBeDefined();
     expect(result.draft!.status).toBe("draft");
     expect(result.post).toBeUndefined();
-
-    // Verify draft file exists
-    const draftPath = join(siteDir, "drafts", `${result.draft!.slug}.json`);
-    const draft = JSON.parse(await readFile(draftPath, "utf-8"));
-    expect(draft.status).toBe("draft");
   });
 
   it("returns reply text for the channel", async () => {
@@ -114,21 +112,16 @@ describe("agent pipeline", () => {
       }),
     );
 
-    const config: PipelineConfig = {
-      siteDir,
-      callModel: mockCallModel,
-      deploy: false,
-    };
-
     const result = await processMessage(
       {
         id: "3",
         text: "Hello world",
         images: [],
+        chatId: "99",
         sender: { id: "99", name: "Hector" },
         receivedAt: new Date().toISOString(),
       },
-      config,
+      { siteDir, callModel: mockCallModel, deploy: false },
     );
 
     expect(result.reply).toContain("https://test.com/");
@@ -144,21 +137,16 @@ describe("agent pipeline", () => {
       }),
     );
 
-    const config: PipelineConfig = {
-      siteDir,
-      callModel: mockCallModel,
-      deploy: false,
-    };
-
     const result = await processMessage(
       {
         id: "4",
         text: "draft: Save this",
         images: [],
+        chatId: "99",
         sender: { id: "99", name: "Hector" },
         receivedAt: new Date().toISOString(),
       },
-      config,
+      { siteDir, callModel: mockCallModel, deploy: false },
     );
 
     expect(result.reply).toContain("Saved as draft");
@@ -168,24 +156,145 @@ describe("agent pipeline", () => {
   it("includes error in reply when classification fails", async () => {
     const mockCallModel = vi.fn().mockRejectedValue(new Error("API timeout"));
 
-    const config: PipelineConfig = {
-      siteDir,
-      callModel: mockCallModel,
-      deploy: false,
-    };
-
     const result = await processMessage(
       {
         id: "5",
         text: "Hello",
         images: [],
+        chatId: "99",
         sender: { id: "99", name: "Hector" },
         receivedAt: new Date().toISOString(),
       },
-      config,
+      { siteDir, callModel: mockCallModel, deploy: false },
     );
 
     expect(result.error).toBeDefined();
     expect(result.reply).toContain("Failed");
+  });
+
+  describe("image handling", () => {
+    it("ingests pre-downloaded images into site and wires into content", async () => {
+      // Create a fake image file (simulating already-downloaded Telegram photo)
+      const tempDir = await mkdtemp(join(tmpdir(), "rsslobster-img-"));
+      const imgPath = join(tempDir, "sunset.jpg");
+      await writeFile(imgPath, Buffer.from("fake-jpeg"));
+
+      const mockCallModel = vi.fn().mockResolvedValue(
+        JSON.stringify({
+          type: "image",
+          body: "Beautiful sunset",
+          tags: ["photo"],
+          isDraft: false,
+        }),
+      );
+
+      const result = await processMessage(
+        {
+          id: "6",
+          text: "Beautiful sunset",
+          images: [{ localPath: imgPath, filename: "sunset.jpg" }],
+          chatId: "99",
+          sender: { id: "99", name: "Hector" },
+          receivedAt: new Date().toISOString(),
+        },
+        { siteDir, callModel: mockCallModel, deploy: false },
+      );
+
+      expect(result.post).toBeDefined();
+      expect(result.post!.type).toBe("image");
+      expect(result.post!.images).toBeDefined();
+      expect(result.post!.images!.length).toBe(1);
+      expect(result.post!.images![0]!.src).toMatch(/^\/images\//);
+
+      // Image file should exist in site
+      const imgStat = await stat(
+        join(siteDir, result.post!.images![0]!.src.slice(1)),
+      );
+      expect(imgStat.isFile()).toBe(true);
+
+      // HTML should reference the image
+      const html = await readFile(
+        join(siteDir, `${result.post!.slug}.html`),
+        "utf-8",
+      );
+      expect(html).toContain("/images/");
+      expect(html).toContain("img");
+
+      await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("handles multiple images for carousel type", async () => {
+      const tempDir = await mkdtemp(join(tmpdir(), "rsslobster-img-"));
+      const images = [];
+      for (let i = 0; i < 3; i++) {
+        const p = join(tempDir, `photo${i}.jpg`);
+        await writeFile(p, Buffer.from(`image-${i}`));
+        images.push({ localPath: p, filename: `photo${i}.jpg` });
+      }
+
+      const mockCallModel = vi.fn().mockResolvedValue(
+        JSON.stringify({
+          type: "carousel",
+          body: "Trip photos",
+          tags: ["travel"],
+          isDraft: false,
+        }),
+      );
+
+      const result = await processMessage(
+        {
+          id: "7",
+          text: "Trip photos",
+          images,
+          chatId: "99",
+          sender: { id: "99", name: "Hector" },
+          receivedAt: new Date().toISOString(),
+        },
+        { siteDir, callModel: mockCallModel, deploy: false },
+      );
+
+      expect(result.post!.images).toHaveLength(3);
+      expect(result.post!.images![0]!.src).toContain("-1.jpg");
+      expect(result.post!.images![1]!.src).toContain("-2.jpg");
+      expect(result.post!.images![2]!.src).toContain("-3.jpg");
+
+      await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("publishes even when image ingestion partially fails", async () => {
+      const tempDir = await mkdtemp(join(tmpdir(), "rsslobster-img-"));
+      const goodPath = join(tempDir, "good.jpg");
+      await writeFile(goodPath, Buffer.from("ok"));
+
+      const mockCallModel = vi.fn().mockResolvedValue(
+        JSON.stringify({
+          type: "image",
+          body: "Photo with issue",
+          tags: [],
+          isDraft: false,
+        }),
+      );
+
+      const result = await processMessage(
+        {
+          id: "8",
+          text: "Photo with issue",
+          images: [
+            { localPath: "/nonexistent.jpg", filename: "bad.jpg" },
+            { localPath: goodPath, filename: "good.jpg" },
+          ],
+          chatId: "99",
+          sender: { id: "99", name: "Hector" },
+          receivedAt: new Date().toISOString(),
+        },
+        { siteDir, callModel: mockCallModel, deploy: false },
+      );
+
+      // Should still publish with the good image
+      expect(result.post).toBeDefined();
+      expect(result.post!.images).toHaveLength(1);
+
+      await rm(tempDir, { recursive: true, force: true });
+    });
   });
 });

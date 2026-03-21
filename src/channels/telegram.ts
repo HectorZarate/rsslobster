@@ -72,10 +72,15 @@ export function parseTelegramUpdate(
     ? { id: String(msg.from.id), name: msg.from.first_name }
     : { id: "unknown", name: "Unknown" };
 
+  const photoFileIds = extractImageFileIds(msg.photo);
+  const pendingImages = photoFileIds.map((fileId) => ({ fileId }));
+
   return {
     id: String(msg.message_id),
     text,
-    images: [], // populated after downloading photos
+    images: [],
+    chatId: String(msg.chat.id),
+    pendingImages: pendingImages.length > 0 ? pendingImages : undefined,
     sender,
     receivedAt: new Date(msg.date * 1000).toISOString(),
   };

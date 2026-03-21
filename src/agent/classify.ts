@@ -1,12 +1,14 @@
 import type { ContentType } from "../config/types.js";
 
-const VALID_TYPES = new Set<ContentType>([
+const VALID_TYPES: ReadonlySet<string> = new Set<ContentType>([
   "micro",
   "post",
   "image",
   "carousel",
   "link",
 ]);
+
+const MAX_TAGS = 3;
 
 export interface ClassificationResult {
   type: ContentType;
@@ -26,49 +28,53 @@ export type CallModel = (
   temperature?: number,
 ) => Promise<string>;
 
-/** Build the system+user prompt for classification. */
+/** Build the classification prompt with few-shot examples. */
 export function buildClassificationPrompt(
   text: string,
-  hasImages?: boolean,
+  imageCount = 0,
 ): string {
-  const imageNote = hasImages
-    ? "\nThe user attached one or more images to this message."
-    : "";
+  const imageNote =
+    imageCount > 0
+      ? `\nThe user attached ${imageCount} image${imageCount > 1 ? "s" : ""} to this message.`
+      : "";
 
-  return `You are a content classifier for a personal publishing tool. Classify the following message into one of these types:
+  return `Classify this message for a personal blog. Return ONLY a JSON object.
 
-- "micro": Short text (< 280 chars), no title, no URL, no image — like a tweet
-- "post": Longer writing with a title, or the user explicitly says "blog post"
-- "image": A single image with a caption${hasImages ? " (images are attached)" : ""}
-- "carousel": Multiple images with narrative${hasImages ? " (images are attached)" : ""}
-- "link": A shared URL with commentary
+Types:
+- "micro": Short text (<280 chars), no title, no URL
+- "post": Longer writing or has a title/heading
+- "image": Single image with caption
+- "carousel": Multiple images
+- "link": Shared URL with commentary
 
-Respond with ONLY valid JSON (no markdown fences):
-{
-  "type": "micro|post|image|carousel|link",
-  "title": "string or null",
-  "body": "the content text",
-  "tags": ["lowercase", "tags"],
-  "isDraft": false,
-  "linkUrl": "URL if type is link, omit otherwise",
-  "linkTitle": "link title if available",
-  "linkDescription": "link description if available"
-}
+Examples:
+
+Input: "The coffee in Lisbon is incredible."
+{"type":"micro","body":"The coffee in Lisbon is incredible.","tags":["travel"],"isDraft":false}
+
+Input: "# Why RSS Still Matters\nIn 2025, owning your content..."
+{"type":"post","title":"Why RSS Still Matters","body":"In 2025, owning your content...","tags":["rss","indieweb"],"isDraft":false}
+
+Input: "Check out https://example.com/great-article — best thing I read this week"
+{"type":"link","body":"Best thing I read this week","tags":["reading"],"isDraft":false,"linkUrl":"https://example.com/great-article"}
+
+Input: "Draft: thinking about writing something on distributed systems"
+{"type":"post","body":"thinking about writing something on distributed systems","tags":["tech"],"isDraft":true}
 
 Rules:
-- 1-3 tags max, lowercase, hyphenated if multi-word
-- isDraft=true only if the user says "draft", "save for later", etc.
-- For "post" type, extract the title from the first line or heading
-- For "link" type, extract the URL from the message
-- body should be the cleaned content text
+- 1-3 lowercase tags max. If nothing fits, empty array.
+- isDraft=true ONLY if user says "draft", "save for later", "wip"
+- title only for "post" type. null otherwise.
+- For "link": extract the URL into linkUrl
+- body = the cleaned content text (strip URLs for link type)
 ${imageNote}
-
-User message:
-${text}`;
+Input: "${text.replace(/"/g, '\\"')}"`;
 }
 
+// --- Slug generation ---
+
 /** Generate a URL-friendly slug from text. */
-function slugify(text: string, maxLen = 60): string {
+export function slugify(text: string, maxLen = 60): string {
   const slug = text
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, "")
@@ -77,7 +83,7 @@ function slugify(text: string, maxLen = 60): string {
     .replace(/^-|-$/g, "")
     .slice(0, maxLen);
 
-  // Don't end on a partial word or hyphen
+  // Trim to last word boundary if we truncated
   const trimmed =
     slug.length >= maxLen && slug.includes("-")
       ? slug.slice(0, slug.lastIndexOf("-"))
@@ -85,32 +91,66 @@ function slugify(text: string, maxLen = 60): string {
   return trimmed.replace(/-$/, "");
 }
 
+// --- Response parsing ---
+
+/** Extract a JSON object from potentially messy LLM output. */
+function extractJson(response: string): string {
+  let cleaned = response.trim();
+
+  // Strip markdown code fences
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    return cleaned.trim();
+  }
+
+  // Try to find a JSON object in the response
+  const braceStart = cleaned.indexOf("{");
+  const braceEnd = cleaned.lastIndexOf("}");
+  if (braceStart !== -1 && braceEnd > braceStart) {
+    return cleaned.slice(braceStart, braceEnd + 1);
+  }
+
+  return cleaned;
+}
+
+/** Sanitize tags: lowercase, trim, filter non-strings, enforce max. */
+function sanitizeTags(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((t): t is string => typeof t === "string")
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => t.length > 0)
+    .slice(0, MAX_TAGS);
+}
+
 /** Parse the LLM's JSON response into a ClassificationResult. */
 export function parseClassificationResponse(
   response: string,
 ): ClassificationResult {
-  // Strip markdown code fences if present
-  let cleaned = response.trim();
-  if (cleaned.startsWith("```")) {
-    cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-  }
+  const jsonStr = extractJson(response);
 
   let parsed: Record<string, unknown>;
   try {
-    parsed = JSON.parse(cleaned) as Record<string, unknown>;
+    parsed = JSON.parse(jsonStr) as Record<string, unknown>;
   } catch {
-    throw new Error(`Invalid classification JSON: ${response.slice(0, 100)}`);
+    throw new Error(`Invalid classification JSON: ${response.slice(0, 120)}`);
   }
 
-  const type = parsed["type"] as string;
-  if (!type || !VALID_TYPES.has(type as ContentType)) {
+  // Validate type
+  const type = typeof parsed["type"] === "string" ? parsed["type"] : "";
+  if (!VALID_TYPES.has(type)) {
     throw new Error(
-      `Invalid content type: "${type}". Must be one of: ${[...VALID_TYPES].join(", ")}`,
+      `Invalid content type: "${type}". Must be: ${[...VALID_TYPES].join(", ")}`,
     );
   }
 
-  const body = (parsed["body"] as string) ?? "";
-  const title = (parsed["title"] as string) ?? undefined;
+  // Extract fields with proper null coalescing
+  const body = typeof parsed["body"] === "string" ? parsed["body"] : "";
+  const rawTitle = parsed["title"];
+  const title =
+    typeof rawTitle === "string" && rawTitle.length > 0
+      ? rawTitle
+      : undefined;
   const slug = slugify(title ?? body);
 
   if (!slug) {
@@ -122,23 +162,38 @@ export function parseClassificationResponse(
     title,
     body,
     slug,
-    tags: Array.isArray(parsed["tags"])
-      ? (parsed["tags"] as string[])
-      : [],
-    isDraft: (parsed["isDraft"] as boolean) ?? false,
-    linkUrl: (parsed["linkUrl"] as string) ?? undefined,
-    linkTitle: (parsed["linkTitle"] as string) ?? undefined,
-    linkDescription: (parsed["linkDescription"] as string) ?? undefined,
+    tags: sanitizeTags(parsed["tags"]),
+    isDraft: parsed["isDraft"] === true,
+    linkUrl:
+      typeof parsed["linkUrl"] === "string" ? parsed["linkUrl"] : undefined,
+    linkTitle:
+      typeof parsed["linkTitle"] === "string"
+        ? parsed["linkTitle"]
+        : undefined,
+    linkDescription:
+      typeof parsed["linkDescription"] === "string"
+        ? parsed["linkDescription"]
+        : undefined,
   };
 }
 
-/** Classify a user message by calling the model. */
+/** Classify a user message by calling the model. Retries once on parse failure. */
 export async function classifyContent(
   text: string,
   imagePaths: string[],
   callModel: CallModel,
 ): Promise<ClassificationResult> {
-  const prompt = buildClassificationPrompt(text, imagePaths.length > 0);
-  const response = await callModel(prompt, 0);
-  return parseClassificationResponse(response);
+  const prompt = buildClassificationPrompt(text, imagePaths.length);
+
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await callModel(prompt, 0);
+    try {
+      return parseClassificationResponse(response);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  throw lastError;
 }

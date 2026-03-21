@@ -6,6 +6,10 @@ export interface InboundMessage {
   text: string;
   /** Attached images (downloaded to local paths) */
   images: InboundImage[];
+  /** Telegram chat ID for replies */
+  chatId: string;
+  /** Photos pending download (Telegram file_ids) */
+  pendingImages?: PendingImage[];
   /** Sender info for logging */
   sender: { id: string; name: string };
   /** ISO timestamp */
@@ -19,6 +23,11 @@ export interface InboundImage {
   mimeType?: string;
   /** Original filename */
   filename: string;
+}
+
+/** Raw photo reference before download (Telegram file_id etc.) */
+export interface PendingImage {
+  fileId: string;
 }
 
 /** Callback for when a message arrives */

@@ -14,7 +14,7 @@ describe("telegram channel", () => {
   });
 
   describe("parseTelegramUpdate", () => {
-    it("parses a text message", () => {
+    it("parses a text message with chatId", () => {
       const update = {
         update_id: 1,
         message: {
@@ -29,12 +29,14 @@ describe("telegram channel", () => {
       const result = parseTelegramUpdate(update);
       expect(result).not.toBeNull();
       expect(result!.text).toBe("The coffee in Lisbon is incredible.");
+      expect(result!.chatId).toBe("99");
       expect(result!.sender.name).toBe("Hector");
       expect(result!.sender.id).toBe("99");
       expect(result!.images).toHaveLength(0);
+      expect(result!.pendingImages).toBeUndefined();
     });
 
-    it("parses a photo message with caption", () => {
+    it("parses a photo message with pendingImages", () => {
       const update = {
         update_id: 2,
         message: {
@@ -45,12 +47,7 @@ describe("telegram channel", () => {
           caption: "Sunset from the rooftop",
           photo: [
             { file_id: "small", file_unique_id: "s", width: 90, height: 90 },
-            {
-              file_id: "large",
-              file_unique_id: "l",
-              width: 1280,
-              height: 720,
-            },
+            { file_id: "large", file_unique_id: "l", width: 1280, height: 720 },
           ],
         },
       };
@@ -58,8 +55,9 @@ describe("telegram channel", () => {
       const result = parseTelegramUpdate(update);
       expect(result).not.toBeNull();
       expect(result!.text).toBe("Sunset from the rooftop");
-      // Photo file IDs extracted (largest first)
-      expect(result!.images).toHaveLength(0); // images populated after download
+      expect(result!.images).toHaveLength(0); // not yet downloaded
+      expect(result!.pendingImages).toHaveLength(1);
+      expect(result!.pendingImages![0]!.fileId).toBe("large");
     });
 
     it("returns null for non-message updates", () => {
@@ -78,11 +76,10 @@ describe("telegram channel", () => {
           text: "hello",
         },
       };
-
       expect(parseTelegramUpdate(update)).toBeNull();
     });
 
-    it("uses caption for photo messages, empty string if no text/caption", () => {
+    it("uses empty string when no text or caption", () => {
       const update = {
         update_id: 5,
         message: {
@@ -96,6 +93,7 @@ describe("telegram channel", () => {
       const result = parseTelegramUpdate(update);
       expect(result).not.toBeNull();
       expect(result!.text).toBe("");
+      expect(result!.pendingImages).toBeUndefined();
     });
   });
 
