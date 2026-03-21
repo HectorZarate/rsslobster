@@ -32,3 +32,13 @@ Default to **publishing immediately**. Speed is the point.
 ## Tags
 
 Suggest 1-3 tags based on the content. Lowercase, single-word or hyphenated. Don't over-tag.
+
+## Design principles
+
+Follow [DESIGN.md](DESIGN.md) for all visual and layout decisions. It defines the color palette, typography, component styles, layout rules, and accessibility standards that every generated site must meet.
+
+Key constraints:
+- **Zero-dependency output** — vanilla HTML + CSS only, no frameworks, no CDN, no external fonts
+- **TDD-focused UX** — design rules are testable (contrast ratios, touch target sizes, font size ranges)
+- **Presets as foundation** — the four built-in presets (minimal, brutalist, magazine, terminal) provide tested defaults; user overrides and custom DESIGN.md files extend them without breaking the baseline
+- **Accessibility is non-negotiable** — WCAG AA contrast, 44px touch targets, skip links, reduced motion, semantic HTML
