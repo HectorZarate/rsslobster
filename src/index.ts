@@ -5,6 +5,7 @@ import { draftsCommand } from "./cli/drafts.js";
 import { initCommand } from "./cli/init.js";
 import { startCommand } from "./cli/start.js";
 import { onboardCommand } from "./cli/onboard.js";
+import { publishCommand } from "./cli/publish.js";
 
 const program = new Command();
 
@@ -18,5 +19,6 @@ program.addCommand(startCommand);
 program.addCommand(generateCommand);
 program.addCommand(draftsCommand);
 program.addCommand(initCommand);
+program.addCommand(publishCommand);
 
 program.parse();
