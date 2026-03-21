@@ -9,6 +9,7 @@ import type { InboundMessage } from "../channels/types.js";
 import type { ChannelType } from "../channels/types.js";
 import { createChannel, CHANNEL_LABELS } from "../channels/channel.js";
 import { publishDueScheduled } from "../agent/scheduler.js";
+import type { HooksConfig } from "../hooks/hooks.js";
 
 interface LobsterConfig {
   /** Which channel to use. Default: "telegram" */
@@ -24,7 +25,7 @@ interface LobsterConfig {
   signal?: { apiUrl: string; phoneNumber: string };
   nostr?: { privateKey: string; relays: string[] };
   matrix?: { homeserverUrl: string; accessToken: string; roomId: string };
-  webhook?: { port?: number; secret?: string };
+  webhook?: { port?: number; secret?: string; tokens?: string[] };
   irc?: {
     server: string;
     port?: number;
@@ -34,6 +35,8 @@ interface LobsterConfig {
     tls?: boolean;
   };
   model: ModelConfig;
+  /** Lifecycle hooks */
+  hooks?: HooksConfig;
 }
 
 async function loadLobsterConfig(siteDir: string): Promise<LobsterConfig> {
@@ -133,6 +136,7 @@ export const startCommand = new Command("start")
             siteDir,
             callModel,
             deploy: true,
+            hooks: lobsterConfig.hooks,
           });
 
           await channel.reply(message.chatId, result.reply);
