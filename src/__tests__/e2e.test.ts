@@ -36,6 +36,7 @@ function msg(overrides: Partial<InboundMessage>): InboundMessage {
     id: "e2e-1",
     text: "",
     images: [],
+    mediaFiles: [],
     chatId: "42",
     sender: { id: "42", name: "Ada" },
     receivedAt: "2025-03-15T10:00:00Z",
@@ -346,8 +347,8 @@ describe("E2E pipeline", () => {
     const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
     expect(rss).not.toContain("<script>alert");
 
-    // Index page must escape
+    // Index page must escape the XSS payload (not the legitimate search script)
     const index = await readFile(join(siteDir, "index.html"), "utf-8");
-    expect(index).not.toContain("<script>");
+    expect(index).not.toContain('<script>alert');
   });
 });

@@ -32,6 +32,10 @@ interface TelegramMessage {
   text?: string;
   caption?: string;
   photo?: TelegramPhotoSize[];
+  voice?: { file_id: string; duration: number; mime_type?: string };
+  audio?: { file_id: string; duration: number; mime_type?: string; file_name?: string };
+  video?: { file_id: string; duration: number; mime_type?: string; file_name?: string };
+  video_note?: { file_id: string; duration: number };
 }
 
 interface TelegramUpdate {
@@ -76,12 +80,29 @@ export function parseTelegramUpdate(
   const photoFileIds = extractImageFileIds(msg.photo);
   const pendingImages = photoFileIds.map((fileId) => ({ fileId }));
 
+  // Extract pending media (voice, audio, video, video_note)
+  const pendingMedia: { fileId: string; mimeType?: string }[] = [];
+  if (msg.voice) {
+    pendingMedia.push({ fileId: msg.voice.file_id, mimeType: msg.voice.mime_type ?? "audio/ogg" });
+  }
+  if (msg.audio) {
+    pendingMedia.push({ fileId: msg.audio.file_id, mimeType: msg.audio.mime_type ?? "audio/mpeg" });
+  }
+  if (msg.video) {
+    pendingMedia.push({ fileId: msg.video.file_id, mimeType: msg.video.mime_type ?? "video/mp4" });
+  }
+  if (msg.video_note) {
+    pendingMedia.push({ fileId: msg.video_note.file_id, mimeType: "video/mp4" });
+  }
+
   return {
     id: String(msg.message_id),
     text,
     images: [],
+    mediaFiles: [],
     chatId: String(msg.chat.id),
     pendingImages: pendingImages.length > 0 ? pendingImages : undefined,
+    pendingMedia: pendingMedia.length > 0 ? pendingMedia : undefined,
     sender,
     receivedAt: new Date(msg.date * 1000).toISOString(),
   };
@@ -209,20 +230,45 @@ export function createTelegramChannel(config: TelegramConfig): Channel {
     },
 
     async downloadImages(message: InboundMessage): Promise<void> {
-      if (!message.pendingImages || message.pendingImages.length === 0) return;
       const downloadDir = join(tmpdir(), `rsslobster-dl-${message.id}`);
-      for (const pending of message.pendingImages) {
-        try {
-          const localPath = await downloadTelegramFile(
-            config.token,
-            pending.fileId,
-            downloadDir,
-          );
-          const filename =
-            localPath.split("/").pop() ?? `${pending.fileId}.jpg`;
-          message.images.push({ localPath, filename });
-        } catch {
-          // Skip failed downloads — pipeline handles partial images gracefully
+
+      // Download images
+      if (message.pendingImages && message.pendingImages.length > 0) {
+        for (const pending of message.pendingImages) {
+          try {
+            const localPath = await downloadTelegramFile(
+              config.token,
+              pending.fileId,
+              downloadDir,
+            );
+            const filename =
+              localPath.split("/").pop() ?? `${pending.fileId}.jpg`;
+            message.images.push({ localPath, filename });
+          } catch {
+            // Skip failed downloads
+          }
+        }
+      }
+
+      // Download media (audio/video)
+      if (message.pendingMedia && message.pendingMedia.length > 0) {
+        for (const pending of message.pendingMedia) {
+          try {
+            const localPath = await downloadTelegramFile(
+              config.token,
+              pending.fileId,
+              downloadDir,
+            );
+            const filename =
+              localPath.split("/").pop() ?? `${pending.fileId}.mp4`;
+            message.mediaFiles.push({
+              localPath,
+              filename,
+              mimeType: pending.mimeType ?? "application/octet-stream",
+            });
+          } catch {
+            // Skip failed downloads
+          }
         }
       }
     },

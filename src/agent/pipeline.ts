@@ -5,6 +5,7 @@ import { addContent } from "../generator/site.js";
 import { createDraft } from "../drafts/drafts.js";
 import { deployToGit, type DeployResult } from "../deploy/git.js";
 import { ingestImages } from "../images/images.js";
+import { ingestMedia } from "../images/media.js";
 
 export interface PipelineConfig {
   siteDir: string;
@@ -30,12 +31,14 @@ export async function processMessage(
   const shouldDeploy = config.deploy !== false;
 
   // Step 1: Classify
+  const mediaMimeTypes = (message.mediaFiles ?? []).map((m) => m.mimeType);
   let classification;
   try {
     classification = await classifyContent(
       message.text,
       message.images.map((img) => img.localPath),
       config.callModel,
+      mediaMimeTypes,
     );
   } catch (err) {
     const error = err instanceof Error ? err.message : "Classification failed";
@@ -49,6 +52,11 @@ export async function processMessage(
     classification.slug,
   );
 
+  // Step 2b: Ingest media (video/audio) into site/media/ directory
+  const media = message.mediaFiles?.length
+    ? await ingestMedia(config.siteDir, message.mediaFiles, classification.slug)
+    : undefined;
+
   // Step 3: Build ClassifiedContent
   const now = new Date().toISOString();
   const content: ClassifiedContent = {
@@ -58,6 +66,7 @@ export async function processMessage(
     slug: classification.slug,
     tags: classification.tags,
     images: images.length > 0 ? images : undefined,
+    media,
     linkUrl: classification.linkUrl,
     linkTitle: classification.linkTitle,
     linkDescription: classification.linkDescription,

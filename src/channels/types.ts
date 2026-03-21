@@ -18,14 +18,33 @@ export interface InboundMessage {
   text: string;
   /** Attached images (downloaded to local paths) */
   images: InboundImage[];
+  /** Attached media files — video or audio (downloaded to local paths) */
+  mediaFiles: InboundMedia[];
   /** Channel-specific chat/conversation ID for replies */
   chatId: string;
   /** Photos pending download (channel-specific file references) */
   pendingImages?: PendingImage[];
+  /** Media files pending download */
+  pendingMedia?: PendingMedia[];
   /** Sender info for logging */
   sender: { id: string; name: string };
   /** ISO timestamp */
   receivedAt: string;
+}
+
+export interface InboundMedia {
+  /** Local file path after download */
+  localPath: string;
+  /** MIME type (e.g. "video/mp4", "audio/ogg") */
+  mimeType: string;
+  /** Original filename */
+  filename: string;
+}
+
+/** Raw media reference before download */
+export interface PendingMedia {
+  fileId: string;
+  mimeType?: string;
 }
 
 export interface InboundImage {

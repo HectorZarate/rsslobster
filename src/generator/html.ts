@@ -1,5 +1,6 @@
 import type { ClassifiedContent, SiteConfig } from "../config/types.js";
 import { resolveStyle, generateStylesheet } from "../styles/presets.js";
+import { SEARCH_HTML, SEARCH_SCRIPT } from "./search.js";
 
 /**
  * Generate an HTML page from classified content.
@@ -86,8 +87,10 @@ export function generateIndexPage(
     <p>${escHtml(config.description)}</p>
   </header>
   <main id="main">
+    ${SEARCH_HTML}
 ${items}
   </main>
+${SEARCH_SCRIPT}
 </body>
 </html>`;
 }
@@ -116,6 +119,20 @@ function renderContentBody(content: ClassifiedContent): string {
         <h3>${escHtml(content.linkTitle ?? content.linkUrl ?? "")}</h3>
         ${content.linkDescription ? `<p>${escHtml(content.linkDescription)}</p>` : ""}
       </a>
+      <p>${escHtml(content.body)}</p>`;
+
+    case "video":
+      return `${content.media ? `<video controls preload="metadata" playsinline>
+        <source src="${escAttr(content.media.src)}" type="${escAttr(content.media.mimeType)}">
+        Your browser does not support the video element.
+      </video>` : ""}
+      <p>${escHtml(content.body)}</p>`;
+
+    case "audio":
+      return `${content.media ? `<audio controls preload="metadata">
+        <source src="${escAttr(content.media.src)}" type="${escAttr(content.media.mimeType)}">
+        Your browser does not support the audio element.
+      </audio>` : ""}
       <p>${escHtml(content.body)}</p>`;
   }
 }

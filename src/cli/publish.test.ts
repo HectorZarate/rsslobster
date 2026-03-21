@@ -114,7 +114,7 @@ describe("buildPublishContent", () => {
   it("rejects invalid content type", () => {
     expect(() =>
       buildPublishContent({
-        type: "video" as "micro",
+        type: "podcast" as "micro",
         text: "Hello",
       }),
     ).toThrow("Invalid content type");

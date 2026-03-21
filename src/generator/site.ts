@@ -10,6 +10,7 @@ import type {
 import { generateHtmlPage, generateIndexPage, escHtml } from "./html.js";
 import { generateRss } from "./rss.js";
 import { generateJsonFeed } from "./json-feed.js";
+import { writeSearchIndex } from "./search.js";
 
 const POSTS_INDEX = "posts.json";
 
@@ -75,9 +76,10 @@ export async function addContent(
   posts.unshift(post);
   await writePostsIndex(siteDir, posts);
 
-  // Rebuild feeds and index
+  // Rebuild feeds, index, and search
   await rebuildFeeds(siteDir, config, posts);
   await rebuildIndex(siteDir, config, posts);
+  await writeSearchIndex(siteDir, posts);
 
   return post;
 }
@@ -105,12 +107,17 @@ export async function rebuildFeeds(
     guid: p.url,
     author: config.author,
     categories: p.tags.length > 0 ? p.tags : undefined,
-    enclosure: p.images?.[0]
+    enclosure: p.media
       ? {
-          url: `https://${config.domain}${p.images[0].src}`,
-          type: mimeFromSrc(p.images[0].src),
+          url: `https://${config.domain}${p.media.src}`,
+          type: p.media.mimeType,
         }
-      : undefined,
+      : p.images?.[0]
+        ? {
+            url: `https://${config.domain}${p.images[0].src}`,
+            type: mimeFromSrc(p.images[0].src),
+          }
+        : undefined,
   }));
 
   const rss = generateRss(feedConfig, items);
@@ -137,14 +144,16 @@ export async function scaffoldSite(
 ): Promise<void> {
   await mkdir(siteDir, { recursive: true });
   await mkdir(join(siteDir, "images"), { recursive: true });
+  await mkdir(join(siteDir, "media"), { recursive: true });
   await mkdir(join(siteDir, "drafts"), { recursive: true });
 
   await writeSiteConfig(siteDir, config);
   await writePostsIndex(siteDir, []);
 
-  // Generate empty index and feeds
+  // Generate empty index, feeds, and search
   await rebuildFeeds(siteDir, config, []);
   await rebuildIndex(siteDir, config, []);
+  await writeSearchIndex(siteDir, []);
 }
 
 function truncate(s: string, len: number): string {
