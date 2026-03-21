@@ -1,0 +1,336 @@
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtemp, rm, readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { processMessage } from "./agent/pipeline.js";
+import { scaffoldSite, readPostsIndex } from "./generator/site.js";
+import type { SiteConfig } from "./config/types.js";
+import type { InboundMessage } from "./channels/types.js";
+
+/**
+ * End-to-end pipeline tests with canned model responses.
+ *
+ * These tests exercise the FULL flow: classify → ingest → generate → verify output.
+ * No mocking of internal modules — only the LLM call is replaced with deterministic
+ * canned responses that match real model output.
+ */
+
+const SITE_CONFIG: SiteConfig = {
+  domain: "example.com",
+  title: "My Lobster Blog",
+  description: "Publishing from the shell",
+  author: "Ada Lovelace",
+  language: "en",
+  style: { preset: "minimal" },
+  repo: "",
+};
+
+function msg(overrides: Partial<InboundMessage>): InboundMessage {
+  return {
+    id: "e2e-1",
+    text: "",
+    images: [],
+    chatId: "42",
+    sender: { id: "42", name: "Ada" },
+    receivedAt: "2025-03-15T10:00:00Z",
+    ...overrides,
+  };
+}
+
+describe("E2E pipeline", () => {
+  let siteDir: string;
+
+  beforeEach(async () => {
+    siteDir = await mkdtemp(join(tmpdir(), "rsslobster-e2e-"));
+    await scaffoldSite(siteDir, SITE_CONFIG);
+  });
+
+  afterEach(async () => {
+    await rm(siteDir, { recursive: true, force: true });
+  });
+
+  it("micro post: message → HTML page + RSS + JSON Feed + index", async () => {
+    const cannedResponse = JSON.stringify({
+      type: "micro",
+      body: "The mass of men lead lives of quiet desperation.",
+      tags: ["quote"],
+      isDraft: false,
+    });
+
+    const result = await processMessage(
+      msg({ text: "The mass of men lead lives of quiet desperation." }),
+      { siteDir, callModel: async () => cannedResponse, deploy: false },
+    );
+
+    // Published, not a draft
+    expect(result.post).toBeDefined();
+    expect(result.draft).toBeUndefined();
+    expect(result.error).toBeUndefined();
+    expect(result.post!.type).toBe("micro");
+    expect(result.post!.url).toBe(
+      "https://example.com/the-mass-of-men-lead-lives-of-quiet-desperation.html",
+    );
+
+    // HTML page exists and has correct structure
+    const html = await readFile(
+      join(siteDir, `${result.post!.slug}.html`),
+      "utf-8",
+    );
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain('<html lang="en">');
+    expect(html).toContain("quiet desperation");
+    expect(html).toContain("My Lobster Blog");
+    expect(html).toContain('class="skip-link"');
+    expect(html).toContain('href="/feed.xml"');
+    expect(html).toContain('href="/feed.json"');
+    expect(html).toContain('<span class="tag">quote</span>');
+
+    // RSS feed updated with the new post
+    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    expect(rss).toContain("<rss version");
+    expect(rss).toContain("quiet desperation");
+    expect(rss).toContain("<category>quote</category>");
+    expect(rss).toContain("example.com");
+
+    // JSON Feed updated
+    const jsonFeed = JSON.parse(
+      await readFile(join(siteDir, "feed.json"), "utf-8"),
+    );
+    expect(jsonFeed.version).toBe("https://jsonfeed.org/version/1.1");
+    expect(jsonFeed.title).toBe("My Lobster Blog");
+    expect(jsonFeed.items).toHaveLength(1);
+    expect(jsonFeed.items[0].title).toContain("quiet desperation");
+
+    // Index page lists the post
+    const index = await readFile(join(siteDir, "index.html"), "utf-8");
+    expect(index).toContain("quiet desperation");
+    expect(index).toContain(".html");
+
+    // Posts index JSON updated
+    const posts = await readPostsIndex(siteDir);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.type).toBe("micro");
+  });
+
+  it("long post: title and body render with correct structure", async () => {
+    const cannedResponse = JSON.stringify({
+      type: "post",
+      title: "Why RSS Still Matters",
+      body: "In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can take it away.",
+      tags: ["rss", "indieweb", "web"],
+      isDraft: false,
+    });
+
+    const result = await processMessage(
+      msg({
+        text: "# Why RSS Still Matters\nIn an age of algorithmic feeds and walled gardens, RSS remains the only open standard...",
+      }),
+      { siteDir, callModel: async () => cannedResponse, deploy: false },
+    );
+
+    expect(result.post!.type).toBe("post");
+    expect(result.post!.title).toBe("Why RSS Still Matters");
+
+    const html = await readFile(
+      join(siteDir, `${result.post!.slug}.html`),
+      "utf-8",
+    );
+    expect(html).toContain("<h1>Why RSS Still Matters</h1>");
+    expect(html).toContain("algorithmic feeds");
+    expect(html).toContain('<span class="tag">rss</span>');
+    expect(html).toContain('<span class="tag">indieweb</span>');
+    expect(html).toContain('<span class="tag">web</span>');
+
+    // Title is in the <title> tag
+    expect(html).toContain(
+      "<title>Why RSS Still Matters — My Lobster Blog</title>",
+    );
+  });
+
+  it("link share: renders link card with URL and metadata", async () => {
+    const cannedResponse = JSON.stringify({
+      type: "link",
+      body: "Best explanation of how the indieweb works that I've seen.",
+      tags: ["indieweb"],
+      isDraft: false,
+      linkUrl: "https://indieweb.org/Getting_Started",
+      linkTitle: "Getting Started with the IndieWeb",
+      linkDescription:
+        "A step-by-step guide to owning your online identity.",
+    });
+
+    const result = await processMessage(
+      msg({
+        text: "https://indieweb.org/Getting_Started — best explanation of how the indieweb works",
+      }),
+      { siteDir, callModel: async () => cannedResponse, deploy: false },
+    );
+
+    expect(result.post!.type).toBe("link");
+
+    const html = await readFile(
+      join(siteDir, `${result.post!.slug}.html`),
+      "utf-8",
+    );
+    expect(html).toContain('class="link-card"');
+    expect(html).toContain('href="https://indieweb.org/Getting_Started"');
+    expect(html).toContain("Getting Started with the IndieWeb");
+    expect(html).toContain("step-by-step guide");
+    expect(html).toContain("rel=\"noopener\"");
+  });
+
+  it("draft: saved but NOT published, no HTML page generated", async () => {
+    const cannedResponse = JSON.stringify({
+      type: "post",
+      title: "Unfinished Thoughts on Decentralization",
+      body: "Need to think more about this...",
+      tags: ["tech"],
+      isDraft: true,
+    });
+
+    const result = await processMessage(
+      msg({ text: "Draft: unfinished thoughts on decentralization" }),
+      { siteDir, callModel: async () => cannedResponse, deploy: false },
+    );
+
+    expect(result.draft).toBeDefined();
+    expect(result.draft!.status).toBe("draft");
+    expect(result.post).toBeUndefined();
+    expect(result.reply).toContain("Saved as draft");
+
+    // No HTML page should exist for the draft
+    const files = await readdir(siteDir);
+    const htmlFiles = files.filter(
+      (f) => f.endsWith(".html") && f !== "index.html",
+    );
+    expect(htmlFiles).toHaveLength(0);
+
+    // Posts index should be empty
+    const posts = await readPostsIndex(siteDir);
+    expect(posts).toHaveLength(0);
+
+    // RSS should have no items
+    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    expect(rss).not.toContain("<item>");
+  });
+
+  it("multiple posts build up the index and feeds correctly", async () => {
+    const messages = [
+      {
+        text: "First coffee of the day.",
+        response: JSON.stringify({
+          type: "micro",
+          body: "First coffee of the day.",
+          tags: ["morning"],
+          isDraft: false,
+        }),
+      },
+      {
+        text: "Second thought for today.",
+        response: JSON.stringify({
+          type: "micro",
+          body: "Second thought for today.",
+          tags: ["life"],
+          isDraft: false,
+        }),
+      },
+      {
+        text: "# On Writing\nWrite every day, even when you don't feel like it.",
+        response: JSON.stringify({
+          type: "post",
+          title: "On Writing",
+          body: "Write every day, even when you don't feel like it.",
+          tags: ["writing"],
+          isDraft: false,
+        }),
+      },
+    ];
+
+    for (const m of messages) {
+      await processMessage(msg({ text: m.text }), {
+        siteDir,
+        callModel: async () => m.response,
+        deploy: false,
+      });
+    }
+
+    // Three posts in index, newest first
+    const posts = await readPostsIndex(siteDir);
+    expect(posts).toHaveLength(3);
+    expect(posts[0]!.title).toBe("On Writing");
+
+    // Three HTML pages + index.html
+    const files = await readdir(siteDir);
+    const htmlFiles = files.filter((f) => f.endsWith(".html"));
+    expect(htmlFiles).toHaveLength(4); // 3 posts + index.html
+
+    // RSS and JSON Feed have all 3 items
+    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    const itemMatches = rss.match(/<item>/g);
+    expect(itemMatches).toHaveLength(3);
+
+    const jsonFeed = JSON.parse(
+      await readFile(join(siteDir, "feed.json"), "utf-8"),
+    );
+    expect(jsonFeed.items).toHaveLength(3);
+
+    // Index page lists all 3
+    const index = await readFile(join(siteDir, "index.html"), "utf-8");
+    expect(index).toContain("First coffee");
+    expect(index).toContain("Second thought");
+    expect(index).toContain("On Writing");
+  });
+
+  it("classification failure returns error, does not corrupt site", async () => {
+    const failingModel = async () => {
+      throw new Error("Model API is down");
+    };
+
+    const result = await processMessage(
+      msg({ text: "This should fail gracefully" }),
+      { siteDir, callModel: failingModel, deploy: false },
+    );
+
+    expect(result.error).toBeDefined();
+    expect(result.reply).toContain("Failed");
+    expect(result.post).toBeUndefined();
+
+    // Site should be untouched — empty posts, clean feeds
+    const posts = await readPostsIndex(siteDir);
+    expect(posts).toHaveLength(0);
+
+    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    expect(rss).not.toContain("<item>");
+  });
+
+  it("XSS in user input is escaped in all outputs", async () => {
+    const xssPayload = '<script>alert("xss")</script>';
+    const cannedResponse = JSON.stringify({
+      type: "micro",
+      body: xssPayload,
+      tags: ["test"],
+      isDraft: false,
+    });
+
+    const result = await processMessage(
+      msg({ text: xssPayload }),
+      { siteDir, callModel: async () => cannedResponse, deploy: false },
+    );
+
+    // HTML page must escape the script tag
+    const html = await readFile(
+      join(siteDir, `${result.post!.slug}.html`),
+      "utf-8",
+    );
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+
+    // RSS must escape it too
+    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    expect(rss).not.toContain("<script>alert");
+
+    // Index page must escape
+    const index = await readFile(join(siteDir, "index.html"), "utf-8");
+    expect(index).not.toContain("<script>");
+  });
+});

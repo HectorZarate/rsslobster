@@ -1,0 +1,11 @@
+{
+  "domain": "minimal.example.com",
+  "title": "Ada's Notes",
+  "description": "Thoughts on the open web",
+  "author": "Ada Lovelace",
+  "language": "en",
+  "style": {
+    "preset": "minimal"
+  },
+  "repo": ""
+}

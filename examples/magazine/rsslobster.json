@@ -1,0 +1,11 @@
+{
+  "domain": "magazine.example.com",
+  "title": "The Evening Page",
+  "description": "Long reads and quiet links",
+  "author": "Ada Lovelace",
+  "language": "en",
+  "style": {
+    "preset": "magazine"
+  },
+  "repo": ""
+}

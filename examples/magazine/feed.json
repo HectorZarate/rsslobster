@@ -1,0 +1,99 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "The Evening Page",
+  "home_page_url": "https://magazine.example.com",
+  "feed_url": "https://magazine.example.com/feed.json",
+  "description": "Long reads and quiet links",
+  "language": "en",
+  "authors": [
+    {
+      "name": "Ada Lovelace"
+    }
+  ],
+  "items": [
+    {
+      "id": "https://magazine.example.com/quiet-desperation.html",
+      "url": "https://magazine.example.com/quiet-desperation.html",
+      "title": "The mass of men lead lives of quiet desperation. What is called resignation is …",
+      "content_html": "The mass of men lead lives of quiet desperation. What is called resignation is confirmed desperation.",
+      "date_published": "2026-03-21T06:56:08.000Z",
+      "tags": [
+        "quote",
+        "thoreau"
+      ],
+      "authors": [
+        {
+          "name": "Ada Lovelace"
+        }
+      ]
+    },
+    {
+      "id": "https://magazine.example.com/why-rss-still-matters.html",
+      "url": "https://magazine.example.com/why-rss-still-matters.html",
+      "title": "Why RSS Still Matters",
+      "content_html": "In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can enshittify your timeline. You subscribe, you read, you move on. The protocol is simple: an XML file at a known URL. Any client can fetch it. No API key, no OAuth dance, no rate limits. This is how the web was supposed to work.",
+      "date_published": "2026-03-21T06:56:08.000Z",
+      "tags": [
+        "rss",
+        "indieweb",
+        "web"
+      ],
+      "authors": [
+        {
+          "name": "Ada Lovelace"
+        }
+      ]
+    },
+    {
+      "id": "https://magazine.example.com/getting-started-indieweb.html",
+      "url": "https://magazine.example.com/getting-started-indieweb.html",
+      "title": "The best explanation of the indie web I've found. Start here if you want to own…",
+      "content_html": "The best explanation of the indie web I've found. Start here if you want to own your corner of the internet.",
+      "date_published": "2026-03-21T06:56:08.000Z",
+      "tags": [
+        "indieweb"
+      ],
+      "authors": [
+        {
+          "name": "Ada Lovelace"
+        }
+      ]
+    },
+    {
+      "id": "https://magazine.example.com/sunset-from-the-office.html",
+      "url": "https://magazine.example.com/sunset-from-the-office.html",
+      "title": "Sunset from the office window. Sometimes you have to stop and look up.",
+      "content_html": "Sunset from the office window. Sometimes you have to stop and look up.",
+      "date_published": "2026-03-21T06:56:08.000Z",
+      "tags": [
+        "photo"
+      ],
+      "authors": [
+        {
+          "name": "Ada Lovelace"
+        }
+      ],
+      "attachments": [
+        {
+          "url": "https://magazine.example.com/images/sunset-1.jpg",
+          "mime_type": "image/jpeg"
+        }
+      ]
+    },
+    {
+      "id": "https://magazine.example.com/just-shipped.html",
+      "url": "https://magazine.example.com/just-shipped.html",
+      "title": "Just shipped a new feature. Zero dependencies, zero JavaScript in the output, f…",
+      "content_html": "Just shipped a new feature. Zero dependencies, zero JavaScript in the output, four seconds to deploy. This is what building for the web should feel like.",
+      "date_published": "2026-03-21T06:56:08.000Z",
+      "tags": [
+        "building"
+      ],
+      "authors": [
+        {
+          "name": "Ada Lovelace"
+        }
+      ]
+    }
+  ]
+}
