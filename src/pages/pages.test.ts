@@ -1,5 +1,8 @@
-import { describe, it, expect } from "vitest";
-import { getNavPages, renderNav, generatePageHtml } from "./pages.js";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtemp, rm, readFile, readdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { getNavPages, renderNav, renderPageLinks, generatePageHtml, writePages } from "./pages.js";
 import type { SiteConfig, PageConfig } from "../config/types.js";
 
 const CONFIG: SiteConfig = {
@@ -112,5 +115,77 @@ describe("generatePageHtml", () => {
     });
     expect(html).toContain('name="custom"');
     expect(html).toContain("analytics.js");
+  });
+});
+
+describe("renderPageLinks", () => {
+  it("returns empty string when no pages", () => {
+    expect(renderPageLinks(CONFIG)).toBe("");
+  });
+
+  it("renders page links without home link", () => {
+    const config = {
+      ...CONFIG,
+      pages: [
+        { title: "About", slug: "about", body: "About", navOrder: 1 },
+      ],
+    };
+    const links = renderPageLinks(config);
+    expect(links).toContain("About");
+    expect(links).toContain("/about.html");
+    // Should NOT contain the home link
+    expect(links).not.toContain('href="/"');
+  });
+});
+
+describe("writePages", () => {
+  let siteDir: string;
+
+  beforeEach(async () => {
+    siteDir = await mkdtemp(join(tmpdir(), "rsslobster-pages-"));
+  });
+
+  afterEach(async () => {
+    await rm(siteDir, { recursive: true, force: true });
+  });
+
+  it("writes valid page HTML files", async () => {
+    const config = {
+      ...CONFIG,
+      pages: [{ title: "About", slug: "about", body: "About me", navOrder: 1 }],
+    };
+    await writePages(siteDir, config);
+
+    const html = await readFile(join(siteDir, "about.html"), "utf-8");
+    expect(html).toContain("About me");
+  });
+
+  it("skips pages with path traversal slugs", async () => {
+    const config = {
+      ...CONFIG,
+      pages: [
+        { title: "Evil", slug: "../evil", body: "malicious" },
+        { title: "Good", slug: "good", body: "safe" },
+      ],
+    };
+    await writePages(siteDir, config);
+
+    const files = await readdir(siteDir);
+    expect(files).toContain("good.html");
+    expect(files).not.toContain("evil.html");
+  });
+
+  it("skips pages with uppercase or special chars in slug", async () => {
+    const config = {
+      ...CONFIG,
+      pages: [
+        { title: "Bad", slug: "BAD", body: "bad" },
+        { title: "Also Bad", slug: "foo/bar", body: "bad" },
+      ],
+    };
+    await writePages(siteDir, config);
+
+    const files = await readdir(siteDir);
+    expect(files).toHaveLength(0);
   });
 });

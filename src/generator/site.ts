@@ -15,6 +15,7 @@ import { writeSeo } from "./seo.js";
 import { writePages } from "../pages/pages.js";
 import { expandPermalink, permalinkDir } from "../config/permalink.js";
 import type { PageInjections } from "../plugins/types.js";
+import { loadCustomCss } from "../styles/presets.js";
 
 const POSTS_INDEX = "posts.json";
 
@@ -69,6 +70,17 @@ export async function addContent(
   options?: AddContentOptions,
 ): Promise<Post> {
   const config = await readSiteConfig(siteDir);
+
+  // Load custom CSS if configured and fold into style overrides
+  if (config.style.cssFile) {
+    const customCss = await loadCustomCss(siteDir, config.style.cssFile);
+    if (customCss) {
+      config.style.overrides = config.style.overrides ?? {};
+      config.style.overrides.customCss =
+        (config.style.overrides.customCss ?? "") + "\n" + customCss;
+    }
+  }
+
   const posts = await readPostsIndex(siteDir);
 
   // Resolve slug collisions — append -2, -3, etc. if slug already exists

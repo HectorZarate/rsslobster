@@ -36,9 +36,18 @@ export class PluginRegistry {
   ): Promise<void> {
     for (const pluginConfig of plugins) {
       try {
-        const modulePath = pluginConfig.name.startsWith(".")
-          ? resolve(siteDir, pluginConfig.name)
-          : pluginConfig.name;
+        let modulePath: string;
+        if (pluginConfig.name.startsWith(".")) {
+          modulePath = resolve(siteDir, pluginConfig.name);
+          // Prevent path traversal outside site directory
+          const resolvedSiteDir = resolve(siteDir);
+          if (!modulePath.startsWith(resolvedSiteDir + "/") && modulePath !== resolvedSiteDir) {
+            console.error(`Plugin "${pluginConfig.name}": path escapes site directory`);
+            continue;
+          }
+        } else {
+          modulePath = pluginConfig.name;
+        }
 
         const mod = (await import(modulePath)) as Record<string, unknown>;
         const activate = (typeof mod["activate"] === "function" ? mod["activate"] : undefined)

@@ -12,6 +12,7 @@ import { publishDueScheduled } from "../agent/scheduler.js";
 import { cleanExpiredPreviews } from "../previews/previews.js";
 import { deployToGit } from "../deploy/git.js";
 import type { HooksConfig } from "../hooks/hooks.js";
+import { PluginRegistry } from "../plugins/registry.js";
 
 interface LobsterConfig {
   /** Which channel to use. Default: "telegram" */
@@ -98,6 +99,13 @@ export const startCommand = new Command("start")
     const channel = createChannel(channelType, channelConfig as never);
     const channelLabel = CHANNEL_LABELS[channelType];
 
+    // Load plugins if configured
+    const pluginRegistry = new PluginRegistry();
+    if (siteConfig.plugins && siteConfig.plugins.length > 0) {
+      await pluginRegistry.loadPlugins(siteConfig.plugins, siteDir);
+      console.log(pc.dim(`   Plugins: ${siteConfig.plugins.length} loaded`));
+    }
+
     console.log(pc.green("🦞 Lobster is live."));
     console.log(`   Site: ${pc.cyan(`https://${siteConfig.domain}`)}`);
     console.log(`   Model: ${pc.cyan(lobsterConfig.model.model)}`);
@@ -145,11 +153,13 @@ export const startCommand = new Command("start")
           // Download any pending attachments (images + media) before processing
           await channel.downloadAttachments(message);
 
+          const pluginInjections = pluginRegistry.getInjections(null, siteConfig, "post");
           const result = await processMessage(message, {
             siteDir,
             callModel,
             deploy: true,
             hooks: lobsterConfig.hooks,
+            pluginInjections,
           });
 
           await channel.reply(message.chatId, result.reply);

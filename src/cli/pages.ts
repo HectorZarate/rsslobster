@@ -27,6 +27,12 @@ pagesCommand
     const siteDir = resolve(opts.siteDir);
     const config = await readSiteConfig(siteDir);
 
+    // Validate slug (no path traversal, alphanumeric + hyphens only)
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(opts.slug)) {
+      console.error(pc.red(`Invalid slug "${opts.slug}". Use only lowercase letters, numbers, and hyphens.`));
+      process.exit(1);
+    }
+
     const page: PageConfig = {
       title: opts.title,
       slug: opts.slug,

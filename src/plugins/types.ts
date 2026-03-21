@@ -72,10 +72,6 @@ export interface PluginModule {
   activate(api: PluginAPI, options?: Record<string, unknown>): void | Promise<void>;
 }
 
-/** Plugin entry in site config */
-export interface PluginConfig {
-  /** Path to plugin module (relative to site dir) or package name */
-  name: string;
-  /** Plugin-specific options */
-  options?: Record<string, unknown>;
-}
+// Plugin config is defined as PluginConfigEntry in config/types.ts
+// Re-export for convenience
+export type { PluginConfigEntry as PluginConfig } from "../config/types.js";

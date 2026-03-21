@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Post, SiteConfig } from "../config/types.js";
+import { escXml } from "./rss.js";
 
 /**
  * SEO output generators — sitemap.xml and robots.txt.
@@ -86,11 +87,3 @@ export async function writeSeo(
   await writeFile(join(siteDir, "robots.txt"), robots);
 }
 
-function escXml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}

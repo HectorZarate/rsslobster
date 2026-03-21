@@ -21,7 +21,17 @@ export function getNavPages(config: SiteConfig): PageConfig[] {
     .sort((a, b) => (a.navOrder ?? 0) - (b.navOrder ?? 0));
 }
 
-/** Render the nav HTML fragment with site title + page links */
+/** Render page links only (no home link) — for use on the index page where <h1> is already the title */
+export function renderPageLinks(config: SiteConfig): string {
+  const pages = getNavPages(config);
+  if (pages.length === 0) return "";
+  const links = pages
+    .map((p) => `<a href="/${escHtml(p.slug)}.html">${escHtml(p.title)}</a>`)
+    .join("\n      ");
+  return `<nav>${links}</nav>`;
+}
+
+/** Render the full nav with home link + page links — for sub-pages, posts, archive */
 export function renderNav(config: SiteConfig): string {
   const pages = getNavPages(config);
   const links = pages
@@ -70,6 +80,11 @@ export function generatePageHtml(
 </html>`;
 }
 
+/** Validate that a page slug is safe (no path traversal) */
+function isValidSlug(slug: string): boolean {
+  return /^[a-z0-9][a-z0-9-]*$/.test(slug) && !slug.includes("..");
+}
+
 /** Write all static pages to disk */
 export async function writePages(
   siteDir: string,
@@ -79,6 +94,10 @@ export async function writePages(
   if (!config.pages || config.pages.length === 0) return;
 
   for (const page of config.pages) {
+    if (!isValidSlug(page.slug)) {
+      console.error(`Skipping page with invalid slug: "${page.slug}"`);
+      continue;
+    }
     const html = generatePageHtml(page, config, injections);
     await writeFile(join(siteDir, `${page.slug}.html`), html);
   }

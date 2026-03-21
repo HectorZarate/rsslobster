@@ -1,7 +1,7 @@
 import type { ClassifiedContent, SiteConfig } from "../config/types.js";
 import { resolveStyle, generateStylesheet } from "../styles/presets.js";
 import { SEARCH_HTML, SEARCH_SCRIPT } from "./search.js";
-import { renderNav } from "../pages/pages.js";
+import { renderNav, renderPageLinks } from "../pages/pages.js";
 import type { PageInjections } from "../plugins/types.js";
 
 /**
@@ -211,7 +211,8 @@ export function generateIndexPage(
 ): string {
   const resolved = resolveStyle(config.style.preset, config.style.overrides);
   const css = generateStylesheet(resolved);
-  const nav = renderNav(config);
+  const pageLinksHtml = renderPageLinks(config);
+  const pageLinks = pageLinksHtml ? `\n    ${pageLinksHtml}` : "";
 
   const recentPosts = posts.slice(0, INDEX_PAGE_LIMIT);
   const hasArchive = posts.length > INDEX_PAGE_LIMIT;
@@ -246,7 +247,7 @@ export function generateIndexPage(
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header>
-    ${nav}
+    <h1>${escHtml(config.title)}</h1>${pageLinks}
     <p>${escHtml(config.description)}</p>
   </header>
   <main id="main">

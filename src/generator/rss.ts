@@ -52,6 +52,6 @@ function renderItem(item: FeedItem): string {
   return parts.join("\n");
 }
 
-function escXml(s: string): string {
+export function escXml(s: string): string {
   return escHtml(s).replace(/'/g, "&apos;");
 }
