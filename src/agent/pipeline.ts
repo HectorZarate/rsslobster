@@ -6,12 +6,19 @@ import { createDraft } from "../drafts/drafts.js";
 import { deployToGit, type DeployResult } from "../deploy/git.js";
 import { ingestImages } from "../images/images.js";
 import { ingestMedia } from "../images/media.js";
+import {
+  fireHooks,
+  parseHookOverride,
+  type HooksConfig,
+} from "../hooks/hooks.js";
 
 export interface PipelineConfig {
   siteDir: string;
   callModel: CallModel;
   /** Whether to git commit+push after generation. Default true. */
   deploy?: boolean;
+  /** Lifecycle hooks configuration */
+  hooks?: HooksConfig;
 }
 
 export interface PipelineResult {
@@ -43,6 +50,27 @@ export async function processMessage(
   } catch (err) {
     const error = err instanceof Error ? err.message : "Classification failed";
     return { deployed: false, reply: `Failed to process: ${error}`, error };
+  }
+
+  // Hook: afterClassify — can override classification fields
+  const classifyHookOutput = await fireHooks(
+    "afterClassify",
+    config.hooks,
+    { ...classification },
+    config.siteDir,
+    classification.type,
+  );
+  const overrides = parseHookOverride(classifyHookOutput);
+  if (overrides) {
+    if (typeof overrides["body"] === "string") classification.body = overrides["body"];
+    if (typeof overrides["title"] === "string") classification.title = overrides["title"];
+    if (typeof overrides["slug"] === "string") classification.slug = overrides["slug"];
+    if (Array.isArray(overrides["tags"])) {
+      classification.tags = (overrides["tags"] as unknown[]).filter(
+        (t): t is string => typeof t === "string",
+      );
+    }
+    if (typeof overrides["isDraft"] === "boolean") classification.isDraft = overrides["isDraft"];
   }
 
   // Step 2: Ingest images into site/images/ directory
@@ -98,6 +126,15 @@ export async function processMessage(
     return { deployed: false, reply: `Failed to generate: ${error}`, error };
   }
 
+  // Hook: afterPublish
+  await fireHooks(
+    "afterPublish",
+    config.hooks,
+    { url: post.url, slug: classification.slug, type: classification.type, tags: classification.tags },
+    config.siteDir,
+    classification.type,
+  );
+
   // Step 6: Deploy (if enabled)
   let deployResult: DeployResult | undefined;
   if (shouldDeploy) {
@@ -112,6 +149,22 @@ export async function processMessage(
   const reply = deployed
     ? `Published. ${post.url}`
     : `Published locally. ${post.url}`;
+
+  // Hook: afterDeploy
+  if (shouldDeploy) {
+    await fireHooks(
+      "afterDeploy",
+      config.hooks,
+      {
+        url: post.url,
+        slug: classification.slug,
+        committed: deployResult?.committed ?? false,
+        pushError: deployResult?.pushError,
+      },
+      config.siteDir,
+      classification.type,
+    );
+  }
 
   return { post, deployed, deployResult, reply };
 }

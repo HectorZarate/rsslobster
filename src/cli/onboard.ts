@@ -158,16 +158,49 @@ export const onboardCommand = new Command("onboard")
     // Model config
     console.log(
       pc.dim(
-        "\nModel setup — any OpenAI-compatible API works (Ollama, OpenAI, etc.).",
+        "\nModel setup — supports OpenAI-compatible APIs (Ollama, OpenAI) and Anthropic natively.",
       ),
     );
-    const modelBaseUrl = await ask(
+    const providerInput = await ask(
       rl,
-      "Model API base URL",
-      "http://localhost:11434/v1",
+      "Provider (openai, anthropic)",
+      "openai",
     );
-    const modelName = await ask(rl, "Model name", "llama3");
-    const modelApiKey = await ask(rl, "API key", "ollama");
+    const modelProvider = providerInput === "anthropic" ? "anthropic" : "openai";
+    const defaultBaseUrl =
+      modelProvider === "anthropic"
+        ? "https://api.anthropic.com/v1"
+        : "http://localhost:11434/v1";
+    const defaultModel =
+      modelProvider === "anthropic" ? "claude-sonnet-4-20250514" : "llama3";
+    const defaultKey = modelProvider === "anthropic" ? "" : "ollama";
+
+    const modelBaseUrl = await ask(rl, "Model API base URL", defaultBaseUrl);
+    const modelName = await ask(rl, "Model name", defaultModel);
+    const modelApiKey = await ask(rl, "API key", defaultKey);
+
+    // Optional fallback provider
+    const wantFallback = await ask(rl, "Add a fallback provider? (y/n)", "n");
+    let fallbackConfig: Record<string, unknown> | undefined;
+    if (wantFallback.toLowerCase() === "y") {
+      const fbProvider = await ask(
+        rl,
+        "Fallback provider (openai, anthropic)",
+        modelProvider === "anthropic" ? "openai" : "anthropic",
+      );
+      const fbDefaultUrl =
+        fbProvider === "anthropic"
+          ? "https://api.anthropic.com/v1"
+          : "http://localhost:11434/v1";
+      const fbDefaultModel =
+        fbProvider === "anthropic" ? "claude-sonnet-4-20250514" : "llama3";
+      fallbackConfig = {
+        provider: fbProvider,
+        baseUrl: await ask(rl, "Fallback API base URL", fbDefaultUrl),
+        model: await ask(rl, "Fallback model name", fbDefaultModel),
+        apiKey: await ask(rl, "Fallback API key"),
+      };
+    }
 
     // Git repo
     const repo = await ask(
@@ -193,9 +226,11 @@ export const onboardCommand = new Command("onboard")
       channel,
       [channel]: channelConfig,
       model: {
+        provider: modelProvider,
         baseUrl: modelBaseUrl,
         model: modelName,
         apiKey: modelApiKey,
+        ...(fallbackConfig ? { fallback: fallbackConfig } : {}),
       },
     };
 
