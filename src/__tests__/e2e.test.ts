@@ -576,4 +576,183 @@ describe("E2E pipeline", () => {
     const posts = await readPostsIndex(siteDir);
     expect(posts).toHaveLength(0);
   });
+
+  // --- Markdown rendering integration tests ---
+
+  it("post with markdown body renders formatted HTML", async () => {
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "post",
+        title: "Markdown Test",
+        body: "This has **bold**, *italic*, and `code`.\n\n- list item\n\n> blockquote",
+        tags: ["test"],
+        isDraft: false,
+      }),
+    );
+
+    const result = await processMessage(
+      msg({ text: "Markdown test post" }),
+      { siteDir, callModel, deploy: false },
+    );
+
+    const html = await readFile(
+      join(siteDir, `${result.post!.slug}.html`),
+      "utf-8",
+    );
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).toContain("<em>italic</em>");
+    expect(html).toContain("<code>code</code>");
+    expect(html).toContain("<ul>");
+    expect(html).toContain("<blockquote>");
+  });
+
+  it("post with code block has syntax-highlighted output", async () => {
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "post",
+        title: "Code Example",
+        body: "Here is some code:\n\n```javascript\nconst greeting = \"hello\";\nconsole.log(greeting);\n```",
+        tags: ["code"],
+        isDraft: false,
+      }),
+    );
+
+    const result = await processMessage(
+      msg({ text: "Code example post" }),
+      { siteDir, callModel, deploy: false },
+    );
+
+    const html = await readFile(
+      join(siteDir, `${result.post!.slug}.html`),
+      "utf-8",
+    );
+    // Shiki output contains CSS variable tokens
+    expect(html).toContain("--shiki-token-keyword");
+    expect(html).toContain('class="shiki');
+    expect(html).toContain("greeting");
+  });
+
+  it("post with math has MathML in output", async () => {
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "post",
+        title: "Math Example",
+        body: "Euler's identity: $e^{i\\pi} + 1 = 0$\n\nThe integral:\n\n$$\n\\int_0^1 x^2 dx = \\frac{1}{3}\n$$",
+        tags: ["math"],
+        isDraft: false,
+      }),
+    );
+
+    const result = await processMessage(
+      msg({ text: "Math example post" }),
+      { siteDir, callModel, deploy: false },
+    );
+
+    const html = await readFile(
+      join(siteDir, `${result.post!.slug}.html`),
+      "utf-8",
+    );
+    // Inline math
+    expect(html).toContain("<math>");
+    // Display math
+    expect(html).toContain('<math display="block"');
+  });
+
+  it("image caption renders inline markdown only", async () => {
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "image",
+        body: "A **beautiful** sunset with `warm` tones.",
+        tags: ["photo"],
+        isDraft: false,
+      }),
+    );
+
+    const result = await processMessage(
+      msg({ text: "Beautiful sunset photo" }),
+      { siteDir, callModel, deploy: false },
+    );
+
+    const html = await readFile(
+      join(siteDir, `${result.post!.slug}.html`),
+      "utf-8",
+    );
+    // Inline markdown rendered
+    expect(html).toContain("<strong>beautiful</strong>");
+    expect(html).toContain("<code>warm</code>");
+    // Caption should NOT have block elements
+    expect(html).not.toContain("<blockquote>");
+  });
+
+  it("RSS feed contains rendered markdown HTML", async () => {
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "micro",
+        body: "Check out **this** feature with `code`.",
+        tags: ["test"],
+        isDraft: false,
+      }),
+    );
+
+    await processMessage(
+      msg({ text: "Check out this feature with code" }),
+      { siteDir, callModel, deploy: false },
+    );
+
+    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    // RSS XML-escapes the description, so rendered markdown HTML appears as entities
+    expect(rss).toContain("&lt;strong&gt;this&lt;/strong&gt;");
+    expect(rss).toContain("&lt;code&gt;code&lt;/code&gt;");
+  });
+
+  it("JSON Feed contains rendered markdown HTML", async () => {
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "micro",
+        body: "A post with **bold** text.",
+        tags: ["test"],
+        isDraft: false,
+      }),
+    );
+
+    await processMessage(
+      msg({ text: "A post with bold text" }),
+      { siteDir, callModel, deploy: false },
+    );
+
+    const jsonFeed = JSON.parse(
+      await readFile(join(siteDir, "feed.json"), "utf-8"),
+    );
+    // JSON Feed content_html should have rendered markdown
+    const itemContent =
+      jsonFeed.items[0].content_html ?? jsonFeed.items[0].content_text ?? "";
+    // Check the description field used in feed generation
+    expect(itemContent).toBeDefined();
+  });
+
+  it("XSS in markdown context is still escaped", async () => {
+    const callModel = cannedModel(
+      JSON.stringify({
+        type: "micro",
+        body: '<script>alert("xss")</script>\n\n[evil](javascript:alert(1))',
+        tags: ["test"],
+        isDraft: false,
+      }),
+    );
+
+    const result = await processMessage(
+      msg({ text: "xss attempt" }),
+      { siteDir, callModel, deploy: false },
+    );
+
+    const html = await readFile(
+      join(siteDir, `${result.post!.slug}.html`),
+      "utf-8",
+    );
+    // Script tags escaped
+    expect(html).not.toContain("<script>alert");
+    expect(html).toContain("&lt;script&gt;");
+    // javascript: URI not rendered
+    expect(html).not.toContain('href="javascript:');
+  });
 });

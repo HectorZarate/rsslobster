@@ -7,7 +7,8 @@ import type {
   Post,
   SiteConfig,
 } from "../config/types.js";
-import { generateHtmlPage, generateIndexPage, generateArchivePage, escHtml } from "./html.js";
+import { generateHtmlPage, generateIndexPage, generateArchivePage } from "./html.js";
+import { initMarkdown, renderMarkdown } from "./markdown.js";
 import { generateRss } from "./rss.js";
 import { generateJsonFeed } from "./json-feed.js";
 import { writeSearchIndex } from "./search.js";
@@ -69,6 +70,7 @@ export async function addContent(
   content: ClassifiedContent,
   options?: AddContentOptions,
 ): Promise<Post> {
+  await initMarkdown();
   const config = await readSiteConfig(siteDir);
 
   // Load custom CSS if configured and fold into style overrides
@@ -151,7 +153,7 @@ export async function rebuildFeeds(
   const items: FeedItem[] = posts.slice(0, 20).map((p) => ({
     title: p.title ?? truncate(p.body, 80),
     link: p.url,
-    description: escHtml(p.body),
+    description: renderMarkdown(p.body),
     pubDate: new Date(p.publishedAt).toUTCString(),
     guid: p.url,
     author: config.author,
