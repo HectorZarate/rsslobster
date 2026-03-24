@@ -6,6 +6,16 @@
   <title>Why RSS Still Matters — Ada's Notes</title>
   <meta name="description" content="In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No compa…">
   <meta name="author" content="Ada Lovelace">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Why RSS Still Matters">
+  <meta property="og:description" content="In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can enshittify your timeline. You sub…">
+  <meta property="og:url" content="https://minimal.example.com/why-rss-still-matters.html">
+  <meta property="og:site_name" content="Ada&#39;s Notes">
+  <meta property="og:locale" content="en">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Why RSS Still Matters">
+  <meta name="twitter:description" content="In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can enshittify your timeline. You sub…">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Why RSS Still Matters","url":"https://minimal.example.com/why-rss-still-matters.html","datePublished":"2025-03-14T08:00:00Z","dateModified":"2025-03-14T08:00:00Z","author":{"@type":"Person","name":"Ada Lovelace"},"publisher":{"@type":"Person","name":"Ada Lovelace"},"description":"In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can enshittify your timeline. You sub…","inLanguage":"en","keywords":"rss, indieweb, web"}</script>
   <link rel="alternate" type="application/rss+xml" title="Ada&#39;s Notes" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="Ada&#39;s Notes" href="/feed.json">
   <style>:root {
@@ -22,6 +32,17 @@
   --color-muted: #666666;
   --color-border: #CCCCCC;
   --border-radius: 0px;
+  --shiki-foreground: #383a42;
+  --shiki-background: color-mix(in srgb, #222222 5%, transparent);
+  --shiki-token-constant: #986801;
+  --shiki-token-string: #50a14f;
+  --shiki-token-comment: #a0a1a7;
+  --shiki-token-keyword: #a626a4;
+  --shiki-token-parameter: #383a42;
+  --shiki-token-function: #4078f2;
+  --shiki-token-string-expression: #50a14f;
+  --shiki-token-punctuation: #383a42;
+  --shiki-token-link: #0000EE;
 }
 
 /*
@@ -144,6 +165,24 @@ pre {
 pre code {
   background: none;
   padding: 0;
+}
+
+/* === Shiki code blocks — override pre defaults with shiki vars === */
+pre.shiki {
+  background: var(--shiki-background) !important;
+  border: 1px solid var(--color-border);
+}
+
+/* === Math (MathML) === */
+math {
+  font-size: 1.1em;
+}
+
+math[display="block"] {
+  display: block;
+  text-align: center;
+  margin: 1em 0;
+  overflow-x: auto;
 }
 
 /* === Lists — properly indented === */
@@ -347,7 +386,8 @@ nav a, button, .tag {
   <main id="main">
     <article>
       <h1>Why RSS Still Matters</h1>
-      <div>In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can enshittify your timeline. You subscribe, you read, you move on. The protocol is simple: an XML file at a known URL. Any client can fetch it. No API key, no OAuth dance, no rate limits. This is how the web was supposed to work.</div>
+      <div><p>In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can enshittify your timeline. You subscribe, you read, you move on. The protocol is simple: an XML file at a known URL. Any client can fetch it. No API key, no OAuth dance, no rate limits. This is how the web was supposed to work.</p>
+</div>
       <footer class="meta">
         <time datetime="2025-03-14T08:00:00Z">March 14, 2025</time>
         <span class="tag">rss</span> <span class="tag">indieweb</span> <span class="tag">web</span>

@@ -6,6 +6,19 @@
   <title>Sunset from the office window. Sometimes you have to stop a… — The Evening Page</title>
   <meta name="description" content="Sunset from the office window. Sometimes you have to stop and look up.">
   <meta name="author" content="Ada Lovelace">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Sunset from the office window. Sometimes you have to stop a…">
+  <meta property="og:description" content="Sunset from the office window. Sometimes you have to stop and look up.">
+  <meta property="og:url" content="https://magazine.example.com/sunset-from-the-office.html">
+  <meta property="og:site_name" content="The Evening Page">
+  <meta property="og:locale" content="en">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Sunset from the office window. Sometimes you have to stop a…">
+  <meta name="twitter:description" content="Sunset from the office window. Sometimes you have to stop and look up.">
+  <meta property="og:image" content="https://magazine.example.com/images/sunset-1.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:image:alt" content="Golden sunset over city rooftops with scattered clouds">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Sunset from the office window. Sometimes you have to stop and look up.","url":"https://magazine.example.com/sunset-from-the-office.html","datePublished":"2025-03-12T18:20:00Z","dateModified":"2025-03-12T18:20:00Z","author":{"@type":"Person","name":"Ada Lovelace"},"publisher":{"@type":"Person","name":"Ada Lovelace"},"description":"Sunset from the office window. Sometimes you have to stop and look up.","inLanguage":"en","image":"https://magazine.example.com/images/sunset-1.jpg","keywords":"photo"}</script>
   <link rel="alternate" type="application/rss+xml" title="The Evening Page" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="The Evening Page" href="/feed.json">
   <style>:root {
@@ -22,6 +35,17 @@
   --color-muted: #7A7A7A;
   --color-border: #D4C5B9;
   --border-radius: 0px;
+  --shiki-foreground: #2e3440;
+  --shiki-background: color-mix(in srgb, #1A1A1A 5%, transparent);
+  --shiki-token-constant: #b48ead;
+  --shiki-token-string: #a3be8c;
+  --shiki-token-comment: #939ba8;
+  --shiki-token-keyword: #8B0000;
+  --shiki-token-parameter: #2e3440;
+  --shiki-token-function: #5e81ac;
+  --shiki-token-string-expression: #a3be8c;
+  --shiki-token-punctuation: #2e3440;
+  --shiki-token-link: #8B0000;
 }
 
 /*
@@ -144,6 +168,24 @@ pre {
 pre code {
   background: none;
   padding: 0;
+}
+
+/* === Shiki code blocks — override pre defaults with shiki vars === */
+pre.shiki {
+  background: var(--shiki-background) !important;
+  border: 1px solid var(--color-border);
+}
+
+/* === Math (MathML) === */
+math {
+  font-size: 1.1em;
+}
+
+math[display="block"] {
+  display: block;
+  text-align: center;
+  margin: 1em 0;
+  overflow-x: auto;
 }
 
 /* === Lists — properly indented === */

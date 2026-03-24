@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>The Evening Page</title>
   <meta name="description" content="Long reads and quiet links">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="The Evening Page">
+  <meta property="og:description" content="Long reads and quiet links">
+  <meta property="og:url" content="https://magazine.example.com/">
+  <meta property="og:site_name" content="The Evening Page">
   <link rel="alternate" type="application/rss+xml" title="The Evening Page" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="The Evening Page" href="/feed.json">
   <style>:root {
@@ -21,6 +26,17 @@
   --color-muted: #7A7A7A;
   --color-border: #D4C5B9;
   --border-radius: 0px;
+  --shiki-foreground: #2e3440;
+  --shiki-background: color-mix(in srgb, #1A1A1A 5%, transparent);
+  --shiki-token-constant: #b48ead;
+  --shiki-token-string: #a3be8c;
+  --shiki-token-comment: #939ba8;
+  --shiki-token-keyword: #8B0000;
+  --shiki-token-parameter: #2e3440;
+  --shiki-token-function: #5e81ac;
+  --shiki-token-string-expression: #a3be8c;
+  --shiki-token-punctuation: #2e3440;
+  --shiki-token-link: #8B0000;
 }
 
 /*
@@ -143,6 +159,24 @@ pre {
 pre code {
   background: none;
   padding: 0;
+}
+
+/* === Shiki code blocks — override pre defaults with shiki vars === */
+pre.shiki {
+  background: var(--shiki-background) !important;
+  border: 1px solid var(--color-border);
+}
+
+/* === Math (MathML) === */
+math {
+  font-size: 1.1em;
+}
+
+math[display="block"] {
+  display: block;
+  text-align: center;
+  margin: 1em 0;
+  overflow-x: auto;
 }
 
 /* === Lists — properly indented === */
@@ -336,6 +370,72 @@ nav a, button, .tag {
   article { border-bottom: none; page-break-inside: avoid; }
 }
 
+
+/* === Search === */
+#search-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+#search-input {
+  flex: 1;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  outline: none;
+}
+
+#search-input:focus {
+  border-color: var(--color-link);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-link) 25%, transparent);
+}
+
+#search-input::placeholder {
+  color: var(--color-muted);
+}
+
+#search-results {
+  margin-bottom: 1.5rem;
+}
+
+#search-results article {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+#search-results article:last-child {
+  border-bottom: none;
+}
+
+#search-results h3 {
+  margin-top: 0;
+  margin-bottom: 0.25em;
+  font-size: 1rem;
+}
+
+.search-count {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  font-family: var(--font-heading);
+  margin-bottom: 0.75rem;
+}
+
+.snippet {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.25em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 </style>
 </head>
 <body>
@@ -345,6 +445,10 @@ nav a, button, .tag {
     <p>Long reads and quiet links</p>
   </header>
   <main id="main">
+    <form id="search-form" role="search" aria-label="Search posts">
+      <input id="search-input" type="search" placeholder="Search posts…" aria-label="Search">
+    </form>
+    <div id="search-results" aria-live="polite"></div>
     <article>
       <h2><a href="/quiet-desperation.html">The mass of men lead lives of quiet desperation. What is called resignation is …</a></h2>
       <p>The mass of men lead lives of quiet desperation. What is called resignation is confirmed desperation.</p>
@@ -371,5 +475,33 @@ nav a, button, .tag {
       <time datetime="2025-03-11T22:00:00Z">March 11, 2025</time>
     </article>
   </main>
+<script>
+(function(){
+var f=document.getElementById('search-form');
+var i=document.getElementById('search-input');
+var r=document.getElementById('search-results');
+if(!f||!i||!r)return;
+var idx=null,tm=0;
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function tags(g){if(!g)return '';return g.split(' ').map(function(t){return '<span class="tag">'+esc(t)+'</span>';}).join(' ');}
+function show(q){
+var w=q.split(/\s+/);
+var h=idx.filter(function(e){return w.every(function(v){return e.t.indexOf(v)!==-1||e.b.indexOf(v)!==-1||e.g.indexOf(v)!==-1;});});
+var n=h.length;
+if(!n){r.innerHTML='<p class="search-count">No results for \u201c'+esc(q)+'\u201d</p>';return;}
+var out='<p class="search-count">'+n+' result'+(n===1?'':'s')+'</p>';
+out+=h.slice(0,20).map(function(e){return '<article><h3><a href="/'+esc(e.s)+'.html">'+esc(e.d)+'</a></h3>'+(e.b?'<p class="snippet">'+esc(e.b.slice(0,120))+'\u2026</p>':'')+(e.g?tags(e.g):'')+'</article>';}).join('');
+r.innerHTML=out;}
+function run(){
+var q=i.value.trim().toLowerCase();
+if(!q){r.innerHTML='';return;}
+if(idx){show(q);return;}
+r.innerHTML='<p class="search-count">Searching\u2026</p>';
+fetch('search-index.json').then(function(x){return x.json();}).then(function(d){idx=d;show(q);}).catch(function(){r.innerHTML='<p>Search unavailable.</p>';});}
+i.addEventListener('input',function(){clearTimeout(tm);tm=setTimeout(run,250);});
+f.addEventListener('submit',function(e){e.preventDefault();clearTimeout(tm);run();});
+document.addEventListener('keydown',function(e){if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();i.focus();i.select();}});
+})();
+</script>
 </body>
 </html>

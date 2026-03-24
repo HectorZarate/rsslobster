@@ -1,6 +1,6 @@
 import type { ClassifiedContent, SiteConfig } from "../config/types.js";
 import { resolveStyle, generateStylesheet } from "../styles/presets.js";
-import { SEARCH_HTML, SEARCH_SCRIPT } from "./search.js";
+import { SEARCH_HTML, SEARCH_SCRIPT, SEARCH_CSS } from "./search.js";
 import { renderNav, renderPageLinks } from "../pages/pages.js";
 import type { PageInjections } from "../plugins/types.js";
 import { renderMarkdown, renderInline } from "./markdown.js";
@@ -243,7 +243,7 @@ export function generateIndexPage(
   ${ogTags}
   <link rel="alternate" type="application/rss+xml" title="${escAttr(config.title)}" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="${escAttr(config.title)}" href="/feed.json">
-  <style>${css}</style>${pluginHead}
+  <style>${css}${SEARCH_CSS}</style>${pluginHead}
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -280,7 +280,7 @@ export function generateArchivePage(
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Archive — ${escHtml(config.title)}</title>
   <meta name="description" content="All posts on ${escAttr(config.title)}">
-  <style>${css}</style>${pluginHead}
+  <style>${css}${SEARCH_CSS}</style>${pluginHead}
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>

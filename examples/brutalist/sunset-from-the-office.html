@@ -6,6 +6,19 @@
   <title>Sunset from the office window. Sometimes you have to stop a… — RAW FEED</title>
   <meta name="description" content="Sunset from the office window. Sometimes you have to stop and look up.">
   <meta name="author" content="Ada Lovelace">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Sunset from the office window. Sometimes you have to stop a…">
+  <meta property="og:description" content="Sunset from the office window. Sometimes you have to stop and look up.">
+  <meta property="og:url" content="https://brutalist.example.com/sunset-from-the-office.html">
+  <meta property="og:site_name" content="RAW FEED">
+  <meta property="og:locale" content="en">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Sunset from the office window. Sometimes you have to stop a…">
+  <meta name="twitter:description" content="Sunset from the office window. Sometimes you have to stop and look up.">
+  <meta property="og:image" content="https://brutalist.example.com/images/sunset-1.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:image:alt" content="Golden sunset over city rooftops with scattered clouds">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Sunset from the office window. Sometimes you have to stop and look up.","url":"https://brutalist.example.com/sunset-from-the-office.html","datePublished":"2025-03-12T18:20:00Z","dateModified":"2025-03-12T18:20:00Z","author":{"@type":"Person","name":"Ada Lovelace"},"publisher":{"@type":"Person","name":"Ada Lovelace"},"description":"Sunset from the office window. Sometimes you have to stop and look up.","inLanguage":"en","image":"https://brutalist.example.com/images/sunset-1.jpg","keywords":"photo"}</script>
   <link rel="alternate" type="application/rss+xml" title="RAW FEED" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="RAW FEED" href="/feed.json">
   <style>:root {
@@ -22,6 +35,17 @@
   --color-muted: #666666;
   --color-border: #000000;
   --border-radius: 0px;
+  --shiki-foreground: #000000;
+  --shiki-background: color-mix(in srgb, #000000 5%, transparent);
+  --shiki-token-constant: #0000CC;
+  --shiki-token-string: #008800;
+  --shiki-token-comment: #888888;
+  --shiki-token-keyword: #CC0000;
+  --shiki-token-parameter: #000000;
+  --shiki-token-function: #0000CC;
+  --shiki-token-string-expression: #008800;
+  --shiki-token-punctuation: #000000;
+  --shiki-token-link: #0000EE;
 }
 
 /*
@@ -144,6 +168,24 @@ pre {
 pre code {
   background: none;
   padding: 0;
+}
+
+/* === Shiki code blocks — override pre defaults with shiki vars === */
+pre.shiki {
+  background: var(--shiki-background) !important;
+  border: 1px solid var(--color-border);
+}
+
+/* === Math (MathML) === */
+math {
+  font-size: 1.1em;
+}
+
+math[display="block"] {
+  display: block;
+  text-align: center;
+  margin: 1em 0;
+  overflow-x: auto;
 }
 
 /* === Lists — properly indented === */

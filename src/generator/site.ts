@@ -179,7 +179,7 @@ export async function rebuildFeeds(
 }
 
 /** Rebuild the index.html and archive.html pages */
-async function rebuildIndex(
+export async function rebuildIndex(
   siteDir: string,
   config: SiteConfig,
   posts: Post[],
@@ -207,6 +207,43 @@ export async function scaffoldSite(
 
   await writeSiteConfig(siteDir, config);
   await writePostsIndex(siteDir, []);
+
+  // Generate _headers to block internal files from being served publicly
+  await writeFile(
+    join(siteDir, "_headers"),
+    [
+      "/rsslobster.json",
+      "  X-Robots-Tag: noindex",
+      "",
+      "/posts.json",
+      "  X-Robots-Tag: noindex",
+      "",
+      "/drafts/*",
+      "  X-Robots-Tag: noindex",
+      "",
+    ].join("\n"),
+  );
+
+  // Generate .assetsignore for Cloudflare Workers/Pages static asset deploys
+  await writeFile(
+    join(siteDir, ".assetsignore"),
+    [
+      "node_modules",
+      ".wrangler",
+      ".git",
+      "drafts",
+      "rsslobster.json",
+      "posts.json",
+      "package.json",
+      "package-lock.json",
+      "bun.lockb",
+      "wrangler.jsonc",
+      ".gitignore",
+      ".assetsignore",
+      "README.md",
+      "",
+    ].join("\n"),
+  );
 
   // Generate empty index, feeds, search, SEO, and pages
   await rebuildFeeds(siteDir, config, []);

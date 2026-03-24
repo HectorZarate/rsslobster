@@ -6,6 +6,16 @@
   <title>Just shipped a new feature. Zero dependencies, zero JavaScr… — The Evening Page</title>
   <meta name="description" content="Just shipped a new feature. Zero dependencies, zero JavaScript in the output, four seconds to deploy. This is what building for the web should feel like.">
   <meta name="author" content="Ada Lovelace">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Just shipped a new feature. Zero dependencies, zero JavaScr…">
+  <meta property="og:description" content="Just shipped a new feature. Zero dependencies, zero JavaScript in the output, four seconds to deploy. This is what building for the web should feel like.">
+  <meta property="og:url" content="https://magazine.example.com/just-shipped.html">
+  <meta property="og:site_name" content="The Evening Page">
+  <meta property="og:locale" content="en">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Just shipped a new feature. Zero dependencies, zero JavaScr…">
+  <meta name="twitter:description" content="Just shipped a new feature. Zero dependencies, zero JavaScript in the output, four seconds to deploy. This is what building for the web should feel like.">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Just shipped a new feature. Zero dependencies, zero JavaScript in the output, four seconds to deploy. This is…","url":"https://magazine.example.com/just-shipped.html","datePublished":"2025-03-11T22:00:00Z","dateModified":"2025-03-11T22:00:00Z","author":{"@type":"Person","name":"Ada Lovelace"},"publisher":{"@type":"Person","name":"Ada Lovelace"},"description":"Just shipped a new feature. Zero dependencies, zero JavaScript in the output, four seconds to deploy. This is what building for the web should feel like.","inLanguage":"en","keywords":"building"}</script>
   <link rel="alternate" type="application/rss+xml" title="The Evening Page" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="The Evening Page" href="/feed.json">
   <style>:root {
@@ -22,6 +32,17 @@
   --color-muted: #7A7A7A;
   --color-border: #D4C5B9;
   --border-radius: 0px;
+  --shiki-foreground: #2e3440;
+  --shiki-background: color-mix(in srgb, #1A1A1A 5%, transparent);
+  --shiki-token-constant: #b48ead;
+  --shiki-token-string: #a3be8c;
+  --shiki-token-comment: #939ba8;
+  --shiki-token-keyword: #8B0000;
+  --shiki-token-parameter: #2e3440;
+  --shiki-token-function: #5e81ac;
+  --shiki-token-string-expression: #a3be8c;
+  --shiki-token-punctuation: #2e3440;
+  --shiki-token-link: #8B0000;
 }
 
 /*
@@ -144,6 +165,24 @@ pre {
 pre code {
   background: none;
   padding: 0;
+}
+
+/* === Shiki code blocks — override pre defaults with shiki vars === */
+pre.shiki {
+  background: var(--shiki-background) !important;
+  border: 1px solid var(--color-border);
+}
+
+/* === Math (MathML) === */
+math {
+  font-size: 1.1em;
+}
+
+math[display="block"] {
+  display: block;
+  text-align: center;
+  margin: 1em 0;
+  overflow-x: auto;
 }
 
 /* === Lists — properly indented === */
@@ -347,6 +386,7 @@ nav a, button, .tag {
   <main id="main">
     <article>
       <p>Just shipped a new feature. Zero dependencies, zero JavaScript in the output, four seconds to deploy. This is what building for the web should feel like.</p>
+
       <footer class="meta">
         <time datetime="2025-03-11T22:00:00Z">March 11, 2025</time>
         <span class="tag">building</span>
