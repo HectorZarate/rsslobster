@@ -10,7 +10,7 @@ Send a message from your chat app. Get a published website with RSS — in four 
 
 No database. No CMS. No JavaScript in the output. Just semantic HTML, RSS, and git.
 
-**Cost:** $12/year for a domain. Hosting: free (Cloudflare Pages).
+**Cost:** $12/year for a domain. Hosting: free (Cloudflare Workers).
 
 ## Quick Start
 
@@ -31,12 +31,12 @@ Classify (LLM determines content type)
   ↓
 Generate (HTML page + RSS + JSON Feed)
   ↓
-Deploy (git commit → git push → Cloudflare Pages)
+Deploy (git commit → git push → Cloudflare Workers)
   ↓
 Live (< 4 seconds end-to-end)
 ```
 
-You send a message from any supported channel. The lobster classifies it (micro post, long article, image, link share, video, audio), generates a static HTML page with inlined CSS, updates the RSS and JSON feeds, commits to git, and Cloudflare Pages deploys it. Zero JavaScript in the output. WCAG AA accessible. Print-friendly.
+You send a message from any supported channel. The lobster classifies it (micro post, long article, image, link share, video, audio), generates a static HTML page with inlined CSS, updates the RSS and JSON feeds, commits to git, and Cloudflare deploys it. Zero JavaScript in the output. WCAG AA accessible. Print-friendly. Your content is never rewritten by AI — the LLM classifies metadata only.
 
 ## Content Types
 
@@ -59,16 +59,16 @@ Any messaging platform can be an input source. Pick whichever you already use.
 | Channel | Status | Integration |
 |---------|--------|-------------|
 | **Telegram** | ✅ Ready | Bot via @BotFather |
+| **Webhook** | ✅ Ready | Universal — curl, IFTTT, Zapier, Shortcuts |
 | **Discord** | 🔲 Planned | Bot via Developer Portal |
 | **Slack** | 🔲 Planned | App via Socket Mode |
 | **WhatsApp** | 🔲 Planned | Business Cloud API |
 | **Signal** | 🔲 Planned | Via signal-cli REST API |
 | **Nostr** | 🔲 Planned | Decentralized relay protocol |
 | **Matrix** | 🔲 Planned | Open protocol, self-hostable |
-| **Webhook** | 🔲 Planned | Universal — curl, IFTTT, Zapier, Shortcuts |
 | **IRC** | 🔲 Planned | Classic text-first protocol |
 
-All stubs are implemented and ready for contributors. The pipeline is channel-agnostic — it only needs an `InboundMessage`.
+The pipeline is channel-agnostic — it only needs an `InboundMessage`. Stubs for all channels are ready for contributors.
 
 ## Configuration
 
@@ -160,33 +160,50 @@ Multi-stage build, runs as non-root, Node.js 22 slim base.
 | `rsslobster onboard [dir]` | Interactive setup wizard |
 | `rsslobster init [dir]` | Non-interactive scaffold (`--domain`, `--title`, `--style`, etc.) |
 | `rsslobster start [dir]` | Start the daemon — listen for messages and publish |
+| `rsslobster publish <text>` | Publish directly from CLI — no LLM needed |
+| `rsslobster dev [dir]` | Local preview server (serves `_site/` on localhost:4321) |
+| `rsslobster regenerate [dir]` | Rebuild all pages from existing posts (after style changes) |
 | `rsslobster generate [dir]` | Generate HTML + feeds from JSON on stdin |
 | `rsslobster drafts` | List and manage drafts |
-| `rsslobster publish <slug>` | Publish a specific draft |
 
 ## Architecture
 
 ```
+mysite/                     ← your site (git repo)
+├── rsslobster.json          ← site config (domain, title, style)
+├── posts.json               ← posts index
+├── drafts/                  ← saved drafts
+└── _site/                   ← generated output (deploy this)
+    ├── index.html
+    ├── favicon.svg
+    ├── og-image.png
+    ├── feed.xml / feed.json
+    ├── search-index.json
+    ├── sitemap.xml / robots.txt
+    └── posts/slug/index.html
+```
+
+```
 src/
 ├── agent/          # LLM classification + publishing pipeline
-├── channels/       # Messaging platform adapters (9 channels)
-├── cli/            # Command handlers (onboard, start, generate, etc.)
-├── config/         # Types and content utilities
+├── channels/       # Messaging platform adapters
+├── cli/            # Command handlers (onboard, start, dev, publish, etc.)
+├── config/         # Types, permalink patterns, output paths
 ├── deploy/         # Git operations (stage, commit, push)
 ├── drafts/         # Draft lifecycle management
-├── generator/      # HTML, RSS, JSON Feed, search index generation
+├── generator/      # HTML, RSS, JSON Feed, search, favicon, OG image
 ├── hooks/          # Lifecycle hooks (afterClassify, afterPublish, afterDeploy)
-├── images/         # Image ingestion and processing
+├── images/         # Image and media ingestion
 ├── styles/         # CSS preset system + inheritance
 └── index.ts        # CLI entrypoint
 ```
 
 **Design principles:**
 - Files as the API — git is the database
-- Composition over abstraction
+- Config and state at root, output in `_site/` — clean separation
 - Zero JavaScript in output
-- Minimal runtime dependencies (3 production deps)
-- Test-first development (80% coverage thresholds)
+- AI classifies metadata, never rewrites your words
+- Test-first development (560+ tests)
 
 ## Adding a Channel
 
