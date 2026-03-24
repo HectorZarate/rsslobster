@@ -62,7 +62,7 @@ function createOpenAICaller(
           { role: "system", content: systemContent },
           { role: "user", content: userPrompt },
         ],
-        response_format: { type: "json_object" },
+        ...(config.apiKey !== "lm-studio" ? { response_format: { type: "json_object" } } : {}),
       }),
     });
 
