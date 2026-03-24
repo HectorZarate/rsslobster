@@ -73,7 +73,19 @@ export function generateOgImageSvg(
   ].join("");
 }
 
-/** Write the OG image SVG to the site output directory */
+/** Render an OG image SVG to PNG using sharp */
+export async function renderOgImagePng(
+  title: string,
+  description: string,
+  preset?: StylePreset,
+  overrides?: StyleOverrides,
+): Promise<Buffer> {
+  const sharp = (await import("sharp")).default;
+  const svg = generateOgImageSvg(title, description, preset, overrides);
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+/** Write the OG image as PNG to the site output directory */
 export async function writeOgImage(
   siteDir: string,
   title: string,
@@ -81,8 +93,8 @@ export async function writeOgImage(
   preset?: StylePreset,
   overrides?: StyleOverrides,
 ): Promise<void> {
-  const svg = generateOgImageSvg(title, description, preset, overrides);
-  await writeFile(join(outputDir(siteDir), "og-image.svg"), svg);
+  const png = await renderOgImagePng(title, description, preset, overrides);
+  await writeFile(join(outputDir(siteDir), "og-image.png"), png);
 }
 
 /** Extract the first visible character (supports emoji) from a title */

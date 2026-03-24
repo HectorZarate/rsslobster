@@ -46,6 +46,7 @@
     "gray-matter": "^4.0.3",
     "markdown-it": "^14.1.1",
     "picocolors": "^1.1.0",
+    "sharp": "^0.34.5",
     "shiki": "^4.0.2",
     "temml": "^0.13.2"
   },

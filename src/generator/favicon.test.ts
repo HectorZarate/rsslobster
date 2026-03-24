@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateFaviconSvg, faviconDataUri, faviconLinkTags, generateOgImageSvg } from "./favicon.js";
+import { generateFaviconSvg, faviconDataUri, faviconLinkTags, generateOgImageSvg, renderOgImagePng } from "./favicon.js";
 
 describe("generateFaviconSvg", () => {
   it("generates valid SVG", () => {
@@ -102,5 +102,25 @@ describe("generateOgImageSvg", () => {
   it("escapes special characters", () => {
     const svg = generateOgImageSvg("<script>", "desc");
     expect(svg).toContain("&lt;");
+  });
+});
+
+describe("renderOgImagePng", () => {
+  it("returns a PNG buffer", async () => {
+    const png = await renderOgImagePng("Test", "A blog");
+    expect(png).toBeInstanceOf(Buffer);
+    // PNG magic bytes
+    expect(png[0]).toBe(0x89);
+    expect(png[1]).toBe(0x50); // P
+    expect(png[2]).toBe(0x4e); // N
+    expect(png[3]).toBe(0x47); // G
+  });
+
+  it("produces a 1200x630 image", async () => {
+    const sharp = (await import("sharp")).default;
+    const png = await renderOgImagePng("Test", "A blog");
+    const meta = await sharp(png).metadata();
+    expect(meta.width).toBe(1200);
+    expect(meta.height).toBe(630);
   });
 });

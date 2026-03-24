@@ -225,7 +225,7 @@ export function generateIndexPage(
     ? `\n    <nav class="pagination"><a href="/archive.html">Older posts (${posts.length - INDEX_PAGE_LIMIT} more)</a></nav>`
     : "";
 
-  const ogImageUrl = `https://${config.domain}/og-image.svg`;
+  const ogImageUrl = `https://${config.domain}/og-image.png`;
   const ogTags = [
     `<meta property="og:type" content="website">`,
     `<meta property="og:title" content="${escAttr(config.title)}">`,
