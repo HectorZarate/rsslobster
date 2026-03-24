@@ -43,6 +43,13 @@ export function previewPageOptions(): HtmlPageOptions {
   };
 }
 
+/** Site-level footer with RSS link */
+function renderSiteFooter(): string {
+  return `  <footer class="site-footer">
+    <a href="/feed.xml">RSS</a>
+  </footer>`;
+}
+
 /** Generate Open Graph meta tags */
 function generateOgTags(
   content: ClassifiedContent,
@@ -170,7 +177,9 @@ export function generateHtmlPage(
         ${renderTags(content.tags)}
       </footer>${articleFooter}
     </article>
-  </main>${bodyEnd}
+  </main>
+${renderSiteFooter()}
+${bodyEnd}
 </body>
 </html>`;
 }
@@ -269,6 +278,7 @@ export function generateIndexPage(
     ${SEARCH_HTML}
 ${items}${archiveLink}
   </main>
+${renderSiteFooter()}
 ${SEARCH_SCRIPT}${bodyEnd}
 </body>
 </html>`;
@@ -308,6 +318,7 @@ export function generateArchivePage(
     ${SEARCH_HTML}
 ${items}
   </main>
+${renderSiteFooter()}
 ${SEARCH_SCRIPT}${bodyEnd}
 </body>
 </html>`;

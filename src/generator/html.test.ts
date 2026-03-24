@@ -112,6 +112,14 @@ describe("generateHtmlPage", () => {
     expect(html).toContain("<nav>");
   });
 
+  // UX: visible RSS link in footer
+  it("includes a visible RSS link in a site footer", () => {
+    const html = generateHtmlPage(MICRO, SITE_CONFIG);
+    expect(html).toContain("<footer");
+    expect(html).toContain('href="/feed.xml"');
+    expect(html).toMatch(/RSS/i);
+  });
+
   // UX: RSS feed autodiscovery
   it("includes feed autodiscovery links", () => {
     const html = generateHtmlPage(MICRO, SITE_CONFIG);
@@ -247,6 +255,14 @@ describe("generateIndexPage", () => {
   it("includes og:image on index page", () => {
     const html = generateIndexPage([], SITE_CONFIG);
     expect(html).toContain('og:image');
+  });
+
+  // UX: visible RSS link
+  it("includes a visible RSS link in a site footer", () => {
+    const html = generateIndexPage([], SITE_CONFIG);
+    expect(html).toContain("<footer");
+    expect(html).toContain('href="/feed.xml"');
+    expect(html).toMatch(/RSS/i);
   });
 });
 
