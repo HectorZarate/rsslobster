@@ -101,7 +101,7 @@ describe("addContent", () => {
     await scaffoldSite(siteDir, CONFIG);
     await addContent(siteDir, MICRO);
 
-    const html = await readFile(join(siteDir, "hello-test.html"), "utf-8");
+    const html = await readFile(join(siteDir, "posts", "hello-test", "index.html"), "utf-8");
     expect(html).toContain("Hello from the test suite!");
     expect(html).toContain("<!DOCTYPE html>");
   });
@@ -113,7 +113,7 @@ describe("addContent", () => {
     const posts = await readPostsIndex(siteDir);
     expect(posts).toHaveLength(1);
     expect(posts[0]!.slug).toBe("hello-test");
-    expect(posts[0]!.url).toBe("https://test.example.com/hello-test.html");
+    expect(posts[0]!.url).toBe("https://test.example.com/posts/hello-test/index.html");
   });
 
   it("prepends new posts (newest first)", async () => {
@@ -144,7 +144,7 @@ describe("addContent", () => {
     await addContent(siteDir, MICRO);
 
     const html = await readFile(join(siteDir, "index.html"), "utf-8");
-    expect(html).toContain("hello-test.html");
+    expect(html).toContain("/posts/hello-test/index.html");
   });
 
   it("returns a Post with publishedAt and url", async () => {
@@ -152,7 +152,7 @@ describe("addContent", () => {
     const post = await addContent(siteDir, MICRO);
 
     expect(post.publishedAt).toBeTruthy();
-    expect(post.url).toBe("https://test.example.com/hello-test.html");
+    expect(post.url).toBe("https://test.example.com/posts/hello-test/index.html");
   });
 });
 

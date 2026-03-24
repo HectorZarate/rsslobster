@@ -78,12 +78,12 @@ describe("E2E pipeline", () => {
     expect(result.error).toBeUndefined();
     expect(result.post!.type).toBe("micro");
     expect(result.post!.url).toBe(
-      "https://example.com/the-mass-of-men-lead-lives-of-quiet-desperation.html",
+      "https://example.com/posts/the-mass-of-men-lead-lives-of-quiet-desperation/index.html",
     );
 
     // HTML page exists and has correct structure
     const html = await readFile(
-      join(siteDir, `${result.post!.slug}.html`),
+      join(siteDir, "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain("<!DOCTYPE html>");
@@ -114,7 +114,7 @@ describe("E2E pipeline", () => {
     // Index page lists the post
     const index = await readFile(join(siteDir, "index.html"), "utf-8");
     expect(index).toContain("quiet desperation");
-    expect(index).toContain(".html");
+    expect(index).toContain("/posts/");
 
     // Posts index JSON updated
     const posts = await readPostsIndex(siteDir);
@@ -144,7 +144,7 @@ describe("E2E pipeline", () => {
     expect(result.post!.title).toBe("Why RSS Still Matters");
 
     const html = await readFile(
-      join(siteDir, `${result.post!.slug}.html`),
+      join(siteDir, "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain("<h1>Why RSS Still Matters</h1>");
@@ -183,7 +183,7 @@ describe("E2E pipeline", () => {
     expect(result.post!.type).toBe("link");
 
     const html = await readFile(
-      join(siteDir, `${result.post!.slug}.html`),
+      join(siteDir, "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain('class="link-card"');
@@ -214,12 +214,9 @@ describe("E2E pipeline", () => {
     expect(result.post).toBeUndefined();
     expect(result.reply).toContain("Saved as draft");
 
-    // No HTML page should exist for the draft
+    // No post directories should exist for the draft
     const files = await readdir(siteDir);
-    const htmlFiles = files.filter(
-      (f) => f.endsWith(".html") && f !== "index.html",
-    );
-    expect(htmlFiles).toHaveLength(0);
+    expect(files).not.toContain("posts");
 
     // Posts index should be empty
     const posts = await readPostsIndex(siteDir);
@@ -276,10 +273,14 @@ describe("E2E pipeline", () => {
     expect(posts).toHaveLength(3);
     expect(posts[0]!.title).toBe("On Writing");
 
-    // Three HTML pages + index.html
+    // index.html in root + 3 posts in posts/ subdirectory
     const files = await readdir(siteDir);
     const htmlFiles = files.filter((f) => f.endsWith(".html"));
-    expect(htmlFiles).toHaveLength(4); // 3 posts + index.html
+    expect(htmlFiles).toHaveLength(1); // only index.html in root
+
+    // 3 post directories under posts/
+    const postDirs = await readdir(join(siteDir, "posts"));
+    expect(postDirs).toHaveLength(3);
 
     // RSS and JSON Feed have all 3 items
     const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
@@ -340,7 +341,7 @@ describe("E2E pipeline", () => {
 
     // HTML page should contain video structure (no actual media file attached)
     const html = await readFile(
-      join(siteDir, `${result.post!.slug}.html`),
+      join(siteDir, "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain("sunset timelapse");
@@ -371,7 +372,7 @@ describe("E2E pipeline", () => {
     expect(result.post!.type).toBe("audio");
 
     const html = await readFile(
-      join(siteDir, `${result.post!.slug}.html`),
+      join(siteDir, "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain("distributed systems");
@@ -422,7 +423,7 @@ describe("E2E pipeline", () => {
 
     // HTML page must escape the XSS script tag (JSON-LD script is legitimate)
     const html = await readFile(
-      join(siteDir, `${result.post!.slug}.html`),
+      join(siteDir, "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).not.toContain('<script>alert');
@@ -499,7 +500,7 @@ describe("E2E pipeline", () => {
     );
 
     const previewResult = await processMessage(
-      msg({ text: "preview: On Decentralization" }),
+      msg({ text: "preview: The future of the web is decentralized." }),
       { siteDir, callModel: previewModel, deploy: false },
     );
 
@@ -522,7 +523,7 @@ describe("E2E pipeline", () => {
 
     // Published HTML should exist
     const publishedHtml = await readFile(
-      join(siteDir, `${slug}.html`),
+      join(siteDir, "posts", slug, "index.html"),
       "utf-8",
     );
     expect(publishedHtml).toContain("<h1>On Decentralization</h1>");
@@ -591,12 +592,12 @@ describe("E2E pipeline", () => {
     );
 
     const result = await processMessage(
-      msg({ text: "Markdown test post" }),
+      msg({ text: "This has **bold**, *italic*, and `code`.\n\n- list item\n\n> blockquote" }),
       { siteDir, callModel, deploy: false },
     );
 
     const html = await readFile(
-      join(siteDir, `${result.post!.slug}.html`),
+      join(siteDir, "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain("<strong>bold</strong>");
@@ -618,12 +619,12 @@ describe("E2E pipeline", () => {
     );
 
     const result = await processMessage(
-      msg({ text: "Code example post" }),
+      msg({ text: "Here is some code:\n\n```javascript\nconst greeting = \"hello\";\nconsole.log(greeting);\n```" }),
       { siteDir, callModel, deploy: false },
     );
 
     const html = await readFile(
-      join(siteDir, `${result.post!.slug}.html`),
+      join(siteDir, "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     // Shiki output contains CSS variable tokens
@@ -644,12 +645,12 @@ describe("E2E pipeline", () => {
     );
 
     const result = await processMessage(
-      msg({ text: "Math example post" }),
+      msg({ text: "Euler's identity: $e^{i\\pi} + 1 = 0$\n\nThe integral:\n\n$$\n\\int_0^1 x^2 dx = \\frac{1}{3}\n$$" }),
       { siteDir, callModel, deploy: false },
     );
 
     const html = await readFile(
-      join(siteDir, `${result.post!.slug}.html`),
+      join(siteDir, "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     // Inline math
@@ -669,12 +670,12 @@ describe("E2E pipeline", () => {
     );
 
     const result = await processMessage(
-      msg({ text: "Beautiful sunset photo" }),
+      msg({ text: "A **beautiful** sunset with `warm` tones." }),
       { siteDir, callModel, deploy: false },
     );
 
     const html = await readFile(
-      join(siteDir, `${result.post!.slug}.html`),
+      join(siteDir, "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     // Inline markdown rendered
@@ -695,7 +696,7 @@ describe("E2E pipeline", () => {
     );
 
     await processMessage(
-      msg({ text: "Check out this feature with code" }),
+      msg({ text: "Check out **this** feature with `code`." }),
       { siteDir, callModel, deploy: false },
     );
 
@@ -741,12 +742,12 @@ describe("E2E pipeline", () => {
     );
 
     const result = await processMessage(
-      msg({ text: "xss attempt" }),
+      msg({ text: '<script>alert("xss")</script>\n\n[evil](javascript:alert(1))' }),
       { siteDir, callModel, deploy: false },
     );
 
     const html = await readFile(
-      join(siteDir, `${result.post!.slug}.html`),
+      join(siteDir, "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     // Script tags escaped

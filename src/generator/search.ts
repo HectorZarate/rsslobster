@@ -63,7 +63,7 @@ var h=idx.filter(function(e){return w.every(function(v){return e.t.indexOf(v)!==
 var n=h.length;
 if(!n){r.innerHTML='<p class="search-count">No results for \\u201c'+esc(q)+'\\u201d</p>';return;}
 var out='<p class="search-count">'+n+' result'+(n===1?'':'s')+'</p>';
-out+=h.slice(0,20).map(function(e){return '<article><h3><a href="/'+esc(e.s)+'.html">'+esc(e.d)+'</a></h3>'+(e.b?'<p class="snippet">'+esc(e.b.slice(0,120))+'\\u2026</p>':'')+(e.g?tags(e.g):'')+'</article>';}).join('');
+out+=h.slice(0,20).map(function(e){return '<article><h3><a href="/posts/'+esc(e.s)+'/">'+esc(e.d)+'</a></h3>'+(e.b?'<p class="snippet">'+esc(e.b.slice(0,120))+'\\u2026</p>':'')+(e.g?tags(e.g):'')+'</article>';}).join('');
 r.innerHTML=out;}
 function run(){
 var q=i.value.trim().toLowerCase();

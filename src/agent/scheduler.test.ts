@@ -75,7 +75,7 @@ describe("scheduled publisher", () => {
 
     // HTML should exist
     const html = await readFile(
-      join(siteDir, `${draft.slug}.html`),
+      join(siteDir, "posts", draft.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain(draft.body);

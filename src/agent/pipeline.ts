@@ -129,11 +129,13 @@ export async function processMessage(
     : [];
 
   // Step 3: Build ClassifiedContent
+  // IMPORTANT: Always use the original message text as the body.
+  // The LLM classifies metadata (type, tags, slug) but never rewrites content.
   const now = new Date().toISOString();
   const content: ClassifiedContent = {
     type: classification.type,
     title: classification.title,
-    body: classification.body,
+    body: message.text,
     slug: classification.slug,
     tags: classification.tags,
     images: images.length > 0 ? images : undefined,

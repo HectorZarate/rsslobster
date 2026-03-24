@@ -205,7 +205,7 @@ describe("previews", () => {
       expect(previewFiles.filter((f) => f.endsWith(".html"))).toHaveLength(0);
 
       // Published HTML should exist
-      const published = await stat(join(siteDir, `${post.slug}.html`));
+      const published = await stat(join(siteDir, "posts", post.slug, "index.html"));
       expect(published.isFile()).toBe(true);
 
       // RSS should have the post

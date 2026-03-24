@@ -13,8 +13,8 @@ const CONTENT: ClassifiedContent = {
 };
 
 describe("expandPermalink", () => {
-  it("defaults to /:slug.html", () => {
-    expect(expandPermalink(undefined, CONTENT)).toBe("/my-test-post.html");
+  it("defaults to /posts/:slug/index.html", () => {
+    expect(expandPermalink(undefined, CONTENT)).toBe("/posts/my-test-post/index.html");
   });
 
   it("expands :slug", () => {

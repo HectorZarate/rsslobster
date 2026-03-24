@@ -64,7 +64,7 @@ describe("agent pipeline", () => {
 
     // Verify HTML was written
     const html = await readFile(
-      join(siteDir, `${result.post!.slug}.html`),
+      join(siteDir, "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain("Coffee in Lisbon");
@@ -387,7 +387,7 @@ describe("agent pipeline", () => {
 
       // HTML should reference the image
       const html = await readFile(
-        join(siteDir, `${result.post!.slug}.html`),
+        join(siteDir, "posts", result.post!.slug, "index.html"),
         "utf-8",
       );
       expect(html).toContain("/images/");

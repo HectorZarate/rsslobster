@@ -1,0 +1,8 @@
+/rsslobster.json
+  X-Robots-Tag: noindex
+
+/posts.json
+  X-Robots-Tag: noindex
+
+/drafts/*
+  X-Robots-Tag: noindex

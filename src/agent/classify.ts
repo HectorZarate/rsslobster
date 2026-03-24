@@ -72,7 +72,7 @@ Rules:
 - isPreview=true ONLY if user says "preview", "preview this", "let me see"
 - title only for "post" type. null otherwise.
 - For "link": extract the URL into linkUrl
-- body = the cleaned content text (strip URLs for link type)
+- body = MUST be the EXACT original input text, unmodified. Never rewrite, summarize, or clean the user's words.
 - If a video file is attached, use type "video"
 - If an audio/voice file is attached, use type "audio"
 ${imageNote}${mediaNote}

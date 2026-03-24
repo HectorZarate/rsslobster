@@ -14,7 +14,7 @@ import type { ClassifiedContent } from "./types.js";
  * Example: "/:year/:month/:slug.html" → "/2026/03/my-post.html"
  */
 
-const DEFAULT_PERMALINK = "/:slug.html";
+const DEFAULT_PERMALINK = "/posts/:slug/index.html";
 
 /** Expand a permalink pattern for a given piece of content */
 export function expandPermalink(

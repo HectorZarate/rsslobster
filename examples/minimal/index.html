@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ada's Notes</title>
   <meta name="description" content="Thoughts on the open web">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2212%22%20fill%3D%22%230000EE%22%2F%3E%3Ctext%20x%3D%2232%22%20y%3D%2244%22%20font-family%3D%22system-ui%2Csans-serif%22%20font-size%3D%2236%22%20font-weight%3D%22700%22%20fill%3D%22%23FFFFF0%22%20text-anchor%3D%22middle%22%3EA%3C%2Ftext%3E%3C%2Fsvg%3E">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Ada&#39;s Notes">
   <meta property="og:description" content="Thoughts on the open web">
@@ -450,27 +452,27 @@ nav a, button, .tag {
     </form>
     <div id="search-results" aria-live="polite"></div>
     <article>
-      <h2><a href="/quiet-desperation.html">The mass of men lead lives of quiet desperation. What is called resignation is …</a></h2>
+      <h2><a href="/posts/quiet-desperation/index.html">The mass of men lead lives of quiet desperation. What is called resignation is …</a></h2>
       <p>The mass of men lead lives of quiet desperation. What is called resignation is confirmed desperation.</p>
       <time datetime="2025-03-15T10:30:00Z">March 15, 2025</time>
     </article>
     <article>
-      <h2><a href="/why-rss-still-matters.html">Why RSS Still Matters</a></h2>
+      <h2><a href="/posts/why-rss-still-matters/index.html">Why RSS Still Matters</a></h2>
       <p>In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can enshittify your timeline. You sub…</p>
       <time datetime="2025-03-14T08:00:00Z">March 14, 2025</time>
     </article>
     <article>
-      <h2><a href="/getting-started-indieweb.html">The best explanation of the indie web I've found. Start here if you want to own…</a></h2>
+      <h2><a href="/posts/getting-started-indieweb/index.html">The best explanation of the indie web I've found. Start here if you want to own…</a></h2>
       <p>The best explanation of the indie web I've found. Start here if you want to own your corner of the internet.</p>
       <time datetime="2025-03-13T16:45:00Z">March 13, 2025</time>
     </article>
     <article>
-      <h2><a href="/sunset-from-the-office.html">Sunset from the office window. Sometimes you have to stop and look up.</a></h2>
+      <h2><a href="/posts/sunset-from-the-office/index.html">Sunset from the office window. Sometimes you have to stop and look up.</a></h2>
       <p>Sunset from the office window. Sometimes you have to stop and look up.</p>
       <time datetime="2025-03-12T18:20:00Z">March 12, 2025</time>
     </article>
     <article>
-      <h2><a href="/just-shipped.html">Just shipped a new feature. Zero dependencies, zero JavaScript in the output, f…</a></h2>
+      <h2><a href="/posts/just-shipped/index.html">Just shipped a new feature. Zero dependencies, zero JavaScript in the output, f…</a></h2>
       <p>Just shipped a new feature. Zero dependencies, zero JavaScript in the output, four seconds to deploy. This is what building for the web should feel like.</p>
       <time datetime="2025-03-11T22:00:00Z">March 11, 2025</time>
     </article>
@@ -490,7 +492,7 @@ var h=idx.filter(function(e){return w.every(function(v){return e.t.indexOf(v)!==
 var n=h.length;
 if(!n){r.innerHTML='<p class="search-count">No results for \u201c'+esc(q)+'\u201d</p>';return;}
 var out='<p class="search-count">'+n+' result'+(n===1?'':'s')+'</p>';
-out+=h.slice(0,20).map(function(e){return '<article><h3><a href="/'+esc(e.s)+'.html">'+esc(e.d)+'</a></h3>'+(e.b?'<p class="snippet">'+esc(e.b.slice(0,120))+'\u2026</p>':'')+(e.g?tags(e.g):'')+'</article>';}).join('');
+out+=h.slice(0,20).map(function(e){return '<article><h3><a href="/posts/'+esc(e.s)+'/">'+esc(e.d)+'</a></h3>'+(e.b?'<p class="snippet">'+esc(e.b.slice(0,120))+'\u2026</p>':'')+(e.g?tags(e.g):'')+'</article>';}).join('');
 r.innerHTML=out;}
 function run(){
 var q=i.value.trim().toLowerCase();

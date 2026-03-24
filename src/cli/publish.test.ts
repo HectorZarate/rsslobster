@@ -147,11 +147,11 @@ describe("publish command integration", () => {
     const post = await addContent(siteDir, content);
 
     expect(post.url).toBe(
-      "https://example.com/the-coffee-in-lisbon-is-incredible.html",
+      "https://example.com/posts/the-coffee-in-lisbon-is-incredible/index.html",
     );
 
     const html = await readFile(
-      join(siteDir, "the-coffee-in-lisbon-is-incredible.html"),
+      join(siteDir, "posts", "the-coffee-in-lisbon-is-incredible", "index.html"),
       "utf-8",
     );
     expect(html).toContain("The coffee in Lisbon is incredible.");
@@ -172,10 +172,10 @@ describe("publish command integration", () => {
 
     const post = await addContent(siteDir, content);
 
-    expect(post.url).toBe("https://example.com/why-rss-matters.html");
+    expect(post.url).toBe("https://example.com/posts/why-rss-matters/index.html");
 
     const html = await readFile(
-      join(siteDir, "why-rss-matters.html"),
+      join(siteDir, "posts", "why-rss-matters", "index.html"),
       "utf-8",
     );
     expect(html).toContain("Why RSS Matters");
@@ -193,7 +193,7 @@ describe("publish command integration", () => {
     await addContent(siteDir, content);
 
     const html = await readFile(
-      join(siteDir, "great-article-on-indieweb.html"),
+      join(siteDir, "posts", "great-article-on-indieweb", "index.html"),
       "utf-8",
     );
     expect(html).toContain("https://indieweb.org/why");

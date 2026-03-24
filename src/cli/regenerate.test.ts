@@ -79,11 +79,11 @@ describe("regenerateSite", () => {
     await addContent(siteDir, MICRO);
 
     // Corrupt the post file
-    await writeFile(join(siteDir, "hello-test.html"), "CORRUPTED");
+    await writeFile(join(siteDir, "posts", "hello-test", "index.html"), "CORRUPTED");
 
     await regenerateSite(siteDir);
 
-    const html = await readFile(join(siteDir, "hello-test.html"), "utf-8");
+    const html = await readFile(join(siteDir, "posts", "hello-test", "index.html"), "utf-8");
     expect(html).toContain("Hello from the test suite");
     expect(html).toContain("<!DOCTYPE html>");
   });
@@ -143,7 +143,7 @@ describe("regenerateSite", () => {
 
     await regenerateSite(siteDir);
 
-    const html = await readFile(join(siteDir, "hello-test.html"), "utf-8");
+    const html = await readFile(join(siteDir, "posts", "hello-test", "index.html"), "utf-8");
     // Terminal preset uses amber text color
     expect(html).toContain("#FFB000");
   });

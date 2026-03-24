@@ -7,31 +7,31 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://terminal.example.com/quiet-desperation.html</loc>
+    <loc>https://terminal.example.com/posts/quiet-desperation/index.html</loc>
     <lastmod>2025-03-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://terminal.example.com/why-rss-still-matters.html</loc>
+    <loc>https://terminal.example.com/posts/why-rss-still-matters/index.html</loc>
     <lastmod>2025-03-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://terminal.example.com/getting-started-indieweb.html</loc>
+    <loc>https://terminal.example.com/posts/getting-started-indieweb/index.html</loc>
     <lastmod>2025-03-13</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://terminal.example.com/sunset-from-the-office.html</loc>
+    <loc>https://terminal.example.com/posts/sunset-from-the-office/index.html</loc>
     <lastmod>2025-03-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://terminal.example.com/just-shipped.html</loc>
+    <loc>https://terminal.example.com/posts/just-shipped/index.html</loc>
     <lastmod>2025-03-11</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>

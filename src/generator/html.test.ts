@@ -188,8 +188,8 @@ describe("generateIndexPage", () => {
 
   it("links each post to its page", () => {
     const html = generateIndexPage([MICRO, POST], SITE_CONFIG);
-    expect(html).toContain('href="/quick-thought.html"');
-    expect(html).toContain('href="/deep-dive-rss.html"');
+    expect(html).toContain('href="/posts/quick-thought/index.html"');
+    expect(html).toContain('href="/posts/deep-dive-rss/index.html"');
   });
 
   // UX: skip link on index too

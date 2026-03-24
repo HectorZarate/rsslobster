@@ -1,6 +1,7 @@
 import type { ClassifiedContent, SiteConfig } from "../config/types.js";
 import { resolveStyle, generateStylesheet } from "../styles/presets.js";
 import { SEARCH_HTML, SEARCH_SCRIPT, SEARCH_CSS } from "./search.js";
+import { generateFaviconSvg, faviconLinkTags } from "./favicon.js";
 import { renderNav, renderPageLinks } from "../pages/pages.js";
 import type { PageInjections } from "../plugins/types.js";
 import { renderMarkdown, renderInline } from "./markdown.js";
@@ -48,7 +49,7 @@ function generateOgTags(
   config: SiteConfig,
   pageUrl?: string,
 ): string {
-  const url = pageUrl ?? `https://${config.domain}/${content.slug}.html`;
+  const url = pageUrl ?? `https://${config.domain}/posts/${content.slug}/index.html`;
   const title = content.title ?? truncate(content.body, 60);
   const description = truncate(content.body, 200);
   const ogType = content.type === "post" ? "article" : "website";
@@ -86,7 +87,7 @@ function generateJsonLd(
   config: SiteConfig,
   pageUrl?: string,
 ): string {
-  const url = pageUrl ?? `https://${config.domain}/${content.slug}.html`;
+  const url = pageUrl ?? `https://${config.domain}/posts/${content.slug}/index.html`;
 
   const ld: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -129,6 +130,7 @@ export function generateHtmlPage(
   const css = generateStylesheet(resolved);
   const inner = renderContentBody(content);
   const nav = renderNav(config);
+  const favicon = faviconLinkTags(generateFaviconSvg(config.title, config.style.preset, config.style.overrides));
 
   // Combine all head injections
   const ogTags = generateOgTags(content, config, options?.pageUrl);
@@ -150,6 +152,7 @@ export function generateHtmlPage(
   <meta name="author" content="${escAttr(config.author)}">
   ${ogTags}
   ${jsonLd}
+  ${favicon}
   <link rel="alternate" type="application/rss+xml" title="${escAttr(config.title)}" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="${escAttr(config.title)}" href="/feed.json">
   <style>${css}</style>${pluginHead}${extraHead}
@@ -191,7 +194,7 @@ function renderPostList(posts: ClassifiedContent[], permalink?: string): string 
 
 /** Resolve the relative URL for a post based on permalink pattern */
 function resolvePostUrl(content: ClassifiedContent, permalink?: string): string {
-  if (!permalink) return `/${content.slug}.html`;
+  if (!permalink) return `/posts/${content.slug}/index.html`;
   const d = new Date(content.createdAt);
   const year = String(d.getFullYear());
   const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -232,6 +235,7 @@ export function generateIndexPage(
 
   const pluginHead = injections?.head ?? "";
   const bodyEnd = injections?.bodyEnd ?? "";
+  const favicon = faviconLinkTags(generateFaviconSvg(config.title, config.style.preset, config.style.overrides));
 
   return `<!DOCTYPE html>
 <html lang="${escHtml(config.language)}">
@@ -240,6 +244,7 @@ export function generateIndexPage(
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escHtml(config.title)}</title>
   <meta name="description" content="${escAttr(config.description)}">
+  ${favicon}
   ${ogTags}
   <link rel="alternate" type="application/rss+xml" title="${escAttr(config.title)}" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="${escAttr(config.title)}" href="/feed.json">
@@ -272,6 +277,7 @@ export function generateArchivePage(
   const items = renderPostList(posts, config.permalink);
   const pluginHead = injections?.head ?? "";
   const bodyEnd = injections?.bodyEnd ?? "";
+  const favicon = faviconLinkTags(generateFaviconSvg(config.title, config.style.preset, config.style.overrides));
 
   return `<!DOCTYPE html>
 <html lang="${escHtml(config.language)}">
@@ -280,6 +286,7 @@ export function generateArchivePage(
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Archive — ${escHtml(config.title)}</title>
   <meta name="description" content="All posts on ${escAttr(config.title)}">
+  ${favicon}
   <style>${css}${SEARCH_CSS}</style>${pluginHead}
 </head>
 <body>
