@@ -122,6 +122,12 @@ rsslobster publish <slug>      # publish immediately
 
 Drafts can be scheduled for future publication. The scheduler checks every 60 seconds and auto-publishes when the time arrives.
 
+## Instant Updates (WebSub)
+
+RSS Lobster integrates with [WebSub](https://www.w3.org/TR/websub/) (formerly PubSubHubbub) for real-time feed updates. When you publish a post, the hub is pinged automatically — readers that support WebSub (Feedly, NewsBlur, Inoreader) get your new content in seconds, not hours.
+
+No configuration needed. Both `feed.xml` and `feed.json` declare the hub, and every successful deploy triggers a ping to `pubsubhubbub.appspot.com`.
+
 ## Lifecycle Hooks
 
 Three hook points for extending the pipeline. Each hook is a shell command that receives JSON on stdin and can output JSON to override behavior.
