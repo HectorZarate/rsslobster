@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateFaviconSvg, faviconDataUri, faviconLinkTags } from "./favicon.js";
+import { generateFaviconSvg, faviconDataUri, faviconLinkTags, generateOgImageSvg } from "./favicon.js";
 
 describe("generateFaviconSvg", () => {
   it("generates valid SVG", () => {
@@ -73,5 +73,34 @@ describe("faviconLinkTags", () => {
     const svg = generateFaviconSvg("T");
     const tags = faviconLinkTags(svg);
     expect(tags).toContain("/favicon.svg");
+  });
+});
+
+describe("generateOgImageSvg", () => {
+  it("generates valid SVG with 1200x630 viewBox", () => {
+    const svg = generateOgImageSvg("My Blog", "A personal blog");
+    expect(svg).toContain("<svg");
+    expect(svg).toContain('viewBox="0 0 1200 630"');
+  });
+
+  it("includes the site title", () => {
+    const svg = generateOgImageSvg("Computational Substrate", "desc");
+    expect(svg).toContain("Computational Substrate");
+  });
+
+  it("includes the description", () => {
+    const svg = generateOgImageSvg("Title", "Hector Zarate's blog");
+    expect(svg).toContain("Hector Zarate");
+  });
+
+  it("uses preset colors", () => {
+    const svg = generateOgImageSvg("T", "d", "terminal");
+    // Terminal accent is #00CCCC
+    expect(svg).toContain("#00CCCC");
+  });
+
+  it("escapes special characters", () => {
+    const svg = generateOgImageSvg("<script>", "desc");
+    expect(svg).toContain("&lt;");
   });
 });

@@ -227,6 +227,27 @@ describe("generateIndexPage", () => {
     const html = generateIndexPage([], SITE_CONFIG);
     expect(html).toContain('href="/favicon.svg"');
   });
+
+  // UX: complete OG tags on index page
+  it("includes og:locale on index page", () => {
+    const html = generateIndexPage([], SITE_CONFIG);
+    expect(html).toContain('og:locale');
+  });
+
+  it("includes twitter:card on index page", () => {
+    const html = generateIndexPage([], SITE_CONFIG);
+    expect(html).toContain('twitter:card');
+  });
+
+  it("includes twitter:title on index page", () => {
+    const html = generateIndexPage([], SITE_CONFIG);
+    expect(html).toContain('twitter:title');
+  });
+
+  it("includes og:image on index page", () => {
+    const html = generateIndexPage([], SITE_CONFIG);
+    expect(html).toContain('og:image');
+  });
 });
 
 describe("generateHtmlPage with options", () => {

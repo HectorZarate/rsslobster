@@ -6,13 +6,13 @@
     <description>No CSS was harmed in the making of this site.</description>
     <language>en</language>
     <atom:link href="https://brutalist.example.com/feed.xml" rel="self" type="application/rss+xml"/>
-    <lastBuildDate>Tue, 24 Mar 2026 21:20:47 GMT</lastBuildDate>
+    <lastBuildDate>Tue, 24 Mar 2026 21:40:44 GMT</lastBuildDate>
     <item>
       <title>The mass of men lead lives of quiet desperation. What is called resignation is …</title>
       <link>https://brutalist.example.com/posts/quiet-desperation/index.html</link>
       <description>&lt;p&gt;The mass of men lead lives of quiet desperation. What is called resignation is confirmed desperation.&lt;/p&gt;
 </description>
-      <pubDate>Tue, 24 Mar 2026 21:20:47 GMT</pubDate>
+      <pubDate>Tue, 24 Mar 2026 21:40:44 GMT</pubDate>
       <guid isPermaLink="true">https://brutalist.example.com/posts/quiet-desperation/index.html</guid>
       <author>Ada Lovelace</author>
       <category>quote</category>
@@ -23,7 +23,7 @@
       <link>https://brutalist.example.com/posts/why-rss-still-matters/index.html</link>
       <description>&lt;p&gt;In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can enshittify your timeline. You subscribe, you read, you move on. The protocol is simple: an XML file at a known URL. Any client can fetch it. No API key, no OAuth dance, no rate limits. This is how the web was supposed to work.&lt;/p&gt;
 </description>
-      <pubDate>Tue, 24 Mar 2026 21:20:47 GMT</pubDate>
+      <pubDate>Tue, 24 Mar 2026 21:40:44 GMT</pubDate>
       <guid isPermaLink="true">https://brutalist.example.com/posts/why-rss-still-matters/index.html</guid>
       <author>Ada Lovelace</author>
       <category>rss</category>
@@ -35,7 +35,7 @@
       <link>https://brutalist.example.com/posts/getting-started-indieweb/index.html</link>
       <description>&lt;p&gt;The best explanation of the indie web I’ve found. Start here if you want to own your corner of the internet.&lt;/p&gt;
 </description>
-      <pubDate>Tue, 24 Mar 2026 21:20:47 GMT</pubDate>
+      <pubDate>Tue, 24 Mar 2026 21:40:44 GMT</pubDate>
       <guid isPermaLink="true">https://brutalist.example.com/posts/getting-started-indieweb/index.html</guid>
       <author>Ada Lovelace</author>
       <category>indieweb</category>
@@ -45,7 +45,7 @@
       <link>https://brutalist.example.com/posts/sunset-from-the-office/index.html</link>
       <description>&lt;p&gt;Sunset from the office window. Sometimes you have to stop and look up.&lt;/p&gt;
 </description>
-      <pubDate>Tue, 24 Mar 2026 21:20:47 GMT</pubDate>
+      <pubDate>Tue, 24 Mar 2026 21:40:44 GMT</pubDate>
       <guid isPermaLink="true">https://brutalist.example.com/posts/sunset-from-the-office/index.html</guid>
       <author>Ada Lovelace</author>
       <category>photo</category>
@@ -56,7 +56,7 @@
       <link>https://brutalist.example.com/posts/just-shipped/index.html</link>
       <description>&lt;p&gt;Just shipped a new feature. Zero dependencies, zero JavaScript in the output, four seconds to deploy. This is what building for the web should feel like.&lt;/p&gt;
 </description>
-      <pubDate>Tue, 24 Mar 2026 21:20:47 GMT</pubDate>
+      <pubDate>Tue, 24 Mar 2026 21:40:44 GMT</pubDate>
       <guid isPermaLink="true">https://brutalist.example.com/posts/just-shipped/index.html</guid>
       <author>Ada Lovelace</author>
       <category>building</category>

@@ -16,6 +16,7 @@ import { writePages } from "../pages/pages.js";
 import { initMarkdown } from "../generator/markdown.js";
 import { loadCustomCss } from "../styles/presets.js";
 import { permalinkDir } from "../config/permalink.js";
+import { writeFavicon, writeOgImage } from "../generator/favicon.js";
 
 /**
  * Regenerate all HTML pages, feeds, and search index from existing posts.
@@ -58,7 +59,9 @@ export async function regenerateSite(siteDir: string): Promise<void> {
     await writeFile(join(outDir, htmlPath), html);
   }
 
-  // Rebuild feeds, index, search, SEO, and pages
+  // Rebuild assets, feeds, index, search, SEO, and pages
+  await writeFavicon(siteDir, config.title, config.style.preset, config.style.overrides);
+  await writeOgImage(siteDir, config.title, config.description, config.style.preset, config.style.overrides);
   await rebuildFeeds(siteDir, config, posts);
   await rebuildIndex(siteDir, config, posts);
   await writeSearchIndex(siteDir, posts);

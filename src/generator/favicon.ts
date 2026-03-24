@@ -49,6 +49,42 @@ export async function writeFavicon(
   return svg;
 }
 
+/**
+ * Generate an OG image SVG (1200x630) with the site title and description.
+ * Used as og:image for social sharing previews.
+ */
+export function generateOgImageSvg(
+  title: string,
+  description: string,
+  preset?: StylePreset,
+  overrides?: StyleOverrides,
+): string {
+  const resolved = resolveStyle(preset, overrides);
+  const bg = resolved.colorAccent;
+  const fg = resolved.colorBackground;
+  const muted = resolved.colorMuted;
+
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">`,
+    `<rect width="1200" height="630" fill="${bg}"/>`,
+    `<text x="80" y="300" font-family="system-ui,sans-serif" font-size="72" font-weight="700" fill="${fg}">${escXml(title)}</text>`,
+    `<text x="80" y="380" font-family="system-ui,sans-serif" font-size="32" fill="${muted}">${escXml(description)}</text>`,
+    `</svg>`,
+  ].join("");
+}
+
+/** Write the OG image SVG to the site output directory */
+export async function writeOgImage(
+  siteDir: string,
+  title: string,
+  description: string,
+  preset?: StylePreset,
+  overrides?: StyleOverrides,
+): Promise<void> {
+  const svg = generateOgImageSvg(title, description, preset, overrides);
+  await writeFile(join(outputDir(siteDir), "og-image.svg"), svg);
+}
+
 /** Extract the first visible character (supports emoji) from a title */
 function extractInitial(title: string): string {
   const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });

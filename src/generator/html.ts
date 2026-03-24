@@ -225,12 +225,21 @@ export function generateIndexPage(
     ? `\n    <nav class="pagination"><a href="/archive.html">Older posts (${posts.length - INDEX_PAGE_LIMIT} more)</a></nav>`
     : "";
 
+  const ogImageUrl = `https://${config.domain}/og-image.svg`;
   const ogTags = [
     `<meta property="og:type" content="website">`,
     `<meta property="og:title" content="${escAttr(config.title)}">`,
     `<meta property="og:description" content="${escAttr(config.description)}">`,
     `<meta property="og:url" content="https://${escAttr(config.domain)}/">`,
     `<meta property="og:site_name" content="${escAttr(config.title)}">`,
+    `<meta property="og:locale" content="${escAttr(config.language)}">`,
+    `<meta property="og:image" content="${escAttr(ogImageUrl)}">`,
+    `<meta property="og:image:width" content="1200">`,
+    `<meta property="og:image:height" content="630">`,
+    `<meta name="twitter:card" content="summary_large_image">`,
+    `<meta name="twitter:title" content="${escAttr(config.title)}">`,
+    `<meta name="twitter:description" content="${escAttr(config.description)}">`,
+    `<meta name="twitter:image" content="${escAttr(ogImageUrl)}">`,
   ].join("\n  ");
 
   const pluginHead = injections?.head ?? "";

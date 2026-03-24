@@ -19,7 +19,7 @@ import { writePages } from "../pages/pages.js";
 import { expandPermalink, permalinkDir, DEFAULT_PERMALINK } from "../config/permalink.js";
 import type { PageInjections } from "../plugins/types.js";
 import { loadCustomCss } from "../styles/presets.js";
-import { writeFavicon } from "./favicon.js";
+import { writeFavicon, writeOgImage } from "./favicon.js";
 
 const POSTS_INDEX = "posts.json";
 
@@ -220,8 +220,9 @@ export async function scaffoldSite(
   await writeSiteConfig(siteDir, config);
   await writePostsIndex(siteDir, []);
 
-  // Generate favicon
+  // Generate favicon and OG image
   await writeFavicon(siteDir, config.title, config.style.preset, config.style.overrides);
+  await writeOgImage(siteDir, config.title, config.description, config.style.preset, config.style.overrides);
 
   // Generate empty index, feeds, search, SEO, and pages
   await rebuildFeeds(siteDir, config, []);
