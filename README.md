@@ -3,8 +3,6 @@
 **Unplatform yourself.**
 
 [![CI](https://github.com/HectorZarate/rsslobster/actions/workflows/ci.yml/badge.svg)](https://github.com/HectorZarate/rsslobster/actions/workflows/ci.yml)
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/node-%E2%89%A5%2022-brightgreen)](https://nodejs.org)
 
 Send a message from your chat app. Get a published website with RSS — in four seconds.
 
