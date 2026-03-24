@@ -80,6 +80,22 @@ describe("scaffoldSite", () => {
     expect(html).toContain("<!DOCTYPE html>");
   });
 
+  it("generates favicon.svg", async () => {
+    await scaffoldSite(siteDir, CONFIG);
+    const svg = await readFile(join(siteDir, "favicon.svg"), "utf-8");
+    expect(svg).toContain("<svg");
+    expect(svg).toContain("</svg>");
+    // Uses first character of site title
+    expect(svg).toContain(">T</text>");
+  });
+
+  it("includes favicon in generated index.html", async () => {
+    await scaffoldSite(siteDir, CONFIG);
+    const html = await readFile(join(siteDir, "index.html"), "utf-8");
+    expect(html).toContain("data:image/svg+xml,");
+    expect(html).toContain('href="/favicon.svg"');
+  });
+
   it("generates initial feed.xml", async () => {
     await scaffoldSite(siteDir, CONFIG);
     const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");

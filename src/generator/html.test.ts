@@ -121,6 +121,18 @@ describe("generateHtmlPage", () => {
     expect(html).toContain('href="/feed.json"');
   });
 
+  // UX: favicon in every page
+  it("includes inline favicon data URI in head", () => {
+    const html = generateHtmlPage(MICRO, SITE_CONFIG);
+    expect(html).toContain('rel="icon"');
+    expect(html).toContain("data:image/svg+xml,");
+  });
+
+  it("includes favicon.svg file reference", () => {
+    const html = generateHtmlPage(MICRO, SITE_CONFIG);
+    expect(html).toContain('href="/favicon.svg"');
+  });
+
   // UX: inline CSS for performance (no external requests)
   it("inlines CSS in style tag", () => {
     const html = generateHtmlPage(MICRO, SITE_CONFIG);
@@ -202,6 +214,18 @@ describe("generateIndexPage", () => {
     const html = generateIndexPage([], SITE_CONFIG);
     expect(html).toContain('<main id="main">');
     expect(html).toContain("</main>");
+  });
+
+  // UX: favicon on index page
+  it("includes inline favicon data URI", () => {
+    const html = generateIndexPage([], SITE_CONFIG);
+    expect(html).toContain('rel="icon"');
+    expect(html).toContain("data:image/svg+xml,");
+  });
+
+  it("includes favicon.svg file reference", () => {
+    const html = generateIndexPage([], SITE_CONFIG);
+    expect(html).toContain('href="/favicon.svg"');
   });
 });
 
