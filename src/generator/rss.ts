@@ -21,6 +21,8 @@ export function generateRss(config: FeedConfig, items: FeedItem[]): string {
       <url>${escXml(config.imageUrl)}</url>
       <title>${escXml(config.title)}</title>
       <link>${escXml(config.link)}</link>
+      <width>144</width>
+      <height>144</height>
     </image>` : ""}
 ${itemsXml}
   </channel>

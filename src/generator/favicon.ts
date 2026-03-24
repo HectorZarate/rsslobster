@@ -54,13 +54,16 @@ export async function writeFavicon(
   const outDir = outputDir(siteDir);
   await writeFile(join(outDir, "favicon.svg"), svg);
 
-  // Generate 512x512 PNG icon for RSS readers and apple-touch-icon
   const sharp = (await import("sharp")).default;
-  const png = await sharp(Buffer.from(svg))
-    .resize(512, 512)
-    .png()
-    .toBuffer();
-  await writeFile(join(outDir, "icon.png"), png);
+  const svgBuf = Buffer.from(svg);
+
+  // 512x512 PNG for apple-touch-icon and general use
+  const png512 = await sharp(svgBuf).resize(512, 512).png().toBuffer();
+  await writeFile(join(outDir, "icon.png"), png512);
+
+  // 32x32 PNG as favicon.ico fallback (RSS readers and legacy browsers check this)
+  const png32 = await sharp(svgBuf).resize(32, 32).png().toBuffer();
+  await writeFile(join(outDir, "favicon.ico"), png32);
 
   return svg;
 }

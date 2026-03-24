@@ -6,11 +6,13 @@
     <description>dispatches from /dev/brain</description>
     <language>en</language>
     <atom:link href="https://terminal.example.com/feed.xml" rel="self" type="application/rss+xml"/>
-    <lastBuildDate>Tue, 24 Mar 2026 22:19:09 GMT</lastBuildDate>
+    <lastBuildDate>Tue, 24 Mar 2026 22:25:04 GMT</lastBuildDate>
     <image>
       <url>https://terminal.example.com/icon.png</url>
       <title>ada@localhost</title>
       <link>https://terminal.example.com</link>
+      <width>144</width>
+      <height>144</height>
     </image>
     <item>
       <title>The mass of men lead lives of quiet desperation. What is called resignation is …</title>
@@ -19,7 +21,7 @@
 </description>
       <content:encoded><![CDATA[<p>The mass of men lead lives of quiet desperation. What is called resignation is confirmed desperation.</p>
 ]]></content:encoded>
-      <pubDate>Tue, 24 Mar 2026 22:19:09 GMT</pubDate>
+      <pubDate>Tue, 24 Mar 2026 22:25:04 GMT</pubDate>
       <guid isPermaLink="true">https://terminal.example.com/posts/quiet-desperation/index.html</guid>
       <author>Ada Lovelace</author>
       <category>quote</category>
@@ -32,7 +34,7 @@
 </description>
       <content:encoded><![CDATA[<p>In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can enshittify your timeline. You subscribe, you read, you move on. The protocol is simple: an XML file at a known URL. Any client can fetch it. No API key, no OAuth dance, no rate limits. This is how the web was supposed to work.</p>
 ]]></content:encoded>
-      <pubDate>Tue, 24 Mar 2026 22:19:09 GMT</pubDate>
+      <pubDate>Tue, 24 Mar 2026 22:25:04 GMT</pubDate>
       <guid isPermaLink="true">https://terminal.example.com/posts/why-rss-still-matters/index.html</guid>
       <author>Ada Lovelace</author>
       <category>rss</category>
@@ -46,7 +48,7 @@
 </description>
       <content:encoded><![CDATA[<p>The best explanation of the indie web I’ve found. Start here if you want to own your corner of the internet.</p>
 ]]></content:encoded>
-      <pubDate>Tue, 24 Mar 2026 22:19:09 GMT</pubDate>
+      <pubDate>Tue, 24 Mar 2026 22:25:04 GMT</pubDate>
       <guid isPermaLink="true">https://terminal.example.com/posts/getting-started-indieweb/index.html</guid>
       <author>Ada Lovelace</author>
       <category>indieweb</category>
@@ -58,7 +60,7 @@
 </description>
       <content:encoded><![CDATA[<p>Sunset from the office window. Sometimes you have to stop and look up.</p>
 ]]></content:encoded>
-      <pubDate>Tue, 24 Mar 2026 22:19:09 GMT</pubDate>
+      <pubDate>Tue, 24 Mar 2026 22:25:04 GMT</pubDate>
       <guid isPermaLink="true">https://terminal.example.com/posts/sunset-from-the-office/index.html</guid>
       <author>Ada Lovelace</author>
       <category>photo</category>
@@ -71,7 +73,7 @@
 </description>
       <content:encoded><![CDATA[<p>Just shipped a new feature. Zero dependencies, zero JavaScript in the output, four seconds to deploy. This is what building for the web should feel like.</p>
 ]]></content:encoded>
-      <pubDate>Tue, 24 Mar 2026 22:19:09 GMT</pubDate>
+      <pubDate>Tue, 24 Mar 2026 22:25:04 GMT</pubDate>
       <guid isPermaLink="true">https://terminal.example.com/posts/just-shipped/index.html</guid>
       <author>Ada Lovelace</author>
       <category>building</category>
