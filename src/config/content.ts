@@ -28,5 +28,12 @@ export function slugify(text: string, maxLen = 60): string {
     slug.length >= maxLen && slug.includes("-")
       ? slug.slice(0, slug.lastIndexOf("-"))
       : slug;
-  return trimmed.replace(/-$/, "");
+  const result = trimmed.replace(/-$/, "");
+
+  // Fallback for emoji-only or non-ASCII content
+  if (!result) {
+    return `post-${Date.now().toString(36)}`;
+  }
+
+  return result;
 }
