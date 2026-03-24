@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { scaffoldSite, addContent, readPostsIndex } from "../generator/site.js";
+import { scaffoldSite, addContent } from "../generator/site.js";
 import { regenerateSite, regenerateCommand } from "./regenerate.js";
 import type { SiteConfig, ClassifiedContent } from "../config/types.js";
 
