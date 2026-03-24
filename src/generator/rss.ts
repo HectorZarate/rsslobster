@@ -16,6 +16,7 @@ export function generateRss(config: FeedConfig, items: FeedItem[]): string {
     <description>${escXml(config.description)}</description>
     <language>${escXml(config.language)}</language>
     <atom:link href="${escXml(config.feedUrl)}" rel="self" type="application/rss+xml"/>
+    <atom:link href="https://pubsubhubbub.appspot.com" rel="hub"/>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>${config.imageUrl ? `
     <image>
       <url>${escXml(config.imageUrl)}</url>

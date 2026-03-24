@@ -17,6 +17,7 @@ export function generateJsonFeed(
     language: config.language,
     icon: config.imageUrl,
     favicon: config.imageUrl,
+    hubs: [{ type: "WebSub", url: "https://pubsubhubbub.appspot.com" }],
     authors: config.author ? [{ name: config.author }] : undefined,
     items: items.map((item) => ({
       id: item.guid,

@@ -1,9 +1,10 @@
 import type { InboundMessage } from "../channels/types.js";
 import type { ClassifiedContent, Draft, Post } from "../config/types.js";
 import { classifyContent, type CallModel } from "./classify.js";
-import { addContent } from "../generator/site.js";
+import { addContent, readSiteConfig } from "../generator/site.js";
 import { createDraft, getDraft } from "../drafts/drafts.js";
 import { deployToGit, type DeployResult } from "../deploy/git.js";
+import { pingWebSubHub } from "../deploy/websub.js";
 import { ingestImages } from "../images/images.js";
 import { ingestMedia } from "../images/media.js";
 import {
@@ -196,6 +197,14 @@ export async function processMessage(
   }
 
   const deployed = deployResult?.committed === true && !deployResult.pushError;
+
+  // Ping WebSub hub for instant RSS reader updates
+  if (deployed) {
+    const siteConfig = await readSiteConfig(config.siteDir);
+    await pingWebSubHub(`https://${siteConfig.domain}/feed.xml`);
+    await pingWebSubHub(`https://${siteConfig.domain}/feed.json`);
+  }
+
   const reply = deployed
     ? `Published. ${post.url}`
     : `Published locally. ${post.url}`;

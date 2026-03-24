@@ -3,8 +3,9 @@ import { resolve } from "node:path";
 import pc from "picocolors";
 import type { ClassifiedContent, ContentType } from "../config/types.js";
 import { VALID_TYPES, MAX_TAGS, slugify } from "../config/content.js";
-import { addContent } from "../generator/site.js";
+import { addContent, readSiteConfig } from "../generator/site.js";
 import { deployToGit } from "../deploy/git.js";
+import { pingWebSubHub } from "../deploy/websub.js";
 
 export interface PublishOptions {
   type: ContentType;
@@ -114,6 +115,10 @@ export const publishCommand = new Command("publish")
         const result = await deployToGit(siteDir, `publish: ${content.type} — ${content.slug}`);
         if (result.committed && !result.pushError) {
           console.log(pc.green(`Published. ${post.url}`));
+          // Ping WebSub hub for instant RSS reader updates
+          const config = await readSiteConfig(siteDir);
+          await pingWebSubHub(`https://${config.domain}/feed.xml`);
+          await pingWebSubHub(`https://${config.domain}/feed.json`);
         } else if (result.committed) {
           console.log(pc.yellow(`Published locally. ${post.url}`));
         }
