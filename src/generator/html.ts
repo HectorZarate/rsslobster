@@ -140,7 +140,7 @@ export function generateHtmlPage(
   const css = generateStylesheet(resolved);
   const inner = renderContentBody(content);
   const nav = renderNav(config);
-  const favicon = faviconLinkTags(generateFaviconSvg(config.title, config.style.preset, config.style.overrides));
+  const favicon = faviconLinkTags(generateFaviconSvg(config.title, config.style.preset, config.style.overrides), config.style.preset, config.style.overrides);
 
   // Combine all head injections
   const ogTags = generateOgTags(content, config, options?.pageUrl);
@@ -256,7 +256,7 @@ export function generateIndexPage(
 
   const pluginHead = injections?.head ?? "";
   const bodyEnd = injections?.bodyEnd ?? "";
-  const favicon = faviconLinkTags(generateFaviconSvg(config.title, config.style.preset, config.style.overrides));
+  const favicon = faviconLinkTags(generateFaviconSvg(config.title, config.style.preset, config.style.overrides), config.style.preset, config.style.overrides);
 
   return `<!DOCTYPE html>
 <html lang="${escHtml(config.language)}">
@@ -299,7 +299,7 @@ export function generateArchivePage(
   const items = renderPostList(posts, config.permalink);
   const pluginHead = injections?.head ?? "";
   const bodyEnd = injections?.bodyEnd ?? "";
-  const favicon = faviconLinkTags(generateFaviconSvg(config.title, config.style.preset, config.style.overrides));
+  const favicon = faviconLinkTags(generateFaviconSvg(config.title, config.style.preset, config.style.overrides), config.style.preset, config.style.overrides);
 
   return `<!DOCTYPE html>
 <html lang="${escHtml(config.language)}">

@@ -9,7 +9,7 @@ export function generateRss(config: FeedConfig, items: FeedItem[]): string {
   const itemsXml = items.map((item) => renderItem(item)).join("\n");
 
   return `<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>${escXml(config.title)}</title>
     <link>${escXml(config.link)}</link>
@@ -33,6 +33,7 @@ function renderItem(item: FeedItem): string {
     `      <title>${escXml(item.title)}</title>`,
     `      <link>${escXml(item.link)}</link>`,
     `      <description>${escXml(item.description)}</description>`,
+    `      <content:encoded><![CDATA[${item.description}]]></content:encoded>`,
     `      <pubDate>${item.pubDate}</pubDate>`,
     `      <guid isPermaLink="true">${escXml(item.guid)}</guid>`,
   ];

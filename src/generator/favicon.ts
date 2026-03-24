@@ -31,10 +31,16 @@ export function faviconDataUri(svg: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-/** HTML link tags for favicon — inline SVG + basic ico fallback */
-export function faviconLinkTags(svg: string): string {
+/** HTML link tags for favicon, apple-touch-icon, and theme-color */
+export function faviconLinkTags(svg: string, preset?: StylePreset, overrides?: StyleOverrides): string {
   const uri = faviconDataUri(svg);
-  return `<link rel="icon" type="image/svg+xml" href="${uri}">\n  <link rel="icon" href="/favicon.svg" type="image/svg+xml">`;
+  const resolved = resolveStyle(preset, overrides);
+  return [
+    `<link rel="icon" type="image/svg+xml" href="${uri}">`,
+    `<link rel="icon" href="/favicon.svg" type="image/svg+xml">`,
+    `<link rel="apple-touch-icon" href="/icon.png">`,
+    `<meta name="theme-color" content="${resolved.colorBackground}">`,
+  ].join("\n  ");
 }
 
 /** Write favicon.svg and icon.png (for RSS readers) to the site output directory */

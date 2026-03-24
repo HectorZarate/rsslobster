@@ -15,6 +15,8 @@ export function generateJsonFeed(
     feed_url: config.feedUrl.replace(/feed\.xml$/, "feed.json"),
     description: config.description,
     language: config.language,
+    icon: config.imageUrl,
+    favicon: config.imageUrl,
     authors: config.author ? [{ name: config.author }] : undefined,
     items: items.map((item) => ({
       id: item.guid,
