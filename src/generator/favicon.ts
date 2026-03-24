@@ -37,7 +37,7 @@ export function faviconLinkTags(svg: string): string {
   return `<link rel="icon" type="image/svg+xml" href="${uri}">\n  <link rel="icon" href="/favicon.svg" type="image/svg+xml">`;
 }
 
-/** Write the favicon.svg file to the site directory */
+/** Write favicon.svg and icon.png (for RSS readers) to the site output directory */
 export async function writeFavicon(
   siteDir: string,
   title: string,
@@ -45,7 +45,17 @@ export async function writeFavicon(
   overrides?: StyleOverrides,
 ): Promise<string> {
   const svg = generateFaviconSvg(title, preset, overrides);
-  await writeFile(join(outputDir(siteDir), "favicon.svg"), svg);
+  const outDir = outputDir(siteDir);
+  await writeFile(join(outDir, "favicon.svg"), svg);
+
+  // Generate 512x512 PNG icon for RSS readers and apple-touch-icon
+  const sharp = (await import("sharp")).default;
+  const png = await sharp(Buffer.from(svg))
+    .resize(512, 512)
+    .png()
+    .toBuffer();
+  await writeFile(join(outDir, "icon.png"), png);
+
   return svg;
 }
 

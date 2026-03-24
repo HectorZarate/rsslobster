@@ -89,6 +89,19 @@ describe("generateRss", () => {
     expect(rss).not.toContain("<item>");
   });
 
+  it("includes channel image when imageUrl is provided", () => {
+    const config = { ...FEED_CONFIG, imageUrl: "https://example.com/icon.png" };
+    const rss = generateRss(config, []);
+    expect(rss).toContain("<image>");
+    expect(rss).toContain("<url>https://example.com/icon.png</url>");
+    expect(rss).toContain("</image>");
+  });
+
+  it("omits channel image when imageUrl is not provided", () => {
+    const rss = generateRss(FEED_CONFIG, []);
+    expect(rss).not.toContain("<image>");
+  });
+
   // Security: escapes XML entities
   it("escapes special characters in content", () => {
     const items: FeedItem[] = [

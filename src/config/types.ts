@@ -160,4 +160,5 @@ export interface FeedConfig {
   language: string;
   author?: string;
   feedUrl: string;
+  imageUrl?: string;
 }

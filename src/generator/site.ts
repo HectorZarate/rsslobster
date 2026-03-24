@@ -152,6 +152,7 @@ export async function rebuildFeeds(
     language: config.language,
     author: config.author,
     feedUrl: `https://${config.domain}/feed.xml`,
+    imageUrl: `https://${config.domain}/icon.png`,
   };
 
   const items: FeedItem[] = posts.slice(0, 20).map((p) => ({
