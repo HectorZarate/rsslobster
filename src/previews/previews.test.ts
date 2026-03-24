@@ -68,7 +68,7 @@ describe("previews", () => {
       expect(updated.previewExpiresAt).toBeDefined();
 
       // HTML file should exist
-      const htmlPath = join(siteDir, "_previews", `${updated.previewId}.html`);
+      const htmlPath = join(siteDir, "_site", "_previews", `${updated.previewId}.html`);
       const html = await readFile(htmlPath, "utf-8");
       expect(html).toContain("<!DOCTYPE html>");
       expect(html).toContain("Coffee in Lisbon");
@@ -79,7 +79,7 @@ describe("previews", () => {
       const updated = await createPreview(siteDir, draft);
 
       const html = await readFile(
-        join(siteDir, "_previews", `${updated.previewId}.html`),
+        join(siteDir, "_site", "_previews", `${updated.previewId}.html`),
         "utf-8",
       );
       expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
@@ -92,7 +92,7 @@ describe("previews", () => {
       const updated = await createPreview(siteDir, draft);
 
       const previewHtml = await readFile(
-        join(siteDir, "_previews", `${updated.previewId}.html`),
+        join(siteDir, "_site", "_previews", `${updated.previewId}.html`),
         "utf-8",
       );
 
@@ -115,18 +115,18 @@ describe("previews", () => {
     it("does NOT update posts.json, feed.xml, feed.json, or index.html", async () => {
       // Snapshot current state
       const postsBefore = await readFile(join(siteDir, "posts.json"), "utf-8");
-      const rssBefore = await readFile(join(siteDir, "feed.xml"), "utf-8");
-      const jsonBefore = await readFile(join(siteDir, "feed.json"), "utf-8");
-      const indexBefore = await readFile(join(siteDir, "index.html"), "utf-8");
+      const rssBefore = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
+      const jsonBefore = await readFile(join(siteDir, "_site", "feed.json"), "utf-8");
+      const indexBefore = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
 
       const draft = await createDraft(siteDir, MICRO_CONTENT);
       await createPreview(siteDir, draft);
 
       // Nothing should have changed
       expect(await readFile(join(siteDir, "posts.json"), "utf-8")).toBe(postsBefore);
-      expect(await readFile(join(siteDir, "feed.xml"), "utf-8")).toBe(rssBefore);
-      expect(await readFile(join(siteDir, "feed.json"), "utf-8")).toBe(jsonBefore);
-      expect(await readFile(join(siteDir, "index.html"), "utf-8")).toBe(indexBefore);
+      expect(await readFile(join(siteDir, "_site", "feed.xml"), "utf-8")).toBe(rssBefore);
+      expect(await readFile(join(siteDir, "_site", "feed.json"), "utf-8")).toBe(jsonBefore);
+      expect(await readFile(join(siteDir, "_site", "index.html"), "utf-8")).toBe(indexBefore);
     });
 
     it("reuses existing token on re-preview", async () => {
@@ -160,7 +160,7 @@ describe("previews", () => {
       expect(result).toBe(true);
 
       // HTML file should be gone
-      const files = await readdir(join(siteDir, "_previews"));
+      const files = await readdir(join(siteDir, "_site", "_previews"));
       expect(files.filter((f) => f.endsWith(".html"))).toHaveLength(0);
 
       // Draft should still exist but without preview fields
@@ -201,15 +201,15 @@ describe("previews", () => {
       expect(posts[0]!.slug).toBe(MICRO_CONTENT.slug);
 
       // Preview HTML should be gone
-      const previewFiles = await readdir(join(siteDir, "_previews"));
+      const previewFiles = await readdir(join(siteDir, "_site", "_previews"));
       expect(previewFiles.filter((f) => f.endsWith(".html"))).toHaveLength(0);
 
       // Published HTML should exist
-      const published = await stat(join(siteDir, "posts", post.slug, "index.html"));
+      const published = await stat(join(siteDir, "_site", "posts", post.slug, "index.html"));
       expect(published.isFile()).toBe(true);
 
       // RSS should have the post
-      const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+      const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
       expect(rss).toContain("Coffee in Lisbon");
     });
 
@@ -278,7 +278,7 @@ describe("previews", () => {
       expect(cleaned).toBe(1);
 
       // First preview HTML should be gone
-      const files = await readdir(join(siteDir, "_previews"));
+      const files = await readdir(join(siteDir, "_site", "_previews"));
       const htmlFiles = files.filter((f) => f.endsWith(".html"));
       expect(htmlFiles).toHaveLength(1);
       expect(htmlFiles[0]).toContain(p2.previewId);

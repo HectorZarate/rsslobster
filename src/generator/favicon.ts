@@ -2,6 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { resolveStyle } from "../styles/presets.js";
 import type { StylePreset, StyleOverrides } from "../config/types.js";
+import { outputDir } from "../config/paths.js";
 
 /**
  * Generate an inline SVG favicon based on the site title's first character
@@ -44,7 +45,7 @@ export async function writeFavicon(
   overrides?: StyleOverrides,
 ): Promise<string> {
   const svg = generateFaviconSvg(title, preset, overrides);
-  await writeFile(join(siteDir, "favicon.svg"), svg);
+  await writeFile(join(outputDir(siteDir), "favicon.svg"), svg);
   return svg;
 }
 

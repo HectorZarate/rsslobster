@@ -52,7 +52,7 @@ export async function ingestImage(
   slug: string,
   index: number,
 ): Promise<ImageAttachment> {
-  const imagesDir = join(siteDir, "images");
+  const imagesDir = join(siteDir, "_site", "images");
   await mkdir(imagesDir, { recursive: true });
 
   const filename = generateFilename(

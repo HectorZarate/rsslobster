@@ -1,5 +1,7 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { outputDir } from "../config/paths.js";
+export { outputDir } from "../config/paths.js";
 import type {
   ClassifiedContent,
   FeedConfig,
@@ -14,7 +16,7 @@ import { generateJsonFeed } from "./json-feed.js";
 import { writeSearchIndex } from "./search.js";
 import { writeSeo } from "./seo.js";
 import { writePages } from "../pages/pages.js";
-import { expandPermalink, permalinkDir } from "../config/permalink.js";
+import { expandPermalink, permalinkDir, DEFAULT_PERMALINK } from "../config/permalink.js";
 import type { PageInjections } from "../plugins/types.js";
 import { loadCustomCss } from "../styles/presets.js";
 import { writeFavicon } from "./favicon.js";
@@ -100,8 +102,9 @@ export async function addContent(
   // Resolve permalink path
   const permalink = expandPermalink(config.permalink, content);
   const dir = permalinkDir(permalink);
+  const outDir = outputDir(siteDir);
   if (dir) {
-    await mkdir(join(siteDir, dir), { recursive: true });
+    await mkdir(join(outDir, dir), { recursive: true });
   }
 
   // Generate HTML page with OG, JSON-LD, and plugin injections
@@ -113,7 +116,7 @@ export async function addContent(
 
   // Write to the permalink path (strip leading /)
   const htmlPath = permalink.startsWith("/") ? permalink.slice(1) : permalink;
-  await writeFile(join(siteDir, htmlPath), html);
+  await writeFile(join(outDir, htmlPath), html);
 
   // Create post record
   const post: Post = {
@@ -175,8 +178,8 @@ export async function rebuildFeeds(
   const rss = generateRss(feedConfig, items);
   const json = generateJsonFeed(feedConfig, items);
 
-  await writeFile(join(siteDir, "feed.xml"), rss);
-  await writeFile(join(siteDir, "feed.json"), json);
+  await writeFile(join(outputDir(siteDir), "feed.xml"), rss);
+  await writeFile(join(outputDir(siteDir), "feed.json"), json);
 }
 
 /** Rebuild the index.html and archive.html pages */
@@ -186,13 +189,14 @@ export async function rebuildIndex(
   posts: Post[],
   injections?: PageInjections,
 ): Promise<void> {
+  const outDir = outputDir(siteDir);
   const html = generateIndexPage(posts, config, injections);
-  await writeFile(join(siteDir, "index.html"), html);
+  await writeFile(join(outDir, "index.html"), html);
 
   // Generate archive page if there are enough posts
   if (posts.length > 30) {
     const archive = generateArchivePage(posts, config, injections);
-    await writeFile(join(siteDir, "archive.html"), archive);
+    await writeFile(join(outDir, "archive.html"), archive);
   }
 }
 
@@ -202,49 +206,19 @@ export async function scaffoldSite(
   config: SiteConfig,
 ): Promise<void> {
   await mkdir(siteDir, { recursive: true });
-  await mkdir(join(siteDir, "images"), { recursive: true });
-  await mkdir(join(siteDir, "media"), { recursive: true });
+  const outDir = outputDir(siteDir);
+  await mkdir(outDir, { recursive: true });
+  await mkdir(join(outDir, "images"), { recursive: true });
+  await mkdir(join(outDir, "media"), { recursive: true });
   await mkdir(join(siteDir, "drafts"), { recursive: true });
+
+  // Lock permalink pattern in config so future rsslobster upgrades don't break URLs
+  if (!config.permalink) {
+    config = { ...config, permalink: DEFAULT_PERMALINK };
+  }
 
   await writeSiteConfig(siteDir, config);
   await writePostsIndex(siteDir, []);
-
-  // Generate _headers to block internal files from being served publicly
-  await writeFile(
-    join(siteDir, "_headers"),
-    [
-      "/rsslobster.json",
-      "  X-Robots-Tag: noindex",
-      "",
-      "/posts.json",
-      "  X-Robots-Tag: noindex",
-      "",
-      "/drafts/*",
-      "  X-Robots-Tag: noindex",
-      "",
-    ].join("\n"),
-  );
-
-  // Generate .assetsignore for Cloudflare Workers/Pages static asset deploys
-  await writeFile(
-    join(siteDir, ".assetsignore"),
-    [
-      "node_modules",
-      ".wrangler",
-      ".git",
-      "drafts",
-      "rsslobster.json",
-      "posts.json",
-      "package.json",
-      "package-lock.json",
-      "bun.lockb",
-      "wrangler.jsonc",
-      ".gitignore",
-      ".assetsignore",
-      "README.md",
-      "",
-    ].join("\n"),
-  );
 
   // Generate favicon
   await writeFavicon(siteDir, config.title, config.style.preset, config.style.overrides);

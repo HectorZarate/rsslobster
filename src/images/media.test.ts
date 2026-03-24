@@ -59,7 +59,7 @@ describe("ingestMediaFile", () => {
     expect(result.src).toBe("/media/my-post-media-1.ogg");
     expect(result.mimeType).toBe("audio/ogg");
 
-    const files = await readdir(join(siteDir, "media"));
+    const files = await readdir(join(siteDir, "_site", "media"));
     expect(files).toContain("my-post-media-1.ogg");
   });
 });

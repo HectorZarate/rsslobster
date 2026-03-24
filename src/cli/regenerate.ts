@@ -7,6 +7,7 @@ import {
   readPostsIndex,
   rebuildFeeds,
   rebuildIndex,
+  outputDir,
 } from "../generator/site.js";
 import { generateHtmlPage } from "../generator/html.js";
 import { writeSearchIndex } from "../generator/search.js";
@@ -37,6 +38,8 @@ export async function regenerateSite(siteDir: string): Promise<void> {
 
   const posts = await readPostsIndex(siteDir);
 
+  const outDir = outputDir(siteDir);
+
   // Regenerate each post's HTML page
   for (const post of posts) {
     // Derive file path from stored URL (O(1) string manipulation)
@@ -47,12 +50,12 @@ export async function regenerateSite(siteDir: string): Promise<void> {
 
     const dir = permalinkDir(permalink);
     if (dir) {
-      await mkdir(join(siteDir, dir), { recursive: true });
+      await mkdir(join(outDir, dir), { recursive: true });
     }
 
     const html = generateHtmlPage(post, config, { pageUrl: post.url });
     const htmlPath = permalink.startsWith("/") ? permalink.slice(1) : permalink;
-    await writeFile(join(siteDir, htmlPath), html);
+    await writeFile(join(outDir, htmlPath), html);
   }
 
   // Rebuild feeds, index, search, SEO, and pages

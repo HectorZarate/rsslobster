@@ -2,6 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Post, SiteConfig } from "../config/types.js";
 import { escXml } from "./rss.js";
+import { outputDir } from "../config/paths.js";
 
 /**
  * SEO output generators — sitemap.xml and robots.txt.
@@ -83,7 +84,7 @@ export async function writeSeo(
   const sitemap = generateSitemap(config, posts);
   const robots = generateRobotsTxt(config);
 
-  await writeFile(join(siteDir, "sitemap.xml"), sitemap);
-  await writeFile(join(siteDir, "robots.txt"), robots);
+  await writeFile(join(outputDir(siteDir), "sitemap.xml"), sitemap);
+  await writeFile(join(outputDir(siteDir), "robots.txt"), robots);
 }
 

@@ -53,7 +53,7 @@ describe("regenerateSite", () => {
   it("handles site with zero posts", async () => {
     await scaffoldSite(siteDir, SITE_CONFIG);
     await regenerateSite(siteDir);
-    const html = await readFile(join(siteDir, "index.html"), "utf-8");
+    const html = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
     expect(html).toContain("<!DOCTYPE html>");
     expect(html).toContain("Test Blog");
   });
@@ -64,11 +64,11 @@ describe("regenerateSite", () => {
     await addContent(siteDir, POST);
 
     // Corrupt index.html
-    await writeFile(join(siteDir, "index.html"), "CORRUPTED");
+    await writeFile(join(siteDir, "_site", "index.html"), "CORRUPTED");
 
     await regenerateSite(siteDir);
 
-    const html = await readFile(join(siteDir, "index.html"), "utf-8");
+    const html = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
     expect(html).toContain("Hello from the test suite");
     expect(html).toContain("Why RSS Matters");
     expect(html).not.toBe("CORRUPTED");
@@ -79,11 +79,11 @@ describe("regenerateSite", () => {
     await addContent(siteDir, MICRO);
 
     // Corrupt the post file
-    await writeFile(join(siteDir, "posts", "hello-test", "index.html"), "CORRUPTED");
+    await writeFile(join(siteDir, "_site", "posts", "hello-test", "index.html"), "CORRUPTED");
 
     await regenerateSite(siteDir);
 
-    const html = await readFile(join(siteDir, "posts", "hello-test", "index.html"), "utf-8");
+    const html = await readFile(join(siteDir, "_site", "posts", "hello-test", "index.html"), "utf-8");
     expect(html).toContain("Hello from the test suite");
     expect(html).toContain("<!DOCTYPE html>");
   });
@@ -92,10 +92,10 @@ describe("regenerateSite", () => {
     await scaffoldSite(siteDir, SITE_CONFIG);
     await addContent(siteDir, MICRO);
 
-    await writeFile(join(siteDir, "feed.xml"), "CORRUPTED");
+    await writeFile(join(siteDir, "_site", "feed.xml"), "CORRUPTED");
     await regenerateSite(siteDir);
 
-    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
     expect(rss).toContain("<rss");
     expect(rss).toContain("Hello from the test suite");
   });
@@ -104,10 +104,10 @@ describe("regenerateSite", () => {
     await scaffoldSite(siteDir, SITE_CONFIG);
     await addContent(siteDir, MICRO);
 
-    await writeFile(join(siteDir, "feed.json"), "CORRUPTED");
+    await writeFile(join(siteDir, "_site", "feed.json"), "CORRUPTED");
     await regenerateSite(siteDir);
 
-    const json = await readFile(join(siteDir, "feed.json"), "utf-8");
+    const json = await readFile(join(siteDir, "_site", "feed.json"), "utf-8");
     const parsed = JSON.parse(json);
     expect(parsed.items).toHaveLength(1);
   });
@@ -116,10 +116,10 @@ describe("regenerateSite", () => {
     await scaffoldSite(siteDir, SITE_CONFIG);
     await addContent(siteDir, MICRO);
 
-    await writeFile(join(siteDir, "search-index.json"), "CORRUPTED");
+    await writeFile(join(siteDir, "_site", "search-index.json"), "CORRUPTED");
     await regenerateSite(siteDir);
 
-    const raw = await readFile(join(siteDir, "search-index.json"), "utf-8");
+    const raw = await readFile(join(siteDir, "_site", "search-index.json"), "utf-8");
     const index = JSON.parse(raw);
     expect(index).toHaveLength(1);
     expect(index[0].s).toBe("hello-test");
@@ -129,10 +129,10 @@ describe("regenerateSite", () => {
     await scaffoldSite(siteDir, SITE_CONFIG);
     await addContent(siteDir, MICRO);
 
-    await writeFile(join(siteDir, "sitemap.xml"), "CORRUPTED");
+    await writeFile(join(siteDir, "_site", "sitemap.xml"), "CORRUPTED");
     await regenerateSite(siteDir);
 
-    const sitemap = await readFile(join(siteDir, "sitemap.xml"), "utf-8");
+    const sitemap = await readFile(join(siteDir, "_site", "sitemap.xml"), "utf-8");
     expect(sitemap).toContain("<urlset");
   });
 
@@ -143,7 +143,7 @@ describe("regenerateSite", () => {
 
     await regenerateSite(siteDir);
 
-    const html = await readFile(join(siteDir, "posts", "hello-test", "index.html"), "utf-8");
+    const html = await readFile(join(siteDir, "_site", "posts", "hello-test", "index.html"), "utf-8");
     // Terminal preset uses amber text color
     expect(html).toContain("#FFB000");
   });

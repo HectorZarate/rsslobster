@@ -64,7 +64,7 @@ describe("agent pipeline", () => {
 
     // Verify HTML was written
     const html = await readFile(
-      join(siteDir, "posts", result.post!.slug, "index.html"),
+      join(siteDir, "_site", "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain("Coffee in Lisbon");
@@ -214,7 +214,7 @@ describe("agent pipeline", () => {
       expect(result.reply).toContain("publish");
 
       // Preview HTML should exist
-      const htmlPath = join(siteDir, "_previews", `${result.preview!.previewId}.html`);
+      const htmlPath = join(siteDir, "_site", "_previews", `${result.preview!.previewId}.html`);
       const html = await readFile(htmlPath, "utf-8");
       expect(html).toContain("Preview this thought");
       expect(html).toContain("noindex");
@@ -381,13 +381,13 @@ describe("agent pipeline", () => {
 
       // Image file should exist in site
       const imgStat = await stat(
-        join(siteDir, result.post!.images![0]!.src.slice(1)),
+        join(siteDir, "_site", result.post!.images![0]!.src.slice(1)),
       );
       expect(imgStat.isFile()).toBe(true);
 
       // HTML should reference the image
       const html = await readFile(
-        join(siteDir, "posts", result.post!.slug, "index.html"),
+        join(siteDir, "_site", "posts", result.post!.slug, "index.html"),
         "utf-8",
       );
       expect(html).toContain("/images/");

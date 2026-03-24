@@ -133,6 +133,10 @@ describe("SEARCH_SCRIPT", () => {
     expect(SEARCH_SCRIPT).toMatch(/[Ss]earching/);
   });
 
+  it("uses absolute URL for search index fetch", () => {
+    expect(SEARCH_SCRIPT).toContain("'/search-index.json'");
+  });
+
   it("clears results when input is cleared", () => {
     expect(SEARCH_SCRIPT).toMatch(/innerHTML\s*=\s*['"]['"]|textContent\s*=\s*['"]['""]/);
   });

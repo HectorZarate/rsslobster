@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, readFile, readdir } from "node:fs/promises";
+import { mkdtemp, rm, readFile, readdir, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getNavPages, renderNav, renderPageLinks, generatePageHtml, writePages } from "./pages.js";
@@ -143,6 +143,7 @@ describe("writePages", () => {
 
   beforeEach(async () => {
     siteDir = await mkdtemp(join(tmpdir(), "rsslobster-pages-"));
+    await mkdir(join(siteDir, "_site"), { recursive: true });
   });
 
   afterEach(async () => {
@@ -156,7 +157,7 @@ describe("writePages", () => {
     };
     await writePages(siteDir, config);
 
-    const html = await readFile(join(siteDir, "about.html"), "utf-8");
+    const html = await readFile(join(siteDir, "_site", "about.html"), "utf-8");
     expect(html).toContain("About me");
   });
 
@@ -170,7 +171,7 @@ describe("writePages", () => {
     };
     await writePages(siteDir, config);
 
-    const files = await readdir(siteDir);
+    const files = await readdir(join(siteDir, "_site"));
     expect(files).toContain("good.html");
     expect(files).not.toContain("evil.html");
   });
@@ -185,7 +186,8 @@ describe("writePages", () => {
     };
     await writePages(siteDir, config);
 
-    const files = await readdir(siteDir);
+    const files = await readdir(join(siteDir, "_site"));
+    // Only _site dir exists, no page files generated
     expect(files).toHaveLength(0);
   });
 });

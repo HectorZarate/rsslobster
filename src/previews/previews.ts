@@ -20,7 +20,7 @@ function generateToken(): string {
 }
 
 async function ensurePreviewsDir(siteDir: string): Promise<void> {
-  await mkdir(join(siteDir, PREVIEWS_DIR), { recursive: true });
+  await mkdir(join(siteDir, "_site", PREVIEWS_DIR), { recursive: true });
 }
 
 /** Generate a preview for a draft. Updates the draft with preview metadata. */
@@ -49,7 +49,7 @@ export async function createPreview(
 
   // Generate 1:1 HTML with preview banner + noindex
   const html = generateHtmlPage(draft, config, previewPageOptions());
-  await writeFile(join(siteDir, PREVIEWS_DIR, `${token}.html`), html);
+  await writeFile(join(siteDir, "_site", PREVIEWS_DIR, `${token}.html`), html);
 
   return updated;
 }
@@ -63,7 +63,7 @@ export async function deletePreview(
   if (!draft?.previewId) return false;
 
   try {
-    await unlink(join(siteDir, PREVIEWS_DIR, `${draft.previewId}.html`));
+    await unlink(join(siteDir, "_site", PREVIEWS_DIR, `${draft.previewId}.html`));
   } catch {
     /* file may already be gone */
   }
@@ -91,7 +91,7 @@ export async function promotePreview(
   if (draft.previewId) {
     try {
       await unlink(
-        join(siteDir, PREVIEWS_DIR, `${draft.previewId}.html`),
+        join(siteDir, "_site", PREVIEWS_DIR, `${draft.previewId}.html`),
       );
     } catch {
       /* ok */

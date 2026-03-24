@@ -9,6 +9,7 @@ import { publishCommand } from "./cli/publish.js";
 import { previewsCommand } from "./cli/previews.js";
 import { pagesCommand } from "./cli/pages.js";
 import { regenerateCommand } from "./cli/regenerate.js";
+import { devCommand } from "./cli/dev.js";
 
 const program = new Command();
 
@@ -26,5 +27,6 @@ program.addCommand(publishCommand);
 program.addCommand(previewsCommand);
 program.addCommand(pagesCommand);
 program.addCommand(regenerateCommand);
+program.addCommand(devCommand);
 
 program.parse();

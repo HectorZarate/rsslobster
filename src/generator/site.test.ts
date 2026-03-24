@@ -57,6 +57,12 @@ describe("scaffoldSite", () => {
     expect(config.title).toBe("Test Site");
   });
 
+  it("locks permalink pattern in config", async () => {
+    await scaffoldSite(siteDir, CONFIG);
+    const config = await readSiteConfig(siteDir);
+    expect(config.permalink).toBe("/posts/:slug/index.html");
+  });
+
   it("creates posts.json index", async () => {
     await scaffoldSite(siteDir, CONFIG);
     const posts = await readPostsIndex(siteDir);
@@ -65,7 +71,7 @@ describe("scaffoldSite", () => {
 
   it("creates images directory", async () => {
     await scaffoldSite(siteDir, CONFIG);
-    await expect(access(join(siteDir, "images"))).resolves.toBeUndefined();
+    await expect(access(join(siteDir, "_site", "images"))).resolves.toBeUndefined();
   });
 
   it("creates drafts directory", async () => {
@@ -75,14 +81,14 @@ describe("scaffoldSite", () => {
 
   it("generates initial index.html", async () => {
     await scaffoldSite(siteDir, CONFIG);
-    const html = await readFile(join(siteDir, "index.html"), "utf-8");
+    const html = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
     expect(html).toContain("Test Site");
     expect(html).toContain("<!DOCTYPE html>");
   });
 
   it("generates favicon.svg", async () => {
     await scaffoldSite(siteDir, CONFIG);
-    const svg = await readFile(join(siteDir, "favicon.svg"), "utf-8");
+    const svg = await readFile(join(siteDir, "_site", "favicon.svg"), "utf-8");
     expect(svg).toContain("<svg");
     expect(svg).toContain("</svg>");
     // Uses first character of site title
@@ -91,21 +97,21 @@ describe("scaffoldSite", () => {
 
   it("includes favicon in generated index.html", async () => {
     await scaffoldSite(siteDir, CONFIG);
-    const html = await readFile(join(siteDir, "index.html"), "utf-8");
+    const html = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
     expect(html).toContain("data:image/svg+xml,");
     expect(html).toContain('href="/favicon.svg"');
   });
 
   it("generates initial feed.xml", async () => {
     await scaffoldSite(siteDir, CONFIG);
-    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
     expect(rss).toContain("<rss");
     expect(rss).toContain("Test Site");
   });
 
   it("generates initial feed.json", async () => {
     await scaffoldSite(siteDir, CONFIG);
-    const raw = await readFile(join(siteDir, "feed.json"), "utf-8");
+    const raw = await readFile(join(siteDir, "_site", "feed.json"), "utf-8");
     const feed = JSON.parse(raw);
     expect(feed.version).toContain("jsonfeed.org");
     expect(feed.title).toBe("Test Site");
@@ -117,7 +123,7 @@ describe("addContent", () => {
     await scaffoldSite(siteDir, CONFIG);
     await addContent(siteDir, MICRO);
 
-    const html = await readFile(join(siteDir, "posts", "hello-test", "index.html"), "utf-8");
+    const html = await readFile(join(siteDir, "_site", "posts", "hello-test", "index.html"), "utf-8");
     expect(html).toContain("Hello from the test suite!");
     expect(html).toContain("<!DOCTYPE html>");
   });
@@ -147,10 +153,10 @@ describe("addContent", () => {
     await scaffoldSite(siteDir, CONFIG);
     await addContent(siteDir, MICRO);
 
-    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
     expect(rss).toContain("hello-test");
 
-    const json = await readFile(join(siteDir, "feed.json"), "utf-8");
+    const json = await readFile(join(siteDir, "_site", "feed.json"), "utf-8");
     const feed = JSON.parse(json);
     expect(feed.items).toHaveLength(1);
   });
@@ -159,7 +165,7 @@ describe("addContent", () => {
     await scaffoldSite(siteDir, CONFIG);
     await addContent(siteDir, MICRO);
 
-    const html = await readFile(join(siteDir, "index.html"), "utf-8");
+    const html = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
     expect(html).toContain("/posts/hello-test/index.html");
   });
 
@@ -185,7 +191,7 @@ describe("rebuildFeeds", () => {
       });
     }
 
-    const raw = await readFile(join(siteDir, "feed.json"), "utf-8");
+    const raw = await readFile(join(siteDir, "_site", "feed.json"), "utf-8");
     const feed = JSON.parse(raw);
     expect(feed.items).toHaveLength(20);
   });

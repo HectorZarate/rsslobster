@@ -47,27 +47,37 @@ function createOpenAICaller(
 ): CallModel {
   const url = `${config.baseUrl.replace(/\/$/, "")}/chat/completions`;
   const systemContent = resolveSystemPrompt(config.systemPrompt);
+  let supportsJsonMode = true;
 
-  return async (userPrompt: string, temperature = 0): Promise<string> => {
+  async function call(userPrompt: string, temperature: number, useJsonMode: boolean): Promise<string> {
+    const body: Record<string, unknown> = {
+      model: config.model,
+      temperature,
+      messages: [
+        { role: "system", content: systemContent },
+        { role: "user", content: userPrompt },
+      ],
+    };
+    if (useJsonMode) {
+      body.response_format = { type: "json_object" };
+    }
+
     const res = await fetchFn(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${config.apiKey}`,
       },
-      body: JSON.stringify({
-        model: config.model,
-        temperature,
-        messages: [
-          { role: "system", content: systemContent },
-          { role: "user", content: userPrompt },
-        ],
-        ...(config.apiKey !== "lm-studio" ? { response_format: { type: "json_object" } } : {}),
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
       const text = await res.text();
+      // If the provider doesn't support response_format, retry without it
+      if (useJsonMode && res.status === 400 && text.includes("response_format")) {
+        supportsJsonMode = false;
+        return call(userPrompt, temperature, false);
+      }
       throw new Error(`Model API error: ${res.status} — ${text}`);
     }
 
@@ -78,6 +88,10 @@ function createOpenAICaller(
     }
 
     return content;
+  }
+
+  return (userPrompt: string, temperature = 0): Promise<string> => {
+    return call(userPrompt, temperature, supportsJsonMode);
   };
 }
 

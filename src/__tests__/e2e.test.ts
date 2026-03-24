@@ -83,7 +83,7 @@ describe("E2E pipeline", () => {
 
     // HTML page exists and has correct structure
     const html = await readFile(
-      join(siteDir, "posts", result.post!.slug, "index.html"),
+      join(siteDir, "_site", "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain("<!DOCTYPE html>");
@@ -96,7 +96,7 @@ describe("E2E pipeline", () => {
     expect(html).toContain('<span class="tag">quote</span>');
 
     // RSS feed updated with the new post
-    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
     expect(rss).toContain("<rss version");
     expect(rss).toContain("quiet desperation");
     expect(rss).toContain("<category>quote</category>");
@@ -104,7 +104,7 @@ describe("E2E pipeline", () => {
 
     // JSON Feed updated
     const jsonFeed = JSON.parse(
-      await readFile(join(siteDir, "feed.json"), "utf-8"),
+      await readFile(join(siteDir, "_site", "feed.json"), "utf-8"),
     );
     expect(jsonFeed.version).toBe("https://jsonfeed.org/version/1.1");
     expect(jsonFeed.title).toBe("My Lobster Blog");
@@ -112,7 +112,7 @@ describe("E2E pipeline", () => {
     expect(jsonFeed.items[0].title).toContain("quiet desperation");
 
     // Index page lists the post
-    const index = await readFile(join(siteDir, "index.html"), "utf-8");
+    const index = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
     expect(index).toContain("quiet desperation");
     expect(index).toContain("/posts/");
 
@@ -144,7 +144,7 @@ describe("E2E pipeline", () => {
     expect(result.post!.title).toBe("Why RSS Still Matters");
 
     const html = await readFile(
-      join(siteDir, "posts", result.post!.slug, "index.html"),
+      join(siteDir, "_site", "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain("<h1>Why RSS Still Matters</h1>");
@@ -183,7 +183,7 @@ describe("E2E pipeline", () => {
     expect(result.post!.type).toBe("link");
 
     const html = await readFile(
-      join(siteDir, "posts", result.post!.slug, "index.html"),
+      join(siteDir, "_site", "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain('class="link-card"');
@@ -215,7 +215,7 @@ describe("E2E pipeline", () => {
     expect(result.reply).toContain("Saved as draft");
 
     // No post directories should exist for the draft
-    const files = await readdir(siteDir);
+    const files = await readdir(join(siteDir, "_site"));
     expect(files).not.toContain("posts");
 
     // Posts index should be empty
@@ -223,7 +223,7 @@ describe("E2E pipeline", () => {
     expect(posts).toHaveLength(0);
 
     // RSS should have no items
-    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
     expect(rss).not.toContain("<item>");
   });
 
@@ -273,27 +273,27 @@ describe("E2E pipeline", () => {
     expect(posts).toHaveLength(3);
     expect(posts[0]!.title).toBe("On Writing");
 
-    // index.html in root + 3 posts in posts/ subdirectory
-    const files = await readdir(siteDir);
+    // index.html in _site/ + 3 posts in _site/posts/ subdirectory
+    const files = await readdir(join(siteDir, "_site"));
     const htmlFiles = files.filter((f) => f.endsWith(".html"));
-    expect(htmlFiles).toHaveLength(1); // only index.html in root
+    expect(htmlFiles).toHaveLength(1); // only index.html in _site root
 
-    // 3 post directories under posts/
-    const postDirs = await readdir(join(siteDir, "posts"));
+    // 3 post directories under _site/posts/
+    const postDirs = await readdir(join(siteDir, "_site", "posts"));
     expect(postDirs).toHaveLength(3);
 
     // RSS and JSON Feed have all 3 items
-    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
     const itemMatches = rss.match(/<item>/g);
     expect(itemMatches).toHaveLength(3);
 
     const jsonFeed = JSON.parse(
-      await readFile(join(siteDir, "feed.json"), "utf-8"),
+      await readFile(join(siteDir, "_site", "feed.json"), "utf-8"),
     );
     expect(jsonFeed.items).toHaveLength(3);
 
     // Index page lists all 3
-    const index = await readFile(join(siteDir, "index.html"), "utf-8");
+    const index = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
     expect(index).toContain("First coffee");
     expect(index).toContain("Second thought");
     expect(index).toContain("On Writing");
@@ -317,7 +317,7 @@ describe("E2E pipeline", () => {
     const posts = await readPostsIndex(siteDir);
     expect(posts).toHaveLength(0);
 
-    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
     expect(rss).not.toContain("<item>");
   });
 
@@ -341,7 +341,7 @@ describe("E2E pipeline", () => {
 
     // HTML page should contain video structure (no actual media file attached)
     const html = await readFile(
-      join(siteDir, "posts", result.post!.slug, "index.html"),
+      join(siteDir, "_site", "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain("sunset timelapse");
@@ -372,13 +372,13 @@ describe("E2E pipeline", () => {
     expect(result.post!.type).toBe("audio");
 
     const html = await readFile(
-      join(siteDir, "posts", result.post!.slug, "index.html"),
+      join(siteDir, "_site", "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain("distributed systems");
 
     // RSS should contain the item
-    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
     expect(rss).toContain("distributed systems");
   });
 
@@ -398,7 +398,7 @@ describe("E2E pipeline", () => {
     );
 
     const searchIndex = JSON.parse(
-      await readFile(join(siteDir, "search-index.json"), "utf-8"),
+      await readFile(join(siteDir, "_site", "search-index.json"), "utf-8"),
     );
     expect(searchIndex).toHaveLength(1);
     expect(searchIndex[0].b).toContain("searchable content");
@@ -423,18 +423,18 @@ describe("E2E pipeline", () => {
 
     // HTML page must escape the XSS script tag (JSON-LD script is legitimate)
     const html = await readFile(
-      join(siteDir, "posts", result.post!.slug, "index.html"),
+      join(siteDir, "_site", "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).not.toContain('<script>alert');
     expect(html).toContain("&lt;script&gt;");
 
     // RSS must escape it too
-    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
     expect(rss).not.toContain("<script>alert");
 
     // Index page must escape the XSS payload (not the legitimate search script)
-    const index = await readFile(join(siteDir, "index.html"), "utf-8");
+    const index = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
     expect(index).not.toContain('<script>alert');
   });
 
@@ -463,7 +463,7 @@ describe("E2E pipeline", () => {
 
     // Preview HTML should exist with banner and noindex
     const html = await readFile(
-      join(siteDir, "_previews", `${result.preview!.previewId}.html`),
+      join(siteDir, "_site", "_previews", `${result.preview!.previewId}.html`),
       "utf-8",
     );
     expect(html).toContain("<!DOCTYPE html>");
@@ -475,15 +475,15 @@ describe("E2E pipeline", () => {
     const posts = await readPostsIndex(siteDir);
     expect(posts).toHaveLength(0);
 
-    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
     expect(rss).not.toContain("preview first");
 
     const jsonFeed = JSON.parse(
-      await readFile(join(siteDir, "feed.json"), "utf-8"),
+      await readFile(join(siteDir, "_site", "feed.json"), "utf-8"),
     );
     expect(jsonFeed.items).toHaveLength(0);
 
-    const index = await readFile(join(siteDir, "index.html"), "utf-8");
+    const index = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
     expect(index).not.toContain("preview first");
   });
 
@@ -523,7 +523,7 @@ describe("E2E pipeline", () => {
 
     // Published HTML should exist
     const publishedHtml = await readFile(
-      join(siteDir, "posts", slug, "index.html"),
+      join(siteDir, "_site", "posts", slug, "index.html"),
       "utf-8",
     );
     expect(publishedHtml).toContain("<h1>On Decentralization</h1>");
@@ -538,11 +538,11 @@ describe("E2E pipeline", () => {
     expect(postsAfter[0]!.title).toBe("On Decentralization");
 
     // RSS should have the post
-    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
     expect(rss).toContain("On Decentralization");
 
     // Preview file should be cleaned up
-    const previewFiles = await readdir(join(siteDir, "_previews"));
+    const previewFiles = await readdir(join(siteDir, "_site", "_previews"));
     expect(previewFiles.filter((f) => f.endsWith(".html"))).toHaveLength(0);
   });
 
@@ -568,7 +568,7 @@ describe("E2E pipeline", () => {
 
     // Preview HTML should contain the draft content
     const html = await readFile(
-      join(siteDir, "_previews", `${result.preview!.previewId}.html`),
+      join(siteDir, "_site", "_previews", `${result.preview!.previewId}.html`),
       "utf-8",
     );
     expect(html).toContain("Saved earlier, preview now.");
@@ -597,7 +597,7 @@ describe("E2E pipeline", () => {
     );
 
     const html = await readFile(
-      join(siteDir, "posts", result.post!.slug, "index.html"),
+      join(siteDir, "_site", "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     expect(html).toContain("<strong>bold</strong>");
@@ -624,7 +624,7 @@ describe("E2E pipeline", () => {
     );
 
     const html = await readFile(
-      join(siteDir, "posts", result.post!.slug, "index.html"),
+      join(siteDir, "_site", "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     // Shiki output contains CSS variable tokens
@@ -650,7 +650,7 @@ describe("E2E pipeline", () => {
     );
 
     const html = await readFile(
-      join(siteDir, "posts", result.post!.slug, "index.html"),
+      join(siteDir, "_site", "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     // Inline math
@@ -675,7 +675,7 @@ describe("E2E pipeline", () => {
     );
 
     const html = await readFile(
-      join(siteDir, "posts", result.post!.slug, "index.html"),
+      join(siteDir, "_site", "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     // Inline markdown rendered
@@ -700,7 +700,7 @@ describe("E2E pipeline", () => {
       { siteDir, callModel, deploy: false },
     );
 
-    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
     // RSS XML-escapes the description, so rendered markdown HTML appears as entities
     expect(rss).toContain("&lt;strong&gt;this&lt;/strong&gt;");
     expect(rss).toContain("&lt;code&gt;code&lt;/code&gt;");
@@ -722,7 +722,7 @@ describe("E2E pipeline", () => {
     );
 
     const jsonFeed = JSON.parse(
-      await readFile(join(siteDir, "feed.json"), "utf-8"),
+      await readFile(join(siteDir, "_site", "feed.json"), "utf-8"),
     );
     // JSON Feed content_html should have rendered markdown
     const itemContent =
@@ -747,7 +747,7 @@ describe("E2E pipeline", () => {
     );
 
     const html = await readFile(
-      join(siteDir, "posts", result.post!.slug, "index.html"),
+      join(siteDir, "_site", "posts", result.post!.slug, "index.html"),
       "utf-8",
     );
     // Script tags escaped

@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Post } from "../config/types.js";
+import { outputDir } from "../config/paths.js";
 
 /**
  * A search index entry — minimal data needed for client-side search.
@@ -40,7 +41,7 @@ export async function writeSearchIndex(
   posts: Post[],
 ): Promise<void> {
   const index = buildSearchIndex(posts);
-  await writeFile(join(siteDir, "search-index.json"), JSON.stringify(index));
+  await writeFile(join(outputDir(siteDir), "search-index.json"), JSON.stringify(index));
 }
 
 /**
@@ -70,7 +71,7 @@ var q=i.value.trim().toLowerCase();
 if(!q){r.innerHTML='';return;}
 if(idx){show(q);return;}
 r.innerHTML='<p class="search-count">Searching\\u2026</p>';
-fetch('search-index.json').then(function(x){return x.json();}).then(function(d){idx=d;show(q);}).catch(function(){r.innerHTML='<p>Search unavailable.</p>';});}
+fetch('/search-index.json').then(function(x){return x.json();}).then(function(d){idx=d;show(q);}).catch(function(){r.innerHTML='<p>Search unavailable.</p>';});}
 i.addEventListener('input',function(){clearTimeout(tm);tm=setTimeout(run,250);});
 f.addEventListener('submit',function(e){e.preventDefault();clearTimeout(tm);run();});
 document.addEventListener('keydown',function(e){if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();i.focus();i.select();}});

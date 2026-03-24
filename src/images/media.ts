@@ -41,7 +41,7 @@ export async function ingestMediaFile(
   slug: string,
   index: number,
 ): Promise<MediaAttachment> {
-  const mediaDir = join(siteDir, "media");
+  const mediaDir = join(siteDir, "_site", "media");
   await mkdir(mediaDir, { recursive: true });
 
   const filename = generateMediaFilename(slug, media.filename, index, media.mimeType);

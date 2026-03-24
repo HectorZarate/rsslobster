@@ -93,7 +93,7 @@ describe("image handling", () => {
       expect(attachment.alt).toBe("my-post image 1");
 
       // Verify file was copied
-      const destPath = join(siteDir, "images", "my-post-1.jpg");
+      const destPath = join(siteDir, "_site", "images", "my-post-1.jpg");
       const content = await readFile(destPath);
       expect(content.toString()).toBe("fake-jpeg-data");
     });
@@ -109,7 +109,7 @@ describe("image handling", () => {
         0,
       );
 
-      const dirStat = await stat(join(siteDir, "images"));
+      const dirStat = await stat(join(siteDir, "_site", "images"));
       expect(dirStat.isDirectory()).toBe(true);
     });
 
@@ -128,7 +128,7 @@ describe("image handling", () => {
         0,
       );
 
-      const copied = await readFile(join(siteDir, attachment.src.slice(1)));
+      const copied = await readFile(join(siteDir, "_site", attachment.src.slice(1)));
       expect(Buffer.compare(copied, binaryData)).toBe(0);
     });
 
@@ -175,7 +175,7 @@ describe("image handling", () => {
 
       // All files exist
       for (const att of attachments) {
-        const fileStat = await stat(join(siteDir, att.src.slice(1)));
+        const fileStat = await stat(join(siteDir, "_site", att.src.slice(1)));
         expect(fileStat.isFile()).toBe(true);
       }
     });

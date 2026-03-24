@@ -4,6 +4,7 @@ import type { PageConfig, SiteConfig } from "../config/types.js";
 import { resolveStyle, generateStylesheet } from "../styles/presets.js";
 import { escHtml } from "../generator/html.js";
 import type { PageInjections } from "../plugins/types.js";
+import { outputDir } from "../config/paths.js";
 
 /**
  * Static pages — About, Contact, Now, Uses, etc.
@@ -99,6 +100,6 @@ export async function writePages(
       continue;
     }
     const html = generatePageHtml(page, config, injections);
-    await writeFile(join(siteDir, `${page.slug}.html`), html);
+    await writeFile(join(outputDir(siteDir), `${page.slug}.html`), html);
   }
 }

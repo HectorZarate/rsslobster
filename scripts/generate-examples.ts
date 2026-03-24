@@ -7,7 +7,7 @@
  * feed.xml, and feed.json — ready to open in a browser.
  */
 
-import { mkdir, rm, writeFile, unlink } from "node:fs/promises";
+import { mkdir, rm, writeFile, unlink, readdir, rename, cp } from "node:fs/promises";
 import { join } from "node:path";
 import { scaffoldSite, addContent } from "../src/generator/site.js";
 import type {
@@ -118,17 +118,25 @@ async function generatePresetExample(preset: StylePreset): Promise<void> {
     "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
     "base64",
   );
-  await writeFile(join(siteDir, "images", "sunset-1.jpg"), pixel);
+  await writeFile(join(siteDir, "_site", "images", "sunset-1.jpg"), pixel);
 
   // Add content oldest-first so newest ends up on top (addContent uses unshift)
   for (const content of [...SAMPLE_CONTENT].reverse()) {
     await addContent(siteDir, content);
   }
 
-  // Remove internal config/state files — examples should only contain servable output
+  // Remove internal config/state files
   await unlink(join(siteDir, "rsslobster.json"));
   await unlink(join(siteDir, "posts.json"));
   await rm(join(siteDir, "drafts"), { recursive: true, force: true });
+
+  // Move contents of _site/ up to the example dir (examples are just output)
+  const siteOutput = join(siteDir, "_site");
+  const entries = await readdir(siteOutput);
+  for (const entry of entries) {
+    await cp(join(siteOutput, entry), join(siteDir, entry), { recursive: true });
+  }
+  await rm(siteOutput, { recursive: true, force: true });
 
   console.log(`  ✓ ${preset}`);
 }

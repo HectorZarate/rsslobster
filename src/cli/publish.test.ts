@@ -151,7 +151,7 @@ describe("publish command integration", () => {
     );
 
     const html = await readFile(
-      join(siteDir, "posts", "the-coffee-in-lisbon-is-incredible", "index.html"),
+      join(siteDir, "_site", "posts", "the-coffee-in-lisbon-is-incredible", "index.html"),
       "utf-8",
     );
     expect(html).toContain("The coffee in Lisbon is incredible.");
@@ -175,7 +175,7 @@ describe("publish command integration", () => {
     expect(post.url).toBe("https://example.com/posts/why-rss-matters/index.html");
 
     const html = await readFile(
-      join(siteDir, "posts", "why-rss-matters", "index.html"),
+      join(siteDir, "_site", "posts", "why-rss-matters", "index.html"),
       "utf-8",
     );
     expect(html).toContain("Why RSS Matters");
@@ -193,7 +193,7 @@ describe("publish command integration", () => {
     await addContent(siteDir, content);
 
     const html = await readFile(
-      join(siteDir, "posts", "great-article-on-indieweb", "index.html"),
+      join(siteDir, "_site", "posts", "great-article-on-indieweb", "index.html"),
       "utf-8",
     );
     expect(html).toContain("https://indieweb.org/why");
@@ -207,10 +207,10 @@ describe("publish command integration", () => {
 
     await addContent(siteDir, content);
 
-    const rss = await readFile(join(siteDir, "feed.xml"), "utf-8");
+    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
     expect(rss).toContain("Feed test post");
 
-    const jsonFeed = await readFile(join(siteDir, "feed.json"), "utf-8");
+    const jsonFeed = await readFile(join(siteDir, "_site", "feed.json"), "utf-8");
     const parsed = JSON.parse(jsonFeed);
     expect(parsed.items).toHaveLength(1);
   });

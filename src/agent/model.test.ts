@@ -110,6 +110,74 @@ describe("model client — openai provider", () => {
     const body = JSON.parse(mockFetch.mock.calls[0]![1].body as string);
     expect(body.temperature).toBe(0);
   });
+
+  it("retries without response_format when provider returns 400", async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: () => Promise.resolve("'response_format.type' must be 'json_schema' or 'text'"),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{ message: { content: '{"type":"micro"}' } }],
+        }),
+      });
+
+    const config: ModelConfig = {
+      baseUrl: "http://localhost:1234/v1",
+      model: "local-model",
+      apiKey: "local",
+    };
+
+    const callModel = createModelCaller(config, mockFetch);
+    const result = await callModel("test prompt");
+
+    expect(result).toBe('{"type":"micro"}');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    // First call had response_format
+    const body1 = JSON.parse(mockFetch.mock.calls[0]![1].body as string);
+    expect(body1.response_format).toEqual({ type: "json_object" });
+
+    // Retry did not have response_format
+    const body2 = JSON.parse(mockFetch.mock.calls[1]![1].body as string);
+    expect(body2.response_format).toBeUndefined();
+  });
+
+  it("caches response_format capability after first 400", async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: () => Promise.resolve("response_format not supported"),
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{ message: { content: '{"type":"micro"}' } }],
+        }),
+      });
+
+    const config: ModelConfig = {
+      baseUrl: "http://localhost:1234/v1",
+      model: "local-model",
+      apiKey: "local",
+    };
+
+    const callModel = createModelCaller(config, mockFetch);
+    await callModel("first call");
+    await callModel("second call");
+
+    // First call: 2 fetches (original + retry)
+    // Second call: 1 fetch (skips response_format directly)
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+
+    // Third fetch (second call) should NOT have response_format
+    const body3 = JSON.parse(mockFetch.mock.calls[2]![1].body as string);
+    expect(body3.response_format).toBeUndefined();
+  });
 });
 
 describe("model client — anthropic provider", () => {
