@@ -129,12 +129,14 @@ export async function addContent(
   posts.unshift(post);
   await writePostsIndex(siteDir, posts);
 
-  // Rebuild feeds, index, search, SEO, and pages
-  await rebuildFeeds(siteDir, config, posts);
-  await rebuildIndex(siteDir, config, posts, options?.pluginInjections);
-  await writeSearchIndex(siteDir, posts);
-  await writeSeo(siteDir, config, posts);
-  await writePages(siteDir, config, options?.pluginInjections);
+  // Rebuild feeds, index, search, SEO, and pages — all independent, run in parallel
+  await Promise.all([
+    rebuildFeeds(siteDir, config, posts),
+    rebuildIndex(siteDir, config, posts, options?.pluginInjections),
+    writeSearchIndex(siteDir, posts),
+    writeSeo(siteDir, config, posts),
+    writePages(siteDir, config, options?.pluginInjections),
+  ]);
 
   return post;
 }
