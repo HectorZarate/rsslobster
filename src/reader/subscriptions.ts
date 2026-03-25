@@ -1,15 +1,24 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Subscription } from "./types.js";
-import { readerDir, ensureReaderDir } from "./paths.js";
+import { readerDir, ensureReaderDir, writeJsonAtomic, normalizeUrl } from "./paths.js";
 
 const SUBS_FILE = "subscriptions.json";
+
+// Per-siteDir lock to serialize all subscription file access
+const subsLocks = new Map<string, Promise<void>>();
+async function withSubsLock<T>(siteDir: string, fn: () => Promise<T>): Promise<T> {
+  const prev = subsLocks.get(siteDir) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  subsLocks.set(siteDir, next.then(() => {}, () => {}));
+  return next;
+}
 
 /**
  * Subscription management for the RSS reader.
  *
  * Subscriptions are stored in {siteDir}/reader/subscriptions.json
- * as a JSON array. NOT concurrency-safe — callers must serialize access.
+ * as a JSON array. Concurrency-safe via per-siteDir promise-chain lock.
  *
  * UX principles:
  * - Subscribe returns the subscription for confirmation
@@ -46,7 +55,7 @@ async function saveSubs(
   subs: Subscription[],
 ): Promise<void> {
   await ensureReaderDir(siteDir);
-  await writeFile(subsPath(siteDir), JSON.stringify(subs, null, 2));
+  await writeJsonAtomic(subsPath(siteDir), subs);
 }
 
 /** Subscribe to a new feed */
@@ -62,25 +71,29 @@ export async function subscribe(
     );
   }
 
-  const subs = await loadSubs(siteDir);
+  const normalized = normalizeUrl(feedUrl);
 
-  const existing = subs.find((s) => s.feedUrl === feedUrl);
-  if (existing) {
-    throw new Error(`Already subscribed to ${feedUrl}`);
-  }
+  return withSubsLock(siteDir, async () => {
+    const subs = await loadSubs(siteDir);
 
-  const sub: Subscription = {
-    feedUrl,
-    title,
-    siteUrl: opts?.siteUrl,
-    folder: opts?.folder,
-    addedAt: new Date().toISOString(),
-    errorCount: 0,
-  };
+    const existing = subs.find((s) => s.feedUrl === normalized);
+    if (existing) {
+      throw new Error(`Already subscribed to ${normalized}`);
+    }
 
-  subs.push(sub);
-  await saveSubs(siteDir, subs);
-  return sub;
+    const sub: Subscription = {
+      feedUrl: normalized,
+      title,
+      siteUrl: opts?.siteUrl,
+      folder: opts?.folder,
+      addedAt: new Date().toISOString(),
+      errorCount: 0,
+    };
+
+    subs.push(sub);
+    await saveSubs(siteDir, subs);
+    return sub;
+  });
 }
 
 /** Unsubscribe from a feed by exact URL */
@@ -88,13 +101,16 @@ export async function unsubscribe(
   siteDir: string,
   feedUrl: string,
 ): Promise<boolean> {
-  const subs = await loadSubs(siteDir);
-  const index = subs.findIndex((s) => s.feedUrl === feedUrl);
-  if (index === -1) return false;
+  const normalized = normalizeUrl(feedUrl);
+  return withSubsLock(siteDir, async () => {
+    const subs = await loadSubs(siteDir);
+    const index = subs.findIndex((s) => s.feedUrl === normalized);
+    if (index === -1) return false;
 
-  subs.splice(index, 1);
-  await saveSubs(siteDir, subs);
-  return true;
+    subs.splice(index, 1);
+    await saveSubs(siteDir, subs);
+    return true;
+  });
 }
 
 /** List all subscriptions, sorted alphabetically by title */
@@ -118,8 +134,9 @@ export async function getSubscription(
   siteDir: string,
   feedUrl: string,
 ): Promise<Subscription | null> {
+  const normalized = normalizeUrl(feedUrl);
   const subs = await loadSubs(siteDir);
-  return subs.find((s) => s.feedUrl === feedUrl) ?? null;
+  return subs.find((s) => s.feedUrl === normalized) ?? null;
 }
 
 /** Update subscription metadata (title, folder, fetch state) */
@@ -128,25 +145,28 @@ export async function updateSubscription(
   feedUrl: string,
   updates: Partial<Omit<Subscription, "feedUrl" | "addedAt">>,
 ): Promise<Subscription | null> {
-  const subs = await loadSubs(siteDir);
-  const index = subs.findIndex((s) => s.feedUrl === feedUrl);
-  if (index === -1) return null;
+  const normalized = normalizeUrl(feedUrl);
+  return withSubsLock(siteDir, async () => {
+    const subs = await loadSubs(siteDir);
+    const index = subs.findIndex((s) => s.feedUrl === normalized);
+    if (index === -1) return null;
 
-  const existing = subs[index]!;
-  const updated: Subscription = {
-    ...existing,
-    ...updates,
-    // Deep-merge notify to preserve existing filter/priority/schedule when only muting
-    notify: updates.notify
-      ? { ...existing.notify, ...updates.notify }
-      : existing.notify,
-    feedUrl: existing.feedUrl, // immutable
-    addedAt: existing.addedAt, // immutable
-  };
+    const existing = subs[index]!;
+    const updated: Subscription = {
+      ...existing,
+      ...updates,
+      // Deep-merge notify to preserve existing filter/priority/schedule when only muting
+      notify: updates.notify
+        ? { ...existing.notify, ...updates.notify }
+        : existing.notify,
+      feedUrl: existing.feedUrl, // immutable
+      addedAt: existing.addedAt, // immutable
+    };
 
-  subs[index] = updated;
-  await saveSubs(siteDir, subs);
-  return updated;
+    subs[index] = updated;
+    await saveSubs(siteDir, subs);
+    return updated;
+  });
 }
 
 /** Record a successful fetch */
@@ -170,13 +190,16 @@ export async function recordFetchError(
   feedUrl: string,
   error: string,
 ): Promise<void> {
-  const subs = await loadSubs(siteDir);
-  const sub = subs.find((s) => s.feedUrl === feedUrl);
-  if (!sub) return;
+  const normalized = normalizeUrl(feedUrl);
+  return withSubsLock(siteDir, async () => {
+    const subs = await loadSubs(siteDir);
+    const sub = subs.find((s) => s.feedUrl === normalized);
+    if (!sub) return;
 
-  sub.errorCount++;
-  sub.lastError = error;
-  await saveSubs(siteDir, subs);
+    sub.errorCount++;
+    sub.lastError = error;
+    await saveSubs(siteDir, subs);
+  });
 }
 
 /** Get all unique folder names */

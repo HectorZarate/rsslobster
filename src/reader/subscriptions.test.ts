@@ -395,13 +395,13 @@ describe("URL validation", () => {
     ).rejects.toThrow("Invalid feed URL");
   });
 
-  it("accepts http:// URLs", async () => {
+  it("accepts http:// URLs and normalizes to https", async () => {
     const sub = await subscribe(
       siteDir,
       "http://example.com/feed.xml",
       "HTTP Feed",
     );
-    expect(sub.feedUrl).toBe("http://example.com/feed.xml");
+    expect(sub.feedUrl).toBe("https://example.com/feed.xml");
   });
 
   it("accepts https:// URLs", async () => {
@@ -411,6 +411,31 @@ describe("URL validation", () => {
       "HTTPS Feed",
     );
     expect(sub.feedUrl).toBe("https://example.com/feed.xml");
+  });
+
+  it("strips trailing slashes from feed URLs", async () => {
+    const sub = await subscribe(
+      siteDir,
+      "https://example.com/feed/",
+      "Trailing Slash",
+    );
+    expect(sub.feedUrl).toBe("https://example.com/feed");
+  });
+
+  it("lowercases hostname", async () => {
+    const sub = await subscribe(
+      siteDir,
+      "https://EXAMPLE.COM/Feed.xml",
+      "Upper Host",
+    );
+    expect(sub.feedUrl).toBe("https://example.com/Feed.xml");
+  });
+
+  it("detects duplicates after normalization", async () => {
+    await subscribe(siteDir, "https://example.com/feed.xml", "Original");
+    await expect(
+      subscribe(siteDir, "http://example.com/feed.xml/", "Duplicate"),
+    ).rejects.toThrow("Already subscribed");
   });
 });
 

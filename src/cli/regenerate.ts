@@ -9,7 +9,7 @@ import {
   rebuildIndex,
   outputDir,
 } from "../generator/site.js";
-import { generateHtmlPage } from "../generator/html.js";
+import { generateHtmlPage, generateBlogrollPage } from "../generator/html.js";
 import { writeSearchIndex } from "../generator/search.js";
 import { writeSeo } from "../generator/seo.js";
 import { writePages } from "../pages/pages.js";
@@ -17,6 +17,7 @@ import { initMarkdown } from "../generator/markdown.js";
 import { loadCustomCss } from "../styles/presets.js";
 import { permalinkDir } from "../config/permalink.js";
 import { writeFavicon, writeOgImage } from "../generator/favicon.js";
+import { listSubscriptions } from "../reader/subscriptions.js";
 
 /**
  * Regenerate all HTML pages, feeds, and search index from existing posts.
@@ -59,7 +60,7 @@ export async function regenerateSite(siteDir: string): Promise<void> {
     await writeFile(join(outDir, htmlPath), html);
   }
 
-  // Rebuild assets, feeds, index, search, SEO, and pages
+  // Rebuild assets, feeds, index, search, SEO, pages, and blogroll
   await writeFavicon(siteDir, config.title, config.style.preset, config.style.overrides);
   await writeOgImage(siteDir, config.title, config.description, config.style.preset, config.style.overrides);
   await rebuildFeeds(siteDir, config, posts);
@@ -67,6 +68,15 @@ export async function regenerateSite(siteDir: string): Promise<void> {
   await writeSearchIndex(siteDir, posts);
   await writeSeo(siteDir, config, posts);
   await writePages(siteDir, config);
+
+  // Blogroll: render subscriptions as a public following page
+  const subs = await listSubscriptions(siteDir);
+  if (subs.length > 0) {
+    const followingDir = join(outDir, "following");
+    await mkdir(followingDir, { recursive: true });
+    const blogrollHtml = generateBlogrollPage(subs, config);
+    await writeFile(join(followingDir, "index.html"), blogrollHtml);
+  }
 }
 
 export const regenerateCommand = new Command("regenerate")
