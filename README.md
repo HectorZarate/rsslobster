@@ -1,75 +1,164 @@
 # RSS Lobster
 
-**Publish. Read. Unplatform yourself with RSS Lobster.**
+**Publish and read on the open web. Own both sides of the feed.**
 
 [![CI](https://github.com/HectorZarate/rsslobster/actions/workflows/ci.yml/badge.svg)](https://github.com/HectorZarate/rsslobster/actions/workflows/ci.yml)
 
-Send a message from your chat app to your RSS Lobster. This publishes a post to your own website with an RSS feed, the update goes out to your subscribers in seconds. Work on drafts, schedule and preview posts, all for the price of a domain. No hosting costs because RSS Lobster outputs a static site, which are free to host on popular providers like CloudFlare Pages, Digital Ocean, and Github Pages.  
+RSS Lobster is a personal publishing and reading system built on RSS. You publish from your phone to your own site. You subscribe to feeds and read them in the same place. Your content goes out as RSS. Other people's content comes in as RSS. No algorithms. No platform. Just the protocol the web already agreed on.
 
+**Cost:** $12/year for a domain. Hosting: free (Cloudflare Pages, GitHub Pages, etc.).
 
-**Cost:** $12/year for a domain. Hosting: free (Cloudflare Pages).
-
-## Quick Start
+## Quick start
 
 ```bash
 npm install -g rsslobster
-rsslobster onboard     # interactive setup — domain, style, channel
-rsslobster start       # listen for messages, publish on receive
+rsslobster onboard          # interactive — domain, style, channel, model
+rsslobster start             # you're live
 ```
 
-That's it. Send a message from Telegram. It's live.
+Send a message from Telegram. It's published. Subscribe to a feed. It shows up.
 
-## How It Works
+## What it does
+
+RSS Lobster does two things:
+
+**1. Publish.** Send a message from any chat app. The lobster classifies it, generates a static HTML page with inlined CSS, updates your RSS and JSON feeds, commits to git, and deploys. Under 4 seconds end-to-end. Zero JavaScript in the output. Your words are never rewritten — the LLM classifies metadata only.
+
+**2. Read.** Subscribe to feeds. Poll them. Get notified of new items. Star what matters. Share back to your site as link posts. Generate daily or weekly recaps. OPML import/export so you can bring your subscriptions from anywhere and take them when you leave.
+
+The two sides compose: you read something interesting, you share it to your site, your subscribers get it in their readers. The open web feedback loop, running on a protocol from 1999.
 
 ```
-Message (Telegram, Discord, …)
-  ↓
-Classify (LLM determines content type)
-  ↓
-Generate (HTML page + RSS + JSON Feed)
-  ↓
-Deploy (git commit → git push → Cloudflare Workers)
-  ↓
-Live (< 4 seconds end-to-end)
+publish:                              read:
+
+  phone → classify → html + rss         subscribe → poll → notify
+            ↓                                        ↓
+        git push → deploy               star → share → publish
+            ↓                                        ↓
+    live in < 4 seconds                 your site ← link post
 ```
 
-You send a message from any supported channel. The lobster classifies it (micro post, long article, image, link share, video, audio), generates a static HTML page with inlined CSS, updates the RSS and JSON feeds, commits to git, and Cloudflare deploys it. Zero JavaScript in the output. WCAG AA accessible. Print-friendly. Your content is never rewritten by AI — the LLM classifies metadata only.
+## Publishing
 
-## Content Types
+Send a message. The lobster figures out what it is.
 
-| Type | You send… | Output |
-|------|-----------|--------|
+| Type | You send | Output |
+|------|----------|--------|
 | **Micro** | A short thought | Tweet-style post |
 | **Post** | Longer writing | Full article with title |
-| **Image** | A photo with caption | Image post with `<figure>` |
+| **Image** | Photo with caption | Image post with `<figure>` |
 | **Carousel** | Multiple photos | Gallery layout |
-| **Link** | A URL with commentary | Link post with metadata |
-| **Video** | A video file | Embedded `<video>` player |
-| **Audio** | An audio file | Embedded `<audio>` player |
+| **Link** | URL with commentary | Link card with metadata |
+| **Video** | Video file | Embedded `<video>` player |
+| **Audio** | Audio file | Embedded `<audio>` player |
 
-Classification is automatic — the LLM reads your message and picks the right type.
+Classification is automatic. Drafts and scheduling are built in — say "draft" or set a time and it's handled. Every publish pings [WebSub](https://www.w3.org/TR/websub/) so readers that support it (Feedly, NewsBlur, Inoreader) get your content in seconds.
+
+## Reading
+
+```bash
+rsslobster feeds add https://simonwillison.net    # auto-discovers the feed
+rsslobster feeds                                    # show unread items
+rsslobster feeds read 3                             # read item #3
+rsslobster feeds star 2                             # save for later
+rsslobster feeds share 1 -m "This is excellent"     # publish as link post
+```
+
+Or talk to the lobster directly from chat:
+
+```
+You:      subscribe https://danluu.com
+Lobster:  Subscribed to "Dan Luu" — 15 item(s) fetched
+
+You:      unread
+Lobster:  15 unread:
+          1. In defense of simple architectures
+             https://danluu.com/simple-architectures/
+          2. ...
+
+You:      read 1
+Lobster:  In defense of simple architectures
+          by Dan Luu
+          ...
+
+You:      share 1 This is the post I point people to when they want microservices
+Lobster:  Published: "In defense of simple architectures"
+          → Link post ready for your site
+```
+
+### Feed management
+
+| Command | What it does |
+|---------|-------------|
+| `feeds add <url>` | Subscribe (auto-discovers feed from HTML) |
+| `feeds remove <url>` | Unsubscribe and remove stored items |
+| `feeds list` | Unread items, paginated |
+| `feeds list --subs` | Show subscriptions with unread counts |
+| `feeds poll` | Fetch all due feeds |
+| `feeds poll --force` | Fetch all feeds regardless of interval |
+| `feeds read <n>` | Show item content, mark read |
+| `feeds star <n>` | Star an item |
+| `feeds share <n>` | Publish as link post on your site |
+| `feeds mark-read --all` | Catch up |
+| `feeds items --starred` | Show starred items |
+
+### Notifications
+
+Per-feed control over what you get notified about and when.
+
+```bash
+rsslobster feeds notify                              # show current settings
+rsslobster feeds notify --schedule daily --deliver-at 09:00
+rsslobster feeds notify --quiet-start 22:00 --quiet-end 08:00
+rsslobster feeds mute https://noisy-feed.com/rss
+rsslobster feeds filter https://important.com/feed --keywords ai rust
+```
+
+Schedules: `immediate`, `hourly`, `daily`, `weekly`. High-priority feeds bypass quiet hours. Keyword filters are per-feed (match any term against title + content).
+
+### OPML
+
+```bash
+rsslobster feeds import subscriptions.opml    # bring your feeds from anywhere
+rsslobster feeds export > backup.opml          # take them when you leave
+```
+
+Folder structure is preserved in both directions.
+
+### Recaps
+
+```bash
+rsslobster feeds recap              # plain-text daily recap
+rsslobster feeds recap --enable     # enable AI-powered recaps
+```
+
+When an LLM is configured, recaps summarize the most interesting items across your feeds. Saved to disk so you can review past recaps.
+
+## Blogroll
+
+If you have subscriptions, RSS Lobster generates a `/following/` page on your site — a blogroll listing every feed you read, grouped by folder, with RSS links. It updates automatically when you subscribe or unsubscribe.
 
 ## Channels
 
-Any messaging platform can be an input source. Pick whichever you already use.
+Any messaging platform can be an input source.
 
-| Channel | Status | Integration |
-|---------|--------|-------------|
-| **Telegram** | ✅ Ready | Bot via @BotFather |
-| **Webhook** | ✅ Ready | Universal — curl, IFTTT, Zapier, Shortcuts |
-| **Discord** | 🔲 Planned | Bot via Developer Portal |
-| **Slack** | 🔲 Planned | App via Socket Mode |
-| **WhatsApp** | 🔲 Planned | Business Cloud API |
-| **Signal** | 🔲 Planned | Via signal-cli REST API |
-| **Nostr** | 🔲 Planned | Decentralized relay protocol |
-| **Matrix** | 🔲 Planned | Open protocol, self-hostable |
-| **IRC** | 🔲 Planned | Classic text-first protocol |
+| Channel | Status |
+|---------|--------|
+| **Telegram** | Ready |
+| **Webhook** | Ready (curl, IFTTT, Zapier, Shortcuts) |
+| **Discord** | Planned |
+| **Slack** | Planned |
+| **WhatsApp** | Planned |
+| **Signal** | Planned |
+| **Nostr** | Planned |
+| **Matrix** | Planned |
+| **IRC** | Planned |
 
-The pipeline is channel-agnostic — it only needs an `InboundMessage`. Stubs for all channels are ready for contributors.
+The pipeline is channel-agnostic. It only needs an `InboundMessage`.
 
 ## Configuration
 
-All config lives in `lobster.json` at your site root:
+Everything lives in `lobster.json`:
 
 ```json
 {
@@ -82,15 +171,18 @@ All config lives in `lobster.json` at your site root:
     "baseUrl": "http://localhost:11434/v1",
     "model": "llama3",
     "apiKey": "ollama"
+  },
+  "reader": {
+    "defaultInterval": 15
   }
 }
 ```
 
-Swap `"channel": "telegram"` for any other channel type. The model config supports any OpenAI-compatible API — use any model locally, or point to OpenAI/Anthropic/OpenRouter/etc.
+The model config supports any OpenAI-compatible API — Ollama locally, or OpenAI/Anthropic/OpenRouter remotely.
 
-## Style Presets
+## Style presets
 
-Choose during setup. All presets use system fonts, zero external requests, and meet WCAG AA contrast requirements.
+All presets: system fonts, zero external requests, WCAG AA contrast, zero JavaScript.
 
 | Preset | Vibe |
 |--------|------|
@@ -99,151 +191,112 @@ Choose during setup. All presets use system fonts, zero external requests, and m
 | **Magazine** | Serif headers, editorial feel |
 | **Terminal** | Green-on-black, hacker aesthetic |
 
-Presets are fully customizable — override any CSS custom property in your site config. See [DESIGN.md](DESIGN.md) for the full design system specification.
+Every CSS custom property is overridable. See [DESIGN.md](DESIGN.md) for the full design system.
 
-Example output for each preset lives in [`examples/`](examples/).
+## Lifecycle hooks
 
-## Drafts & Scheduling
+Shell commands that fire at pipeline stages. Receive JSON on stdin, can return JSON to override behavior.
 
-Say "draft" or "save for later" in your message and it's saved instead of published:
-
-```
-You: "draft: Thoughts on decentralization — the web was designed to be…"
-Lobster: "Saved as draft: thoughts-on-decentralization"
-```
-
-Manage drafts via CLI:
-
-```bash
-rsslobster drafts              # list all drafts
-rsslobster publish <slug>      # publish immediately
-```
-
-Drafts can be scheduled for future publication. The scheduler checks every 60 seconds and auto-publishes when the time arrives.
-
-## Instant Updates (WebSub)
-
-RSS Lobster integrates with [WebSub](https://www.w3.org/TR/websub/) (formerly PubSubHubbub) for real-time feed updates. When you publish a post, the hub is pinged automatically — readers that support WebSub (Feedly, NewsBlur, Inoreader) get your new content in seconds, not hours.
-
-No configuration needed. Both `feed.xml` and `feed.json` declare the hub, and every successful deploy triggers a ping to `pubsubhubbub.appspot.com`.
-
-## Lifecycle Hooks
-
-Three hook points for extending the pipeline. Each hook is a shell command that receives JSON on stdin and can output JSON to override behavior.
-
-| Hook | Fires when | Use case |
-|------|-----------|----------|
-| `afterClassify` | Content classified, before publish | Override tags, modify title, enforce rules |
-| `afterPublish` | HTML + feeds generated | Notify Slack, send analytics, ping services |
-| `afterDeploy` | Git push complete | Purge CDN, trigger webhook, log deployment |
-
-Configure in `lobster.json`:
-
-```json
-{
-  "hooks": {
-    "afterDeploy": "curl -X POST https://your-webhook.com"
-  }
-}
-```
-
-## Docker
-
-```bash
-docker build -t rsslobster .
-docker run -v /path/to/your/site:/site -p 3000:3000 rsslobster
-```
-
-Multi-stage build, runs as non-root, Node.js 22 slim base.
-
-## CLI Reference
-
-| Command | Description |
-|---------|-------------|
-| `rsslobster onboard [dir]` | Interactive setup wizard |
-| `rsslobster init [dir]` | Non-interactive scaffold (`--domain`, `--title`, `--style`, etc.) |
-| `rsslobster start [dir]` | Start the daemon — listen for messages and publish |
-| `rsslobster publish <text>` | Publish directly from CLI — no LLM needed |
-| `rsslobster dev [dir]` | Local preview server (serves `_site/` on localhost:4321) |
-| `rsslobster regenerate [dir]` | Rebuild all pages from existing posts (after style changes) |
-| `rsslobster generate [dir]` | Generate HTML + feeds from JSON on stdin |
-| `rsslobster drafts` | List and manage drafts |
+| Hook | Fires when | Example use |
+|------|-----------|-------------|
+| `afterClassify` | Before publish | Override tags, enforce rules |
+| `afterPublish` | HTML + feeds generated | Notify Slack, send analytics |
+| `afterDeploy` | Git push complete | Purge CDN, trigger webhook |
 
 ## Architecture
 
 ```
-mysite/                     ← your site (git repo)
-├── rsslobster.json          ← site config (domain, title, style)
-├── posts.json               ← posts index
-├── drafts/                  ← saved drafts
-└── _site/                   ← generated output (deploy this)
+mysite/
+├── rsslobster.json         site config
+├── lobster.json            channel + model config
+├── posts.json              posts index
+├── drafts/                 saved drafts
+├── reader/                 feed data (subscriptions, items, config)
+│   ├── subscriptions.json
+│   ├── unread-index.json
+│   ├── config.json
+│   └── feeds/              per-feed item storage
+└── _site/                  generated output (deploy this)
     ├── index.html
-    ├── favicon.svg
-    ├── og-image.png
     ├── feed.xml / feed.json
-    ├── search-index.json
-    ├── sitemap.xml / robots.txt
+    ├── following/           blogroll
     └── posts/slug/index.html
 ```
 
 ```
 src/
-├── agent/          # LLM classification + publishing pipeline
-├── channels/       # Messaging platform adapters
-├── cli/            # Command handlers (onboard, start, dev, publish, etc.)
-├── config/         # Types, permalink patterns, output paths
-├── deploy/         # Git operations (stage, commit, push)
-├── drafts/         # Draft lifecycle management
-├── generator/      # HTML, RSS, JSON Feed, search, favicon, OG image
-├── hooks/          # Lifecycle hooks (afterClassify, afterPublish, afterDeploy)
-├── images/         # Image and media ingestion
-├── styles/         # CSS preset system + inheritance
-└── index.ts        # CLI entrypoint
+├── agent/       LLM classification + pipeline
+├── channels/    messaging platform adapters
+├── cli/         command handlers
+├── config/      types and paths
+├── deploy/      git commit + push
+├── drafts/      draft lifecycle
+├── generator/   HTML, RSS, JSON Feed, search, SEO
+├── hooks/       lifecycle hooks
+├── images/      image + media ingestion
+├── pages/       custom pages
+├── plugins/     plugin system
+├── previews/    draft preview flow
+├── reader/      RSS reader (subscribe, poll, store, notify, recap)
+├── styles/      CSS preset system
+└── index.ts     CLI entrypoint
 ```
 
-**Design principles:**
-- Files as the API — git is the database
-- Config and state at root, output in `_site/` — clean separation
-- Zero JavaScript in output
-- AI classifies metadata, never rewrites your words
-- Test-first development (560+ tests)
+### Design principles
 
-## Adding a Channel
+- **Files as the API** — git is the database, the filesystem is the state
+- **Zero JavaScript in output** — generated sites work without JS
+- **AI classifies, never rewrites** — your words are yours
+- **RSS in, RSS out** — the same protocol for publishing and reading
+- **Composition over abstraction** — functions that take data and return data
+- **Concurrency-safe** — per-feed and per-index locks, atomic writes, no corrupt reads
 
-Each channel implements the `Channel` interface:
+### Internals worth knowing
 
-```typescript
-interface Channel {
-  readonly type: ChannelType;
-  poll(handler: MessageHandler, signal?: AbortSignal): Promise<void>;
-  reply(chatId: string, text: string): Promise<void>;
-  downloadAttachments(message: InboundMessage): Promise<void>;
-}
+**Dedup strategy:** Items are deduplicated by `id` (guid/atom id) > `link` > SHA-256 hash of title+content. Three layers, zero duplicates.
+
+**Unread index:** A lightweight cache of unread item references. Fast path for `listItems({read: false})` loads only the feeds that contain unread items. Self-heals on corruption via background rebuild.
+
+**Polling:** Bounded concurrency (5 feeds at a time). Conditional GET with ETag/If-Modified-Since. Exponential backoff for failing feeds (caps at ~24h). Feeds that go permanently offline don't waste your bandwidth.
+
+**Notifications:** Evaluated at ingestion time for immediate delivery, queued for batched schedules. Quiet hours only suppress immediate notifications — batched digests still include all items.
+
+## CLI reference
+
+| Command | Description |
+|---------|-------------|
+| `rsslobster onboard` | Interactive setup |
+| `rsslobster start` | Start the daemon |
+| `rsslobster publish <text>` | Publish from CLI |
+| `rsslobster dev` | Local preview server (localhost:4321) |
+| `rsslobster regenerate` | Rebuild all pages |
+| `rsslobster drafts` | Manage drafts |
+| `rsslobster feeds` | RSS reader (see [Reading](#reading)) |
+
+## Docker
+
+```bash
+docker build -t rsslobster .
+docker run -v /path/to/site:/site rsslobster
 ```
-
-The stubs in `src/channels/` are ready to fill in. Pick one, implement the API calls, and open a PR. The pipeline doesn't care where the message came from — it just needs an `InboundMessage`.
 
 ## Development
 
 ```bash
 git clone https://github.com/HectorZarate/rsslobster.git
-cd rsslobster
-pnpm install
-pnpm check          # lint (oxlint) + typecheck (tsc) + test (vitest) — all in one
+cd rsslobster && pnpm install
+pnpm check    # lint + typecheck + 884 tests
 ```
 
-Individual commands:
-
 ```bash
-pnpm lint           # oxlint src/
+pnpm lint           # oxlint
 pnpm typecheck      # tsc --noEmit
-pnpm test           # vitest run
-pnpm test:watch     # vitest (watch mode)
-pnpm test:coverage  # coverage report
+pnpm test           # vitest
+pnpm test:watch     # vitest watch mode
 pnpm build          # tsdown → dist/
 ```
 
-Requires Node.js ≥ 22 and pnpm ≥ 10. Pre-commit hook runs `pnpm check` automatically.
+Requires Node.js >= 22 and pnpm >= 10. Pre-commit hook runs `pnpm check`.
 
 ## Contributing
 
