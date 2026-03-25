@@ -136,6 +136,7 @@ export async function listItems(
   siteDir: string,
   filter?: ItemFilter,
   limit?: number,
+  offset?: number,
 ): Promise<StoredItem[]> {
   let items: StoredItem[];
 
@@ -170,6 +171,9 @@ export async function listItems(
     return new Date(dateB).getTime() - new Date(dateA).getTime();
   });
 
+  if (offset !== undefined && offset > 0) {
+    items = items.slice(offset);
+  }
   if (limit !== undefined && limit > 0) {
     items = items.slice(0, limit);
   }

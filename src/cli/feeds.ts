@@ -28,18 +28,38 @@ import type { SubscriptionNotify } from "../reader/types.js";
 export const feedsCommand = new Command("feeds")
   .description("RSS reader — subscribe, poll, and read feeds");
 
+/** Truncate verbose feed titles to something scannable */
+function shortFeedName(title: string): string {
+  if (title.length <= 25) return title;
+  // Common separators: "Name — tagline", "Name | tagline", "Name: tagline"
+  for (const sep of [" — ", " | ", " - ", ": "]) {
+    const idx = title.indexOf(sep);
+    if (idx > 0 && idx < 40) return title.slice(0, idx);
+  }
+  // Very long titles that look like sentences: take first word (the brand name)
+  const words = title.split(/\s+/);
+  if (words.length > 5 && title.length > 50) {
+    return words[0]!;
+  }
+  // Truncate at word boundary
+  const truncated = title.slice(0, 25);
+  const lastSpace = truncated.lastIndexOf(" ");
+  return lastSpace > 5 ? truncated.slice(0, lastSpace) : truncated;
+}
+
 // ---------------------------------------------------------------------------
 // feeds (default = list)
 // ---------------------------------------------------------------------------
 
 feedsCommand
   .command("list", { isDefault: true })
-  .description("Show your feed — unread items with subscription summary")
+  .description("Show your feed — unread items, paginated")
   .argument("[site-dir]", "Path to site directory", ".")
-  .option("--subs", "Show subscriptions only (no items)")
+  .option("--subs", "Show subscriptions only")
   .option("--folder <folder>", "Filter by folder")
-  .option("-n, --limit <n>", "Max unread items to show", "15")
-  .action(async (siteDir: string, opts: { subs?: boolean; folder?: string; limit: string }) => {
+  .option("-n, --limit <n>", "Items per page", "5")
+  .option("-p, --page <p>", "Page number (1-indexed)", "1")
+  .action(async (siteDir: string, opts: { subs?: boolean; folder?: string; limit: string; page: string }) => {
     const dir = resolve(siteDir);
     const subs = await listSubscriptions(
       dir,
@@ -51,53 +71,45 @@ feedsCommand
       return;
     }
 
-    // Subscription summary line
-    const totalCounts = await getItemCounts(dir);
-    console.log(
-      `${subs.length} feed(s) — ${totalCounts.unread} unread, ${totalCounts.total} total\n`,
-    );
-
     // --subs: just show subscriptions
     if (opts.subs) {
       for (const sub of subs) {
         const counts = await getItemCounts(dir, sub.feedUrl);
-        const folder = sub.folder ? ` [${sub.folder}]` : "";
         const muted = sub.notify?.muted ? " (muted)" : "";
-        const health = sub.errorCount > 0 ? ` !! ${sub.lastError}` : "";
-        console.log(
-          `  ${sub.title}${folder}${muted} — ${counts.unread} unread, ${counts.total} total${health}`,
-        );
-        console.log(`    ${sub.feedUrl}`);
+        console.log(`  ${sub.title}${muted} — ${counts.unread}/${counts.total}`);
       }
       return;
     }
 
-    // Default: show unread items
-    const limit = parseInt(opts.limit, 10) || 15;
-    const items = await listItems(dir, { read: false }, limit);
+    // Default: show unread items, paginated
+    const limit = parseInt(opts.limit, 10) || 5;
+    const page = parseInt(opts.page, 10) || 1;
+    const offset = (page - 1) * limit;
+    const totalCounts = await getItemCounts(dir);
+    const items = await listItems(dir, { read: false }, limit, offset);
 
-    if (items.length === 0) {
+    if (totalCounts.unread === 0) {
       console.log("All caught up.");
       return;
     }
 
-    // Build feed title lookup
-    const subMap = new Map(subs.map((s) => [s.feedUrl, s.title]));
+    // Build short feed name lookup
+    const subMap = new Map(subs.map((s) => [s.feedUrl, shortFeedName(s.title)]));
+
+    const totalPages = Math.ceil(totalCounts.unread / limit);
+    console.log(`${totalCounts.unread} unread — page ${page}/${totalPages}\n`);
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i]!;
-      const feedName = subMap.get(item.feedUrl) ?? "";
-      const displayTitle = item.title || item.content.replace(/<[^>]+>/g, "").trim().slice(0, 80) || "(untitled)";
-      const date = item.publishedAt
-        ? new Date(item.publishedAt).toLocaleDateString()
-        : "";
-      console.log(`  ${String(i + 1).padStart(3)}. ${displayTitle}`);
-      console.log(`       ${feedName}  ${date}`);
-      if (item.link) console.log(`       ${item.link}`);
+      const feed = subMap.get(item.feedUrl) ?? "";
+      const title = item.title || item.content.replace(/<[^>]+>/g, "").trim().slice(0, 80) || "(untitled)";
+      const num = offset + i + 1;
+      console.log(`${num}. ${title}`);
+      console.log(`   ${feed} — ${item.link ?? ""}`);
     }
 
-    if (totalCounts.unread > limit) {
-      console.log(`\n  ...and ${totalCounts.unread - limit} more (rsslobster feeds items --all)`);
+    if (page < totalPages) {
+      console.log(`\nNext: rsslobster feeds -p ${page + 1}`);
     }
   });
 
@@ -245,29 +257,30 @@ feedsCommand
 
 feedsCommand
   .command("items")
-  .description("Show feed items (defaults to unread)")
+  .description("Show feed items with filtering and pagination")
   .argument("[site-dir]", "Path to site directory", ".")
   .option("--all", "Show all items, not just unread")
   .option("--starred", "Show starred items only")
   .option("--feed <url>", "Filter by feed URL")
-  .option("-n, --limit <n>", "Max items to show", "20")
+  .option("-n, --limit <n>", "Items per page", "5")
+  .option("-p, --page <p>", "Page number", "1")
   .action(
     async (
       siteDir: string,
-      opts: { all?: boolean; starred?: boolean; feed?: string; limit: string },
+      opts: { all?: boolean; starred?: boolean; feed?: string; limit: string; page: string },
     ) => {
       const dir = resolve(siteDir);
-      const limit = parseInt(opts.limit, 10) || 20;
+      const limit = parseInt(opts.limit, 10) || 5;
+      const page = parseInt(opts.page, 10) || 1;
+      const offset = (page - 1) * limit;
 
-      const items = await listItems(
-        dir,
-        {
-          feedUrl: opts.feed,
-          read: opts.all ? undefined : opts.starred ? undefined : false,
-          starred: opts.starred ? true : undefined,
-        },
-        limit,
-      );
+      const filter = {
+        feedUrl: opts.feed,
+        read: opts.all ? undefined : opts.starred ? undefined : false,
+        starred: opts.starred ? true : undefined,
+      };
+
+      const items = await listItems(dir, filter, limit, offset);
 
       if (items.length === 0) {
         const label = opts.starred ? "starred" : opts.all ? "" : "unread";
@@ -277,17 +290,17 @@ feedsCommand
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i]!;
-        const flags = [
-          item.starred ? "*" : " ",
-          item.read ? " " : "N",
-        ].join("");
-        const date = item.publishedAt
-          ? new Date(item.publishedAt).toLocaleDateString()
-          : "";
-        const displayTitle = item.title || item.content.replace(/<[^>]+>/g, "").trim().slice(0, 80) || "(untitled)";
-        console.log(`  ${String(i + 1).padStart(3)}. [${flags}] ${displayTitle}`);
-        if (item.link) console.log(`       ${item.link}`);
-        console.log(`       ${date}  |  ${item.dedupKey}`);
+        const flags = [item.starred ? "*" : "", !item.read ? "N" : ""].filter(Boolean).join("") || " ";
+        const title = item.title || item.content.replace(/<[^>]+>/g, "").trim().slice(0, 80) || "(untitled)";
+        const num = offset + i + 1;
+        console.log(`${num}. [${flags}] ${title}`);
+        console.log(`   ${item.link ?? item.dedupKey}`);
+      }
+
+      // Check if there are more
+      const next = await listItems(dir, filter, 1, offset + limit);
+      if (next.length > 0) {
+        console.log(`\nMore: rsslobster feeds items -p ${page + 1}`);
       }
     },
   );
