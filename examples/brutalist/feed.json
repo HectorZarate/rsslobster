@@ -22,9 +22,8 @@
     {
       "id": "https://brutalist.example.com/posts/quiet-desperation/index.html",
       "url": "https://brutalist.example.com/posts/quiet-desperation/index.html",
-      "title": "The mass of men lead lives of quiet desperation. What is called resignation is …",
       "content_html": "<p>The mass of men lead lives of quiet desperation. What is called resignation is confirmed desperation.</p>\n",
-      "date_published": "2026-03-25T00:48:39.000Z",
+      "date_published": "2026-03-25T01:02:16.000Z",
       "tags": [
         "quote",
         "thoreau"
@@ -40,7 +39,7 @@
       "url": "https://brutalist.example.com/posts/why-rss-still-matters/index.html",
       "title": "Why RSS Still Matters",
       "content_html": "<p>In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can enshittify your timeline. You subscribe, you read, you move on. The protocol is simple: an XML file at a known URL. Any client can fetch it. No API key, no OAuth dance, no rate limits. This is how the web was supposed to work.</p>\n",
-      "date_published": "2026-03-25T00:48:39.000Z",
+      "date_published": "2026-03-25T01:02:16.000Z",
       "tags": [
         "rss",
         "indieweb",
@@ -55,9 +54,8 @@
     {
       "id": "https://brutalist.example.com/posts/getting-started-indieweb/index.html",
       "url": "https://brutalist.example.com/posts/getting-started-indieweb/index.html",
-      "title": "The best explanation of the indie web I've found. Start here if you want to own…",
       "content_html": "<p>The best explanation of the indie web I’ve found. Start here if you want to own your corner of the internet.</p>\n",
-      "date_published": "2026-03-25T00:48:39.000Z",
+      "date_published": "2026-03-25T01:02:16.000Z",
       "tags": [
         "indieweb"
       ],
@@ -70,9 +68,8 @@
     {
       "id": "https://brutalist.example.com/posts/sunset-from-the-office/index.html",
       "url": "https://brutalist.example.com/posts/sunset-from-the-office/index.html",
-      "title": "Sunset from the office window. Sometimes you have to stop and look up.",
       "content_html": "<p>Sunset from the office window. Sometimes you have to stop and look up.</p>\n",
-      "date_published": "2026-03-25T00:48:39.000Z",
+      "date_published": "2026-03-25T01:02:16.000Z",
       "tags": [
         "photo"
       ],
@@ -91,9 +88,8 @@
     {
       "id": "https://brutalist.example.com/posts/just-shipped/index.html",
       "url": "https://brutalist.example.com/posts/just-shipped/index.html",
-      "title": "Just shipped a new feature. Zero dependencies, zero JavaScript in the output, f…",
       "content_html": "<p>Just shipped a new feature. Zero dependencies, zero JavaScript in the output, four seconds to deploy. This is what building for the web should feel like.</p>\n",
-      "date_published": "2026-03-25T00:48:39.000Z",
+      "date_published": "2026-03-25T01:02:16.000Z",
       "tags": [
         "building"
       ],

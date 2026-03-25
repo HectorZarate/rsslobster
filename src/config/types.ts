@@ -138,7 +138,7 @@ export interface Post extends ClassifiedContent {
 
 /** RSS feed item */
 export interface FeedItem {
-  title: string;
+  title?: string;
   link: string;
   description: string;
   pubDate: string;

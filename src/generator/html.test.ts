@@ -244,6 +244,24 @@ describe("generateIndexPage", () => {
     expect(html).toContain('href="/posts/deep-dive-rss/index.html"');
   });
 
+  // UX: micro posts render like tweets — no title duplication
+  it("renders micro posts without h2 in post list", () => {
+    const html = generateIndexPage([MICRO], SITE_CONFIG);
+    const article = html.match(/<article>[\s\S]*?<\/article>/)?.[0] ?? "";
+    expect(article).not.toContain("<h2>");
+  });
+
+  it("links micro post body text to post page", () => {
+    const html = generateIndexPage([MICRO], SITE_CONFIG);
+    expect(html).toContain('<a href="/posts/quick-thought/index.html">Just a quick thought');
+  });
+
+  it("renders post type with h2 title in post list", () => {
+    const html = generateIndexPage([POST], SITE_CONFIG);
+    expect(html).toContain("<h2>");
+    expect(html).toContain("Deep Dive into RSS");
+  });
+
   // UX: skip link on index too
   it("includes skip link", () => {
     const html = generateIndexPage([], SITE_CONFIG);

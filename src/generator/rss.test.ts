@@ -89,6 +89,14 @@ describe("generateRss", () => {
     expect(rss).not.toContain("<item>");
   });
 
+  it("omits title for items without a title", () => {
+    const items = [{ ...ITEMS[0], title: undefined }];
+    const rss = generateRss(FEED_CONFIG, items);
+    expect(rss).toContain("<description>");
+    const itemBlock = rss.match(/<item>[\s\S]*?<\/item>/)?.[0] ?? "";
+    expect(itemBlock).not.toContain("<title>");
+  });
+
   it("includes channel image when imageUrl is provided", () => {
     const config = { ...FEED_CONFIG, imageUrl: "https://example.com/icon.png" };
     const rss = generateRss(config, []);

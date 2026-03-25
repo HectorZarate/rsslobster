@@ -99,4 +99,11 @@ describe("generateJsonFeed", () => {
     const output = generateJsonFeed(FEED_CONFIG, ITEMS);
     expect(() => JSON.parse(output)).not.toThrow();
   });
+
+  it("omits title for items without a title", () => {
+    const items: FeedItem[] = [{ ...ITEMS[0], title: undefined }];
+    const json = JSON.parse(generateJsonFeed(FEED_CONFIG, items));
+    expect(json.items[0].title).toBeUndefined();
+    expect(json.items[0].content_html).toBeDefined();
+  });
 });

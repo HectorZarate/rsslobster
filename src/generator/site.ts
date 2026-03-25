@@ -158,7 +158,7 @@ export async function rebuildFeeds(
   };
 
   const items: FeedItem[] = posts.slice(0, 20).map((p) => ({
-    title: p.title ?? truncate(p.body, 80),
+    title: p.title,
     link: p.url,
     description: renderMarkdown(p.body),
     pubDate: new Date(p.publishedAt).toUTCString(),
@@ -233,11 +233,6 @@ export async function scaffoldSite(
   await writeSearchIndex(siteDir, []);
   await writeSeo(siteDir, config, []);
   await writePages(siteDir, config);
-}
-
-function truncate(s: string, len: number): string {
-  if (s.length <= len) return s;
-  return s.slice(0, len - 1) + "\u2026";
 }
 
 const MIME_MAP: Record<string, string> = {

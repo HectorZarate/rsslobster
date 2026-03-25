@@ -7,7 +7,7 @@
     <language>en</language>
     <atom:link href="https://brutalist.example.com/feed.xml" rel="self" type="application/rss+xml"/>
     <atom:link href="https://pubsubhubbub.appspot.com" rel="hub"/>
-    <lastBuildDate>Wed, 25 Mar 2026 00:48:39 GMT</lastBuildDate>
+    <lastBuildDate>Wed, 25 Mar 2026 01:02:16 GMT</lastBuildDate>
     <image>
       <url>https://brutalist.example.com/icon.png</url>
       <title>RAW FEED</title>
@@ -16,13 +16,12 @@
       <height>144</height>
     </image>
     <item>
-      <title>The mass of men lead lives of quiet desperation. What is called resignation is …</title>
       <link>https://brutalist.example.com/posts/quiet-desperation/index.html</link>
       <description>&lt;p&gt;The mass of men lead lives of quiet desperation. What is called resignation is confirmed desperation.&lt;/p&gt;
 </description>
       <content:encoded><![CDATA[<p>The mass of men lead lives of quiet desperation. What is called resignation is confirmed desperation.</p>
 ]]></content:encoded>
-      <pubDate>Wed, 25 Mar 2026 00:48:39 GMT</pubDate>
+      <pubDate>Wed, 25 Mar 2026 01:02:16 GMT</pubDate>
       <guid isPermaLink="true">https://brutalist.example.com/posts/quiet-desperation/index.html</guid>
       <author>Ada Lovelace</author>
       <category>quote</category>
@@ -35,7 +34,7 @@
 </description>
       <content:encoded><![CDATA[<p>In an age of algorithmic feeds and walled gardens, RSS remains the only open standard that puts readers in control. No algorithm decides what you see. No company can enshittify your timeline. You subscribe, you read, you move on. The protocol is simple: an XML file at a known URL. Any client can fetch it. No API key, no OAuth dance, no rate limits. This is how the web was supposed to work.</p>
 ]]></content:encoded>
-      <pubDate>Wed, 25 Mar 2026 00:48:39 GMT</pubDate>
+      <pubDate>Wed, 25 Mar 2026 01:02:16 GMT</pubDate>
       <guid isPermaLink="true">https://brutalist.example.com/posts/why-rss-still-matters/index.html</guid>
       <author>Ada Lovelace</author>
       <category>rss</category>
@@ -43,38 +42,35 @@
       <category>web</category>
     </item>
     <item>
-      <title>The best explanation of the indie web I&apos;ve found. Start here if you want to own…</title>
       <link>https://brutalist.example.com/posts/getting-started-indieweb/index.html</link>
       <description>&lt;p&gt;The best explanation of the indie web I’ve found. Start here if you want to own your corner of the internet.&lt;/p&gt;
 </description>
       <content:encoded><![CDATA[<p>The best explanation of the indie web I’ve found. Start here if you want to own your corner of the internet.</p>
 ]]></content:encoded>
-      <pubDate>Wed, 25 Mar 2026 00:48:39 GMT</pubDate>
+      <pubDate>Wed, 25 Mar 2026 01:02:16 GMT</pubDate>
       <guid isPermaLink="true">https://brutalist.example.com/posts/getting-started-indieweb/index.html</guid>
       <author>Ada Lovelace</author>
       <category>indieweb</category>
     </item>
     <item>
-      <title>Sunset from the office window. Sometimes you have to stop and look up.</title>
       <link>https://brutalist.example.com/posts/sunset-from-the-office/index.html</link>
       <description>&lt;p&gt;Sunset from the office window. Sometimes you have to stop and look up.&lt;/p&gt;
 </description>
       <content:encoded><![CDATA[<p>Sunset from the office window. Sometimes you have to stop and look up.</p>
 ]]></content:encoded>
-      <pubDate>Wed, 25 Mar 2026 00:48:39 GMT</pubDate>
+      <pubDate>Wed, 25 Mar 2026 01:02:16 GMT</pubDate>
       <guid isPermaLink="true">https://brutalist.example.com/posts/sunset-from-the-office/index.html</guid>
       <author>Ada Lovelace</author>
       <category>photo</category>
       <enclosure url="https://brutalist.example.com/images/sunset-1.jpg" type="image/jpeg"/>
     </item>
     <item>
-      <title>Just shipped a new feature. Zero dependencies, zero JavaScript in the output, f…</title>
       <link>https://brutalist.example.com/posts/just-shipped/index.html</link>
       <description>&lt;p&gt;Just shipped a new feature. Zero dependencies, zero JavaScript in the output, four seconds to deploy. This is what building for the web should feel like.&lt;/p&gt;
 </description>
       <content:encoded><![CDATA[<p>Just shipped a new feature. Zero dependencies, zero JavaScript in the output, four seconds to deploy. This is what building for the web should feel like.</p>
 ]]></content:encoded>
-      <pubDate>Wed, 25 Mar 2026 00:48:39 GMT</pubDate>
+      <pubDate>Wed, 25 Mar 2026 01:02:16 GMT</pubDate>
       <guid isPermaLink="true">https://brutalist.example.com/posts/just-shipped/index.html</guid>
       <author>Ada Lovelace</author>
       <category>building</category>

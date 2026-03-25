@@ -33,13 +33,19 @@ ${itemsXml}
 function renderItem(item: FeedItem): string {
   const parts = [
     `    <item>`,
-    `      <title>${escXml(item.title)}</title>`,
+  ];
+
+  if (item.title) {
+    parts.push(`      <title>${escXml(item.title)}</title>`);
+  }
+
+  parts.push(
     `      <link>${escXml(item.link)}</link>`,
     `      <description>${escXml(item.description)}</description>`,
     `      <content:encoded><![CDATA[${item.description}]]></content:encoded>`,
     `      <pubDate>${item.pubDate}</pubDate>`,
     `      <guid isPermaLink="true">${escXml(item.guid)}</guid>`,
-  ];
+  );
 
   if (item.author) {
     parts.push(`      <author>${escXml(item.author)}</author>`);

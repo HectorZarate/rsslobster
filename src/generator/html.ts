@@ -205,9 +205,16 @@ function renderPostList(posts: ClassifiedContent[], permalink?: string): string 
   return posts
     .map((p) => {
       const url = resolvePostUrl(p, permalink);
-      return `    <article>
-      <h2><a href="${escAttr(url)}">${escHtml(p.title ?? truncate(p.body, 80))}</a></h2>
+      if (p.title) {
+        return `    <article>
+      <h2><a href="${escAttr(url)}">${escHtml(p.title)}</a></h2>
       <p>${escHtml(truncate(p.body, 200))}</p>
+      <time datetime="${escAttr(p.createdAt)}">${formatDate(p.createdAt)}</time>
+    </article>`;
+      }
+      // Micro post — no title, body is the content
+      return `    <article>
+      <p><a href="${escAttr(url)}">${escHtml(p.body)}</a></p>
       <time datetime="${escAttr(p.createdAt)}">${formatDate(p.createdAt)}</time>
     </article>`;
     })

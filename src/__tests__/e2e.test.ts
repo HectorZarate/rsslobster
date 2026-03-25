@@ -109,7 +109,9 @@ describe("E2E pipeline", () => {
     expect(jsonFeed.version).toBe("https://jsonfeed.org/version/1.1");
     expect(jsonFeed.title).toBe("My Lobster Blog");
     expect(jsonFeed.items).toHaveLength(1);
-    expect(jsonFeed.items[0].title).toContain("quiet desperation");
+    // Micro posts have no title — content is in content_html
+    expect(jsonFeed.items[0].title).toBeUndefined();
+    expect(jsonFeed.items[0].content_html).toContain("quiet desperation");
 
     // Index page lists the post
     const index = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
