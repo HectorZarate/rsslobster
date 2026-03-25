@@ -10,6 +10,7 @@ import { previewsCommand } from "./cli/previews.js";
 import { pagesCommand } from "./cli/pages.js";
 import { regenerateCommand } from "./cli/regenerate.js";
 import { devCommand } from "./cli/dev.js";
+import { feedsCommand } from "./cli/feeds.js";
 
 const program = new Command();
 
@@ -28,5 +29,6 @@ program.addCommand(previewsCommand);
 program.addCommand(pagesCommand);
 program.addCommand(regenerateCommand);
 program.addCommand(devCommand);
+program.addCommand(feedsCommand);
 
 program.parse();

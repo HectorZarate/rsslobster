@@ -152,6 +152,17 @@ export interface FeedItem {
   };
 }
 
+/** How to handle new feed items */
+export type FeedItemMode = "notify" | "draft" | "publish";
+
+/** Configuration for the RSS reader / feed polling */
+export interface ReaderConfig {
+  /** Default mode for new feed items. Default: "notify" */
+  defaultMode?: FeedItemMode;
+  /** Default poll interval in minutes. Default: 15 */
+  defaultInterval?: number;
+}
+
 /** RSS feed configuration */
 export interface FeedConfig {
   title: string;
