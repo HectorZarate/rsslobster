@@ -78,13 +78,14 @@ export async function handleReaderCommand(
     return handleUnsubscribe(siteDir, unsubscribeMatch[1]!);
   }
 
-  // feeds
-  if (/^feeds$/i.test(trimmed)) {
+  // feeds (subscriptions list)
+  if (/^(feeds|subscriptions|my subscriptions)$/i.test(trimmed)) {
     return handleFeeds(siteDir);
   }
 
-  // unread
-  if (/^unread$/i.test(trimmed)) {
+  // feed / unread — show unread items
+  // Natural language: "my feed", "show me my feed", "feed", "show feed", "what's new"
+  if (/^(unread|feed|my feed|show\s+(me\s+)?my\s+feed|show\s+feed|what'?s\s+new)$/i.test(trimmed)) {
     return handleUnread(siteDir, chatId);
   }
 
