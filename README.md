@@ -1,6 +1,6 @@
 # RSS Lobster
 
-**Unplatform yourself with RSS.**
+**Publish. Read. Unplatform yourself with RSS Lobster.**
 
 [![CI](https://github.com/HectorZarate/rsslobster/actions/workflows/ci.yml/badge.svg)](https://github.com/HectorZarate/rsslobster/actions/workflows/ci.yml)
 
