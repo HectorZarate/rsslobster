@@ -46,10 +46,17 @@ export function previewPageOptions(): HtmlPageOptions {
 /** Inline SVG RSS icon — standard broadcast symbol, no external requests */
 const RSS_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56z"/><path d="M4 10.1v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>`;
 
-/** Site-level footer with RSS link */
-function renderSiteFooter(): string {
+/** Site-level footer with copyright, RSS link, and powered-by */
+function renderSiteFooter(config: SiteConfig): string {
+  const year = new Date().getFullYear();
   return `  <footer class="site-footer">
-    <a href="/feed.xml" aria-label="RSS Feed">${RSS_ICON} RSS</a>
+    <div class="site-footer-top">
+      <span>© ${year} ${escHtml(config.domain)}</span>
+      <a href="/feed.xml" aria-label="RSS Feed">${RSS_ICON} RSS</a>
+    </div>
+    <div class="site-footer-powered">
+      Powered by <a href="https://github.com/HectorZarate/rsslobster">RSS Lobster</a> 🦞
+    </div>
   </footer>`;
 }
 
@@ -181,7 +188,7 @@ export function generateHtmlPage(
       </footer>${articleFooter}
     </article>
   </main>
-${renderSiteFooter()}
+${renderSiteFooter(config)}
 ${bodyEnd}
 </body>
 </html>`;
@@ -281,7 +288,7 @@ export function generateIndexPage(
     ${SEARCH_HTML}
 ${items}${archiveLink}
   </main>
-${renderSiteFooter()}
+${renderSiteFooter(config)}
 ${SEARCH_SCRIPT}${bodyEnd}
 </body>
 </html>`;
@@ -321,7 +328,7 @@ export function generateArchivePage(
     ${SEARCH_HTML}
 ${items}
   </main>
-${renderSiteFooter()}
+${renderSiteFooter(config)}
 ${SEARCH_SCRIPT}${bodyEnd}
 </body>
 </html>`;

@@ -579,6 +579,19 @@ footer {
   text-decoration: underline;
 }
 
+.site-footer-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.site-footer-powered {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+}
+
 /* === Selection — intentional === */
 ::selection {
   background: var(--color-link);

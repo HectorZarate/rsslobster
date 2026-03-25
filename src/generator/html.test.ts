@@ -120,6 +120,27 @@ describe("generateHtmlPage", () => {
     expect(html).toMatch(/RSS/i);
   });
 
+  // UX: copyright notice
+  it("includes copyright with current year and domain", () => {
+    const html = generateHtmlPage(MICRO, SITE_CONFIG);
+    expect(html).toContain("©");
+    expect(html).toContain(String(new Date().getFullYear()));
+    expect(html).toContain("example.com");
+  });
+
+  // UX: powered by RSS Lobster
+  it("includes powered by RSS Lobster with lobster emoji", () => {
+    const html = generateHtmlPage(MICRO, SITE_CONFIG);
+    expect(html).toContain("Powered by");
+    expect(html).toContain("RSS Lobster");
+    expect(html).toContain("🦞");
+  });
+
+  it("links powered by to rsslobster GitHub", () => {
+    const html = generateHtmlPage(MICRO, SITE_CONFIG);
+    expect(html).toContain("github.com/HectorZarate/rsslobster");
+  });
+
   // UX: RSS feed autodiscovery
   it("includes feed autodiscovery links", () => {
     const html = generateHtmlPage(MICRO, SITE_CONFIG);
@@ -263,6 +284,22 @@ describe("generateIndexPage", () => {
     expect(html).toContain("<footer");
     expect(html).toContain('href="/feed.xml"');
     expect(html).toMatch(/RSS/i);
+  });
+
+  // UX: copyright notice on index
+  it("includes copyright with current year and domain", () => {
+    const html = generateIndexPage([], SITE_CONFIG);
+    expect(html).toContain("©");
+    expect(html).toContain(String(new Date().getFullYear()));
+    expect(html).toContain("example.com");
+  });
+
+  // UX: powered by on index
+  it("includes powered by RSS Lobster with lobster emoji", () => {
+    const html = generateIndexPage([], SITE_CONFIG);
+    expect(html).toContain("Powered by");
+    expect(html).toContain("RSS Lobster");
+    expect(html).toContain("🦞");
   });
 });
 
