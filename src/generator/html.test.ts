@@ -112,6 +112,17 @@ describe("generateHtmlPage", () => {
     expect(html).toContain("<nav>");
   });
 
+  // UX: RSS link in header
+  it("includes RSS link in header with header-rss class", () => {
+    const html = generateHtmlPage(MICRO, SITE_CONFIG);
+    expect(html).toContain('class="header-rss"');
+  });
+
+  it("has header-top flex container", () => {
+    const html = generateHtmlPage(MICRO, SITE_CONFIG);
+    expect(html).toContain('class="header-top"');
+  });
+
   // UX: visible RSS link in footer
   it("includes a visible RSS link in a site footer", () => {
     const html = generateHtmlPage(MICRO, SITE_CONFIG);
@@ -243,6 +254,17 @@ describe("generateIndexPage", () => {
     const html = generateIndexPage([], SITE_CONFIG);
     expect(html).toContain('<main id="main">');
     expect(html).toContain("</main>");
+  });
+
+  // UX: RSS link in header
+  it("includes RSS link in header with header-rss class", () => {
+    const html = generateIndexPage([], SITE_CONFIG);
+    expect(html).toContain('class="header-rss"');
+  });
+
+  it("has header-top flex container", () => {
+    const html = generateIndexPage([], SITE_CONFIG);
+    expect(html).toContain('class="header-top"');
   });
 
   // UX: favicon on index page

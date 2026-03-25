@@ -177,7 +177,10 @@ export function generateHtmlPage(
 <body>${bodyPrefix}
   <a class="skip-link" href="#main">Skip to content</a>
   <header>
-    ${nav}
+    <div class="header-top">
+      ${nav}
+      <a href="/feed.xml" class="header-rss" aria-label="RSS Feed">${RSS_ICON} RSS</a>
+    </div>
   </header>
   <main id="main">
     <article>
@@ -281,7 +284,10 @@ export function generateIndexPage(
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header>
-    <h1>${escHtml(config.title)}</h1>${pageLinks}
+    <div class="header-top">
+      <h1>${escHtml(config.title)}</h1>
+      <a href="/feed.xml" class="header-rss" aria-label="RSS Feed">${RSS_ICON} RSS</a>
+    </div>${pageLinks}
     <p>${escHtml(config.description)}</p>
   </header>
   <main id="main">
@@ -321,7 +327,10 @@ export function generateArchivePage(
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header>
-    ${nav}
+    <div class="header-top">
+      ${nav}
+      <a href="/feed.xml" class="header-rss" aria-label="RSS Feed">${RSS_ICON} RSS</a>
+    </div>
     <h1>Archive</h1>
   </header>
   <main id="main">

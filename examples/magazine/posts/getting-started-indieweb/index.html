@@ -315,6 +315,33 @@ nav a:hover {
 
 nav a:visited { color: var(--color-text); }
 
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.header-rss {
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.header-rss:hover {
+  color: var(--color-link);
+}
+
+.header-rss:visited {
+  color: var(--color-muted);
+}
+
 /* === Footer — site-level, quiet === */
 footer {
   margin-top: 0.75rem;
@@ -417,7 +444,10 @@ nav a, button, .tag {
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header>
-    <nav><a href="/">The Evening Page</a></nav>
+    <div class="header-top">
+      <nav><a href="/">The Evening Page</a></nav>
+      <a href="/feed.xml" class="header-rss" aria-label="RSS Feed"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56z"/><path d="M4 10.1v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg> RSS</a>
+    </div>
   </header>
   <main id="main">
     <article>

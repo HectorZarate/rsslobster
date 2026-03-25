@@ -555,6 +555,33 @@ nav a:hover {
 
 nav a:visited { color: var(--color-text); }
 
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.header-rss {
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.header-rss:hover {
+  color: var(--color-link);
+}
+
+.header-rss:visited {
+  color: var(--color-muted);
+}
+
 /* === Footer — site-level, quiet === */
 footer {
   margin-top: 0.75rem;
