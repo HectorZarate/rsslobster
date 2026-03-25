@@ -61,6 +61,21 @@ describe("handleReaderCommand", () => {
     expect(result.reply).toContain("3. Article 3");
   });
 
+  it("paginates unread items at 5 per page", async () => {
+    await subscribe(siteDir, FEED_URL, "Test Feed");
+    await ingestItems(siteDir, FEED_URL, makeItems(8));
+
+    const first = await handleReaderCommand("feed", siteDir, { chatId: "pag" });
+    expect(first.reply).toContain("8 unread");
+    expect(first.reply).toContain("1. Article 1");
+    expect(first.reply).toContain('say "more"');
+
+    const second = await handleReaderCommand("more", siteDir, { chatId: "pag" });
+    expect(second.handled).toBe(true);
+    expect(second.reply).toContain("Showing 6-8");
+    expect(second.reply).not.toContain('say "more"');
+  });
+
   it("shows empty unread message", async () => {
     const result = await handleReaderCommand("unread", siteDir, ctx);
     expect(result.reply).toContain("No unread");

@@ -35,7 +35,9 @@ export interface SkillResult {
  * Stored in-memory per session, not persisted.
  */
 const lastListings = new Map<string, StoredItem[]>();
+const pageOffsets = new Map<string, number>();
 const DEFAULT_CHAT = "__default__";
+const PAGE_SIZE = 5;
 
 /**
  * Handle a reader command from the chat channel.
@@ -86,7 +88,16 @@ export async function handleReaderCommand(
   // feed / unread — show unread items
   // Natural language: "my feed", "show me my feed", "feed", "show feed", "what's new"
   if (/^(unread|feed|my feed|show\s+(me\s+)?my\s+feed|show\s+feed|what'?s\s+new)$/i.test(trimmed)) {
-    return handleUnread(siteDir, chatId);
+    pageOffsets.set(chatId, 0);
+    return handleUnread(siteDir, chatId, 0);
+  }
+
+  // more / next — paginate forward through unread
+  if (/^(more|next)$/i.test(trimmed)) {
+    const currentOffset = pageOffsets.get(chatId) ?? 0;
+    const newOffset = currentOffset + PAGE_SIZE;
+    pageOffsets.set(chatId, newOffset);
+    return handleUnread(siteDir, chatId, newOffset);
   }
 
   // starred
@@ -203,29 +214,36 @@ async function handleFeeds(siteDir: string): Promise<SkillResult> {
   return { reply: lines.join("\n"), handled: true };
 }
 
-async function handleUnread(siteDir: string, chatId: string): Promise<SkillResult> {
-  const items = await listItems(siteDir, { read: false }, 10);
+async function handleUnread(siteDir: string, chatId: string, offset = 0): Promise<SkillResult> {
+  const items = await listItems(siteDir, { read: false }, PAGE_SIZE, offset);
   lastListings.set(chatId, items);
 
-  if (items.length === 0) {
+  if (items.length === 0 && offset === 0) {
     return { reply: "No unread items.", handled: true };
   }
+  if (items.length === 0) {
+    return { reply: "No more unread items.", handled: true };
+  }
 
+  const total = (await getItemCounts(siteDir)).unread;
   const lines = items.map(
     (item, i) => {
       const title = item.title || item.content.replace(/<[^>]+>/g, "").trim().slice(0, 80) || "(untitled)";
-      return `${i + 1}. ${title}${item.link ? `\n   ${item.link}` : ""}`;
+      return `${i + 1}. ${title}\n   ${item.link ?? ""}`;
     },
   );
 
+  const remaining = total - offset - items.length;
+  const more = remaining > 0 ? `\n\n${remaining} more — say "more"` : "";
+  const header = offset === 0 ? `${total} unread:` : `Showing ${offset + 1}-${offset + items.length} of ${total}:`;
   return {
-    reply: `${items.length} unread:\n\n${lines.join("\n\n")}`,
+    reply: `${header}\n\n${lines.join("\n")}${more}`,
     handled: true,
   };
 }
 
 async function handleStarred(siteDir: string, chatId: string): Promise<SkillResult> {
-  const items = await listItems(siteDir, { starred: true }, 10);
+  const items = await listItems(siteDir, { starred: true }, 5);
   lastListings.set(chatId, items);
 
   if (items.length === 0) {
@@ -235,12 +253,12 @@ async function handleStarred(siteDir: string, chatId: string): Promise<SkillResu
   const lines = items.map(
     (item, i) => {
       const title = item.title || item.content.replace(/<[^>]+>/g, "").trim().slice(0, 80) || "(untitled)";
-      return `${i + 1}. ${title}${item.link ? `\n   ${item.link}` : ""}`;
+      return `${i + 1}. ${title}\n   ${item.link ?? ""}`;
     },
   );
 
   return {
-    reply: `${items.length} starred:\n\n${lines.join("\n\n")}`,
+    reply: `${items.length} starred:\n\n${lines.join("\n")}`,
     handled: true,
   };
 }
