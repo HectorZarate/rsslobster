@@ -350,6 +350,88 @@ ${SEARCH_SCRIPT}${bodyEnd}
 </html>`;
 }
 
+/** Minimal feed info for blogroll rendering — avoids coupling to reader types */
+export interface BlogrollEntry {
+  title: string;
+  feedUrl: string;
+  siteUrl?: string;
+  folder?: string;
+}
+
+/** Generate a blogroll / following page listing subscribed feeds */
+export function generateBlogrollPage(
+  entries: BlogrollEntry[],
+  config: SiteConfig,
+): string {
+  const resolved = resolveStyle(config.style.preset, config.style.overrides);
+  const css = generateStylesheet(resolved);
+  const nav = renderNav(config);
+  const favicon = faviconLinkTags(generateFaviconSvg(config.title, config.style.preset, config.style.overrides), config.style.preset, config.style.overrides);
+
+  // Group by folder
+  const folders = new Map<string, BlogrollEntry[]>();
+  for (const entry of entries) {
+    const key = entry.folder ?? "";
+    const list = folders.get(key) ?? [];
+    list.push(entry);
+    folders.set(key, list);
+  }
+
+  // Render entries as a list — title links to siteUrl if available, feedUrl otherwise
+  function renderEntries(items: BlogrollEntry[]): string {
+    return items
+      .map((e) => {
+        const href = e.siteUrl ?? e.feedUrl;
+        const feedLink = `<a href="${escAttr(e.feedUrl)}" aria-label="RSS feed for ${escAttr(e.title)}">${RSS_ICON}</a>`;
+        return `      <li><a href="${escAttr(href)}" rel="noopener">${escHtml(e.title)}</a> ${feedLink}</li>`;
+      })
+      .join("\n");
+  }
+
+  let content: string;
+  const sortedKeys = [...folders.keys()].sort();
+  if (sortedKeys.length === 1 && sortedKeys[0] === "") {
+    // No folders — flat list
+    content = `    <ul class="blogroll">\n${renderEntries(folders.get("")!)}\n    </ul>`;
+  } else {
+    // Grouped by folder
+    content = sortedKeys
+      .map((key) => {
+        const heading = key ? `    <h2>${escHtml(key)}</h2>` : `    <h2>Uncategorized</h2>`;
+        return `${heading}\n    <ul class="blogroll">\n${renderEntries(folders.get(key)!)}\n    </ul>`;
+      })
+      .join("\n");
+  }
+
+  return `<!DOCTYPE html>
+<html lang="${escHtml(config.language)}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Following — ${escHtml(config.title)}</title>
+  <meta name="description" content="Feeds I follow — ${escAttr(config.title)}">
+  ${favicon}
+  <link rel="alternate" type="application/rss+xml" title="${escAttr(config.title)}" href="/feed.xml">
+  <style>${css}</style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header>
+    <div class="header-top">
+      ${nav}
+      <a href="/feed.xml" class="header-rss" aria-label="RSS Feed">${RSS_ICON} RSS</a>
+    </div>
+    <h1>Following</h1>
+    <p>${entries.length} feed${entries.length === 1 ? "" : "s"} I read</p>
+  </header>
+  <main id="main">
+${content}
+  </main>
+${renderSiteFooter(config)}
+</body>
+</html>`;
+}
+
 function renderContentBody(content: ClassifiedContent): string {
   switch (content.type) {
     case "micro":

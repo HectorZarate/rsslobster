@@ -2,9 +2,11 @@ import { describe, it, expect, beforeAll } from "vitest";
 import {
   generateHtmlPage,
   generateIndexPage,
+  generateBlogrollPage,
   escHtml,
   previewPageOptions,
 } from "./html.js";
+import type { BlogrollEntry } from "./html.js";
 import { initMarkdown } from "./markdown.js";
 import type { ClassifiedContent, SiteConfig } from "../config/types.js";
 
@@ -441,5 +443,75 @@ describe("escHtml", () => {
     // The critical security boundary: <img is escaped so no HTML element is created
     expect(html).toContain("&lt;img");
     expect(html).not.toContain("<img src=x");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Blogroll / Following page
+// ---------------------------------------------------------------------------
+
+const BLOGROLL_ENTRIES: BlogrollEntry[] = [
+  { title: "Simon Willison", feedUrl: "https://simonwillison.net/atom/everything/", siteUrl: "https://simonwillison.net" },
+  { title: "Julia Evans", feedUrl: "https://jvns.ca/atom.xml", siteUrl: "https://jvns.ca" },
+  { title: "No Site URL Feed", feedUrl: "https://example.com/feed.xml" },
+];
+
+describe("generateBlogrollPage", () => {
+  it("generates valid HTML5 document", () => {
+    const html = generateBlogrollPage(BLOGROLL_ENTRIES, SITE_CONFIG);
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain('<html lang="en">');
+    expect(html).toContain("Following");
+  });
+
+  it("lists all subscribed feeds", () => {
+    const html = generateBlogrollPage(BLOGROLL_ENTRIES, SITE_CONFIG);
+    expect(html).toContain("Simon Willison");
+    expect(html).toContain("Julia Evans");
+    expect(html).toContain("No Site URL Feed");
+  });
+
+  it("links to siteUrl when available, feedUrl otherwise", () => {
+    const html = generateBlogrollPage(BLOGROLL_ENTRIES, SITE_CONFIG);
+    expect(html).toContain('href="https://simonwillison.net"');
+    expect(html).toContain('href="https://example.com/feed.xml"');
+  });
+
+  it("includes RSS icon link to feed URL for each entry", () => {
+    const html = generateBlogrollPage(BLOGROLL_ENTRIES, SITE_CONFIG);
+    expect(html).toContain('href="https://simonwillison.net/atom/everything/"');
+    expect(html).toContain('href="https://jvns.ca/atom.xml"');
+  });
+
+  it("shows feed count", () => {
+    const html = generateBlogrollPage(BLOGROLL_ENTRIES, SITE_CONFIG);
+    expect(html).toContain("3 feeds I read");
+  });
+
+  it("groups by folder when folders exist", () => {
+    const withFolders: BlogrollEntry[] = [
+      { title: "Feed A", feedUrl: "https://a.com/feed", folder: "tech" },
+      { title: "Feed B", feedUrl: "https://b.com/feed", folder: "news" },
+      { title: "Feed C", feedUrl: "https://c.com/feed" },
+    ];
+    const html = generateBlogrollPage(withFolders, SITE_CONFIG);
+    expect(html).toContain("<h2>tech</h2>");
+    expect(html).toContain("<h2>news</h2>");
+    expect(html).toContain("<h2>Uncategorized</h2>");
+  });
+
+  it("renders flat list when no folders", () => {
+    const html = generateBlogrollPage(BLOGROLL_ENTRIES, SITE_CONFIG);
+    expect(html).not.toContain("<h2>");
+    expect(html).toContain('class="blogroll"');
+  });
+
+  it("escapes HTML in feed titles", () => {
+    const xss: BlogrollEntry[] = [
+      { title: '<script>alert("xss")</script>', feedUrl: "https://evil.com/feed" },
+    ];
+    const html = generateBlogrollPage(xss, SITE_CONFIG);
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>alert");
   });
 });

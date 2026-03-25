@@ -1,6 +1,8 @@
 import { Command } from "commander";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { writeJsonAtomic } from "../reader/paths.js";
+import { resolve, join } from "node:path";
+import pc from "picocolors";
 import {
   subscribe,
   unsubscribe,
@@ -13,8 +15,10 @@ import {
   listItems,
   getItem,
   markRead,
+  markAllRead,
   starItem,
   unstarItem,
+  removeItemsForFeed,
 } from "../reader/store.js";
 import { pollAllFeeds, pollFeed } from "../reader/poll.js";
 import { discoverFeed } from "../reader/discover.js";
@@ -23,13 +27,13 @@ import {
   updateConfig,
   inboxCount,
 } from "../reader/notifications.js";
-import type { SubscriptionNotify } from "../reader/types.js";
+import type { SubscriptionNotify, StoredItem } from "../reader/types.js";
 
 export const feedsCommand = new Command("feeds")
   .description("RSS reader — subscribe, poll, and read feeds");
 
 /** Truncate verbose feed titles to something scannable */
-function shortFeedName(title: string): string {
+export function shortFeedName(title: string): string {
   if (title.length <= 25) return title;
   // Common separators: "Name — tagline", "Name | tagline", "Name: tagline"
   for (const sep of [" — ", " | ", " - ", ": "]) {
@@ -45,6 +49,62 @@ function shortFeedName(title: string): string {
   const truncated = title.slice(0, 25);
   const lastSpace = truncated.lastIndexOf(" ");
   return lastSpace > 5 ? truncated.slice(0, lastSpace) : truncated;
+}
+
+// ---------------------------------------------------------------------------
+// Last-listing persistence (Tasks 8 & 9)
+// ---------------------------------------------------------------------------
+
+export interface ListingEntry {
+  dedupKey: string;
+  title: string;
+  link?: string;
+  feedUrl: string;
+  content: string;
+  categories: string[];
+  publishedAt?: string;
+}
+
+export async function saveLastListing(siteDir: string, items: StoredItem[]): Promise<void> {
+  const entries: ListingEntry[] = items.map(i => ({
+    dedupKey: i.dedupKey,
+    title: i.title,
+    link: i.link,
+    feedUrl: i.feedUrl,
+    content: i.content,
+    categories: i.categories,
+    publishedAt: i.publishedAt,
+  }));
+  const path = join(siteDir, "reader", ".last-listing.json");
+  await writeJsonAtomic(path, entries);
+}
+
+export async function loadLastListing(siteDir: string): Promise<ListingEntry[]> {
+  try {
+    const path = join(siteDir, "reader", ".last-listing.json");
+    return JSON.parse(await readFile(path, "utf-8"));
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Relative date formatting (Task 10)
+// ---------------------------------------------------------------------------
+
+export function relativeDate(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) {
+    const d = new Date(iso);
+    return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]!;
+  }
+  const d = new Date(iso);
+  return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()]} ${d.getDate()}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -75,8 +135,10 @@ feedsCommand
     if (opts.subs) {
       for (const sub of subs) {
         const counts = await getItemCounts(dir, sub.feedUrl);
-        const muted = sub.notify?.muted ? " (muted)" : "";
-        console.log(`  ${sub.title}${muted} — ${counts.unread}/${counts.total}`);
+        const muted = sub.notify?.muted ? pc.dim(" (muted)") : "";
+        const errFlag = sub.errorCount >= 5 ? pc.red(" [!]") : "";
+        const unread = counts.unread > 0 ? pc.yellow(String(counts.unread)) : pc.dim("0");
+        console.log(`  ${pc.bold(sub.title)}${muted}${errFlag} — ${unread}/${pc.dim(String(counts.total))}`);
       }
       return;
     }
@@ -97,16 +159,19 @@ feedsCommand
     const subMap = new Map(subs.map((s) => [s.feedUrl, shortFeedName(s.title)]));
 
     const totalPages = Math.ceil(totalCounts.unread / limit);
-    console.log(`${totalCounts.unread} unread — page ${page}/${totalPages}\n`);
+    console.log(`${pc.yellow(String(totalCounts.unread))} unread — page ${page}/${totalPages}\n`);
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i]!;
       const feed = subMap.get(item.feedUrl) ?? "";
       const title = item.title || item.content.replace(/<[^>]+>/g, "").trim().slice(0, 80) || "(untitled)";
       const num = offset + i + 1;
-      console.log(`${num}. ${title}`);
-      console.log(`   ${feed} — ${item.link ?? ""}`);
+      const date = relativeDate(item.publishedAt ?? item.firstSeenAt);
+      console.log(`${pc.dim(String(num) + ".")} ${pc.bold(title)} ${pc.dim("(" + date + ")")}`);
+      console.log(`   ${pc.cyan(feed)} ${pc.dim("—")} ${pc.dim(item.link ?? "")}`);
     }
+
+    await saveLastListing(dir, items);
 
     if (page < totalPages) {
       console.log(`\nNext: rsslobster feeds -p ${page + 1}`);
@@ -167,9 +232,9 @@ feedsCommand
         await updateSubscription(dir, feedUrl, { notify });
       }
 
-      console.log(`Subscribed to "${sub.title}"`);
-      console.log(`  Feed: ${sub.feedUrl}`);
-      if (siteUrl) console.log(`  Site: ${siteUrl}`);
+      console.log(`Subscribed to ${pc.bold(`"${sub.title}"`)}`);
+      console.log(`  Feed: ${pc.dim(sub.feedUrl)}`);
+      if (siteUrl) console.log(`  Site: ${pc.dim(siteUrl)}`);
 
       // Initial poll
       const result = await pollFeed(dir, feedUrl, { skipNotify: true });
@@ -193,6 +258,7 @@ feedsCommand
     const removed = await unsubscribe(dir, url);
 
     if (removed) {
+      await removeItemsForFeed(dir, url);
       console.log(`Unsubscribed from ${url}`);
     } else {
       console.error(`Not subscribed to ${url}`);
@@ -237,15 +303,15 @@ feedsCommand
     let totalNotified = 0;
     for (const result of results) {
       if (result.error) {
-        console.error(`  ${result.title}: ${result.error}`);
+        console.error(`  ${pc.red(result.title)}: ${result.error}`);
       } else {
-        console.log(`  ${result.title}: ${result.newItems.length} new`);
+        console.log(`  ${pc.bold(result.title)}: ${pc.green(String(result.newItems.length))} new`);
         totalNew += result.newItems.length;
         totalNotified += result.notified;
       }
     }
 
-    console.log(`\n${totalNew} new item(s) across ${results.length} feed(s)`);
+    console.log(`\n${pc.green(String(totalNew))} new item(s) across ${results.length} feed(s)`);
     if (totalNotified > 0) {
       console.log(`${totalNotified} notification(s) queued`);
     }
@@ -290,12 +356,17 @@ feedsCommand
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i]!;
-        const flags = [item.starred ? "*" : "", !item.read ? "N" : ""].filter(Boolean).join("") || " ";
+        const starred = item.starred ? pc.yellow("*") : "";
+        const unread = !item.read ? pc.green("N") : "";
+        const flags = [starred, unread].filter(Boolean).join("") || " ";
         const title = item.title || item.content.replace(/<[^>]+>/g, "").trim().slice(0, 80) || "(untitled)";
         const num = offset + i + 1;
-        console.log(`${num}. [${flags}] ${title}`);
-        console.log(`   ${item.link ?? item.dedupKey}`);
+        const date = relativeDate(item.publishedAt ?? item.firstSeenAt);
+        console.log(`${pc.dim(String(num) + ".")} [${flags}] ${pc.bold(title)} ${pc.dim("(" + date + ")")}`);
+        console.log(`   ${pc.dim(item.link ?? item.dedupKey)}`);
       }
+
+      await saveLastListing(dir, items);
 
       // Check if there are more
       const next = await listItems(dir, filter, 1, offset + limit);
@@ -312,26 +383,39 @@ feedsCommand
 feedsCommand
   .command("read")
   .description("Show an item's content and mark it as read")
-  .argument("<id>", "Item dedup key")
+  .argument("<n>", "Item number from last listing")
   .argument("[site-dir]", "Path to site directory", ".")
-  .action(async (id: string, siteDir: string) => {
+  .action(async (n: string, siteDir: string) => {
     const dir = resolve(siteDir);
-    const item = await getItem(dir, id);
+    const num = parseInt(n, 10);
+    const listing = await loadLastListing(dir);
 
+    if (num < 1 || num > listing.length) {
+      console.error(`No item #${num}. Run 'rsslobster feeds' first to see items.`);
+      process.exit(1);
+    }
+
+    const entry = listing[num - 1]!;
+    const item = await getItem(dir, entry.dedupKey);
     if (!item) {
-      console.error(`Item not found: ${id}`);
+      console.error(`Item not found. The listing may be stale — run 'rsslobster feeds' again.`);
       process.exit(1);
     }
 
     const text = item.content.replace(/<[^>]+>/g, "").trim();
     const displayTitle = item.title || text.slice(0, 80) || "(untitled)";
-    console.log(displayTitle);
-    if (item.author) console.log(`by ${item.author}`);
-    if (item.link) console.log(item.link);
-    console.log(`${item.publishedAt ?? item.firstSeenAt}\n`);
+    console.log(pc.bold(displayTitle));
+    if (item.author) console.log(pc.dim(`by ${item.author}`));
+    if (item.link) console.log(pc.dim(item.link));
+    const pubDate = item.publishedAt ?? item.firstSeenAt;
+    const formatted = new Date(pubDate).toLocaleDateString("en-US", {
+      year: "numeric", month: "short", day: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
+    console.log(pc.dim(formatted) + "\n");
     console.log(text);
 
-    await markRead(dir, id);
+    await markRead(dir, item.dedupKey);
   });
 
 // ---------------------------------------------------------------------------
@@ -341,31 +425,107 @@ feedsCommand
 feedsCommand
   .command("star")
   .description("Star an item")
-  .argument("<id>", "Item dedup key")
+  .argument("<n>", "Item number from last listing")
   .argument("[site-dir]", "Path to site directory", ".")
-  .action(async (id: string, siteDir: string) => {
+  .action(async (n: string, siteDir: string) => {
     const dir = resolve(siteDir);
-    const ok = await starItem(dir, id);
-    if (!ok) {
-      console.error(`Item not found: ${id}`);
+    const num = parseInt(n, 10);
+    const listing = await loadLastListing(dir);
+
+    if (num < 1 || num > listing.length) {
+      console.error(`No item #${num}. Run 'rsslobster feeds' first to see items.`);
       process.exit(1);
     }
-    console.log("Starred.");
+
+    const entry = listing[num - 1]!;
+    const ok = await starItem(dir, entry.dedupKey);
+    if (!ok) {
+      console.error(`Item not found. The listing may be stale — run 'rsslobster feeds' again.`);
+      process.exit(1);
+    }
+    console.log(`Starred: ${entry.title}`);
   });
 
 feedsCommand
   .command("unstar")
   .description("Unstar an item")
-  .argument("<id>", "Item dedup key")
+  .argument("<n>", "Item number from last listing")
   .argument("[site-dir]", "Path to site directory", ".")
-  .action(async (id: string, siteDir: string) => {
+  .action(async (n: string, siteDir: string) => {
     const dir = resolve(siteDir);
-    const ok = await unstarItem(dir, id);
-    if (!ok) {
-      console.error(`Item not found: ${id}`);
+    const num = parseInt(n, 10);
+    const listing = await loadLastListing(dir);
+
+    if (num < 1 || num > listing.length) {
+      console.error(`No item #${num}. Run 'rsslobster feeds' first to see items.`);
       process.exit(1);
     }
-    console.log("Unstarred.");
+
+    const entry = listing[num - 1]!;
+    const ok = await unstarItem(dir, entry.dedupKey);
+    if (!ok) {
+      console.error(`Item not found. The listing may be stale — run 'rsslobster feeds' again.`);
+      process.exit(1);
+    }
+    console.log(`Unstarred: ${entry.title}`);
+  });
+
+// ---------------------------------------------------------------------------
+// feeds share
+// ---------------------------------------------------------------------------
+
+feedsCommand
+  .command("share")
+  .description("Share an item as a link post on your site")
+  .argument("<n>", "Item number from last listing")
+  .argument("[site-dir]", "Path to site directory", ".")
+  .option("-m, --message <text>", "Add commentary to the shared post")
+  .action(async (n: string, siteDir: string, opts: { message?: string }) => {
+    const dir = resolve(siteDir);
+    const num = parseInt(n, 10);
+    const listing = await loadLastListing(dir);
+
+    if (num < 1 || num > listing.length) {
+      console.error(`No item #${num}. Run 'rsslobster feeds' first to see items.`);
+      process.exit(1);
+    }
+
+    const entry = listing[num - 1]!;
+
+    console.log(`Shared: "${entry.title}"`);
+    console.log(`  Source: ${entry.link ?? "(no link)"}`);
+    if (opts.message) {
+      console.log(`  Note: ${opts.message}`);
+    }
+    console.log(`  Use: rsslobster publish "${entry.title} ${entry.link ?? ""}"`);
+
+    await markRead(dir, entry.dedupKey);
+  });
+
+// ---------------------------------------------------------------------------
+// feeds mark-read
+// ---------------------------------------------------------------------------
+
+feedsCommand
+  .command("mark-read")
+  .description("Mark items as read")
+  .argument("[site-dir]", "Path to site directory", ".")
+  .option("--all", "Mark all items as read")
+  .option("--feed <url>", "Mark all items from a specific feed as read")
+  .action(async (siteDir: string, opts: { all?: boolean; feed?: string }) => {
+    const dir = resolve(siteDir);
+
+    if (!opts.all && !opts.feed) {
+      console.error("Provide --all or --feed <url>");
+      process.exit(1);
+    }
+
+    const count = await markAllRead(dir, opts.feed);
+    if (opts.feed) {
+      console.log(`Marked ${count} item(s) as read from ${opts.feed}`);
+    } else {
+      console.log(`Marked ${count} item(s) as read`);
+    }
   });
 
 // ---------------------------------------------------------------------------
@@ -611,7 +771,7 @@ feedsCommand
     }
 
     console.log(
-      `Imported ${added} feed(s)${skipped > 0 ? `, ${skipped} skipped (duplicate or invalid)` : ""}`,
+      `Imported ${pc.green(String(added))} feed(s)${skipped > 0 ? `, ${pc.yellow(String(skipped))} skipped (duplicate or invalid)` : ""}`,
     );
   });
 

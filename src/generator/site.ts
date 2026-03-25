@@ -20,6 +20,8 @@ import { expandPermalink, permalinkDir, DEFAULT_PERMALINK } from "../config/perm
 import type { PageInjections } from "../plugins/types.js";
 import { loadCustomCss } from "../styles/presets.js";
 import { writeFavicon, writeOgImage } from "./favicon.js";
+import { generateBlogrollPage } from "./html.js";
+import { listSubscriptions } from "../reader/subscriptions.js";
 
 const POSTS_INDEX = "posts.json";
 
@@ -129,13 +131,14 @@ export async function addContent(
   posts.unshift(post);
   await writePostsIndex(siteDir, posts);
 
-  // Rebuild feeds, index, search, SEO, and pages — all independent, run in parallel
+  // Rebuild feeds, index, search, SEO, pages, and blogroll — all independent, run in parallel
   await Promise.all([
     rebuildFeeds(siteDir, config, posts),
     rebuildIndex(siteDir, config, posts, options?.pluginInjections),
     writeSearchIndex(siteDir, posts),
     writeSeo(siteDir, config, posts),
     writePages(siteDir, config, options?.pluginInjections),
+    rebuildBlogroll(siteDir, config),
   ]);
 
   return post;
@@ -183,6 +186,21 @@ export async function rebuildFeeds(
 
   await writeFile(join(outputDir(siteDir), "feed.xml"), rss);
   await writeFile(join(outputDir(siteDir), "feed.json"), json);
+}
+
+/** Rebuild the blogroll / following page from current subscriptions */
+export async function rebuildBlogroll(
+  siteDir: string,
+  config: SiteConfig,
+): Promise<void> {
+  const subs = await listSubscriptions(siteDir);
+  if (subs.length === 0) return;
+
+  const outDir = outputDir(siteDir);
+  const followingDir = join(outDir, "following");
+  await mkdir(followingDir, { recursive: true });
+  const html = generateBlogrollPage(subs, config);
+  await writeFile(join(followingDir, "index.html"), html);
 }
 
 /** Rebuild the index.html and archive.html pages */
