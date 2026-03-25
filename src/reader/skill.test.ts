@@ -169,6 +169,75 @@ describe("handleReaderCommand", () => {
     expect(result.reply).toContain("RSS Recap");
   });
 
+  // --- title fallback ---
+  it("shows content as title when title is empty", async () => {
+    await subscribe(siteDir, FEED_URL, "Test Feed");
+    const items: ParsedItem[] = [
+      {
+        id: "no-title-1",
+        title: "",
+        link: "https://example.com/no-title",
+        content: "<p>Wordpress is unc.</p>",
+        categories: [],
+      },
+    ];
+    await ingestItems(siteDir, FEED_URL, items);
+
+    const result = await handleReaderCommand("unread", siteDir, ctx);
+    expect(result.reply).toContain("Wordpress is unc.");
+    expect(result.reply).not.toContain("(untitled)");
+  });
+
+  it("read shows content as title when title is empty", async () => {
+    await subscribe(siteDir, FEED_URL, "Test Feed");
+    const items: ParsedItem[] = [
+      {
+        id: "no-title-2",
+        title: "",
+        link: "https://example.com/no-title",
+        content: "Short micro post content",
+        categories: [],
+      },
+    ];
+    await ingestItems(siteDir, FEED_URL, items);
+
+    await handleReaderCommand("unread", siteDir, ctx);
+    const result = await handleReaderCommand("read 1", siteDir, ctx);
+    expect(result.reply).toContain("Short micro post content");
+  });
+
+  // --- chatId isolation ---
+  it("isolates listings by chatId", async () => {
+    await subscribe(siteDir, FEED_URL, "Test Feed");
+    await ingestItems(siteDir, FEED_URL, makeItems(5));
+
+    // User A gets a listing
+    await handleReaderCommand("unread", siteDir, { chatId: "user-a" });
+    // User B gets a listing
+    await handleReaderCommand("unread", siteDir, { chatId: "user-b" });
+
+    // User A reads item 1 — should get their own listing's item
+    const resultA = await handleReaderCommand("read 1", siteDir, { chatId: "user-a" });
+    expect(resultA.handled).toBe(true);
+    expect(resultA.reply).toContain("Article 1");
+  });
+
+  // --- notify field preservation ---
+  it("muting preserves existing filters", async () => {
+    await subscribe(siteDir, FEED_URL, "Test Feed");
+    const { updateSubscription, getSubscription } = await import("./subscriptions.js");
+    await updateSubscription(siteDir, FEED_URL, {
+      notify: { filter: ["important"], priority: "high" },
+    });
+
+    await handleReaderCommand(`mute ${FEED_URL}`, siteDir, ctx);
+
+    const sub = await getSubscription(siteDir, FEED_URL);
+    expect(sub!.notify!.muted).toBe(true);
+    expect(sub!.notify!.filter).toEqual(["important"]);
+    expect(sub!.notify!.priority).toBe("high");
+  });
+
   // --- case insensitivity ---
   it("handles uppercase commands", async () => {
     const result = await handleReaderCommand("FEEDS", siteDir, ctx);

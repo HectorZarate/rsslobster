@@ -211,7 +211,10 @@ async function handleUnread(siteDir: string, chatId: string): Promise<SkillResul
   }
 
   const lines = items.map(
-    (item, i) => `${i + 1}. ${item.title}${item.link ? `\n   ${item.link}` : ""}`,
+    (item, i) => {
+      const title = item.title || item.content.replace(/<[^>]+>/g, "").trim().slice(0, 80) || "(untitled)";
+      return `${i + 1}. ${title}${item.link ? `\n   ${item.link}` : ""}`;
+    },
   );
 
   return {
@@ -229,7 +232,10 @@ async function handleStarred(siteDir: string, chatId: string): Promise<SkillResu
   }
 
   const lines = items.map(
-    (item, i) => `${i + 1}. ${item.title}${item.link ? `\n   ${item.link}` : ""}`,
+    (item, i) => {
+      const title = item.title || item.content.replace(/<[^>]+>/g, "").trim().slice(0, 80) || "(untitled)";
+      return `${i + 1}. ${title}${item.link ? `\n   ${item.link}` : ""}`;
+    },
   );
 
   return {
@@ -247,8 +253,9 @@ async function handleRead(siteDir: string, n: number, chatId: string): Promise<S
   await markRead(siteDir, item.dedupKey);
 
   const text = item.content.replace(/<[^>]+>/g, "").trim().slice(0, 500);
+  const displayTitle = item.title || text.slice(0, 80) || "(untitled)";
   const parts: string[] = [];
-  parts.push(item.title);
+  parts.push(displayTitle);
   if (item.author) parts.push(`by ${item.author}`);
   if (item.link) parts.push(item.link);
   parts.push("");
