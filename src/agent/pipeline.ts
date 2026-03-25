@@ -2,7 +2,7 @@ import type { InboundMessage } from "../channels/types.js";
 import type { ClassifiedContent, Draft, Post } from "../config/types.js";
 import { classifyContent, type CallModel } from "./classify.js";
 import { addContent, readSiteConfig } from "../generator/site.js";
-import { createDraft, getDraft } from "../drafts/drafts.js";
+import { createDraft, getDraft, updateDraft } from "../drafts/drafts.js";
 import { deployToGit, type DeployResult } from "../deploy/git.js";
 import { pingWebSubHub } from "../deploy/websub.js";
 import { ingestImages } from "../images/images.js";
@@ -17,6 +17,7 @@ import {
   type HooksConfig,
 } from "../hooks/hooks.js";
 import type { PageInjections } from "../plugins/types.js";
+import { handleReaderCommand } from "../reader/skill.js";
 
 export interface PipelineConfig {
   siteDir: string;
@@ -49,6 +50,25 @@ export async function processMessage(
 
   // --- Command dispatch (before classification) ---
   let wantsPreview = false;
+
+  // Handle RSS reader commands (subscribe, unread, read, star, share, etc.)
+  const readerResult = await handleReaderCommand(message.text, config.siteDir, {
+    callModel: config.callModel,
+    chatId: message.chatId,
+  });
+  if (readerResult.handled) {
+    // "share" command returns content to publish through the normal pipeline
+    if (readerResult.content) {
+      return handleSharePublish(readerResult.content, config, shouldDeploy, readerResult.reply);
+    }
+    return { deployed: false, reply: readerResult.reply };
+  }
+
+  // Handle "summarize {slug}" — fetch article and generate AI summary for a draft
+  const summarizeMatch = message.text.match(/^summarize\s+(\S+)$/i);
+  if (summarizeMatch) {
+    return handleSummarizeCommand(summarizeMatch[1]!, config);
+  }
 
   // Handle "publish {slug}" — promote a draft (with or without preview)
   const publishMatch = message.text.match(/^publish\s+(\S+)$/i);
@@ -355,5 +375,89 @@ async function handlePublishCommand(
   } catch (err) {
     const error = err instanceof Error ? err.message : "Publish failed";
     return { deployed: false, reply: `Failed to publish: ${error}`, error };
+  }
+}
+
+/** Summarize a draft's link using the LLM. */
+async function handleSummarizeCommand(
+  slug: string,
+  config: PipelineConfig,
+): Promise<PipelineResult> {
+  try {
+    const draft = await getDraft(config.siteDir, slug);
+    if (!draft) {
+      return { deployed: false, reply: `Draft "${slug}" not found.` };
+    }
+
+    if (!draft.linkUrl) {
+      return {
+        deployed: false,
+        reply: `Draft "${slug}" has no link URL to summarize.`,
+      };
+    }
+
+    // Use the LLM to generate a summary from the draft's existing content
+    const prompt = `Summarize this article in 2-3 sentences for a blog post:\n\nTitle: ${draft.linkTitle ?? draft.title ?? slug}\nURL: ${draft.linkUrl}\nDescription: ${draft.linkDescription ?? draft.body ?? ""}`;
+
+    const summary = await config.callModel(prompt, 0.3);
+
+    // Update the draft body with the AI summary
+    await updateDraft(config.siteDir, slug, { body: summary });
+
+    return {
+      draft: { ...draft, body: summary },
+      deployed: false,
+      reply: `Updated draft with summary. Say \`publish ${slug}\` when ready.`,
+    };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : "Summarize failed";
+    return { deployed: false, reply: `Failed to summarize: ${error}`, error };
+  }
+}
+
+/** Publish content from the reader "share" command through the normal pipeline. */
+async function handleSharePublish(
+  content: ClassifiedContent,
+  config: PipelineConfig,
+  shouldDeploy: boolean,
+  replyPrefix: string,
+): Promise<PipelineResult> {
+  try {
+    const post = await addContent(config.siteDir, content, {
+      pluginInjections: config.pluginInjections,
+    });
+
+    await fireHooks(
+      "afterPublish",
+      config.hooks,
+      { url: post.url, slug: content.slug, type: content.type, tags: content.tags },
+      config.siteDir,
+      content.type,
+    );
+
+    let deployResult: DeployResult | undefined;
+    if (shouldDeploy) {
+      deployResult = await deployToGit(
+        config.siteDir,
+        `publish: ${content.type} — ${content.slug}`,
+      );
+    }
+
+    const deployed = deployResult?.committed === true && !deployResult.pushError;
+
+    if (deployed) {
+      const siteConfig = await readSiteConfig(config.siteDir);
+      await pingWebSubHub(`https://${siteConfig.domain}/feed.xml`);
+      await pingWebSubHub(`https://${siteConfig.domain}/feed.json`);
+    }
+
+    const reply = deployed
+      ? `${replyPrefix}\nPublished: ${post.url}`
+      : `${replyPrefix}\nPublished locally: ${post.url}`;
+
+    return { post, deployed, deployResult, reply };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : "Share failed";
+    return { deployed: false, reply: `Failed to share: ${error}`, error };
   }
 }

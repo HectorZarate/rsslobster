@@ -5,14 +5,22 @@ import pc from "picocolors";
 import { readSiteConfig } from "../generator/site.js";
 import { createModelCaller, type ModelConfig } from "../agent/model.js";
 import { processMessage } from "../agent/pipeline.js";
-import type { InboundMessage } from "../channels/types.js";
-import type { ChannelType } from "../channels/types.js";
+import type { InboundMessage, ChannelType } from "../channels/types.js";
 import { createChannel, CHANNEL_LABELS } from "../channels/channel.js";
 import { publishDueScheduled } from "../agent/scheduler.js";
 import { cleanExpiredPreviews } from "../previews/previews.js";
 import { deployToGit } from "../deploy/git.js";
 import type { HooksConfig } from "../hooks/hooks.js";
 import { PluginRegistry } from "../plugins/registry.js";
+import { pollAllFeeds } from "../reader/poll.js";
+import {
+  loadConfig,
+  drainInbox,
+  isDeliveryTime,
+  formatNotification,
+  formatDigest,
+} from "../reader/notifications.js";
+import type { ReaderConfig } from "../config/types.js";
 
 interface LobsterConfig {
   /** Which channel to use. Default: "telegram" */
@@ -40,6 +48,8 @@ interface LobsterConfig {
   model: ModelConfig;
   /** Lifecycle hooks */
   hooks?: HooksConfig;
+  /** RSS reader / feed polling config */
+  reader?: ReaderConfig;
 }
 
 async function loadLobsterConfig(siteDir: string): Promise<LobsterConfig> {
@@ -111,6 +121,11 @@ export const startCommand = new Command("start")
     console.log(`   Model: ${pc.cyan(lobsterConfig.model.model)}`);
     console.log(`   Listening on ${pc.cyan(channelLabel)}...\n`);
 
+    // Track last notification delivery time
+    let lastDeliveredAt: string | undefined;
+    // Track last chatId for notification delivery
+    let lastChatId: string | undefined;
+
     // Start scheduled draft publisher + preview cleanup (check every 60s)
     const schedulerInterval = setInterval(async () => {
       try {
@@ -134,15 +149,63 @@ export const startCommand = new Command("start")
       }
     }, 60_000);
 
+    // Feed poller + notification delivery (every 60s)
+    const readerConfig = lobsterConfig.reader;
+    const feedPollInterval = setInterval(async () => {
+      try {
+        // Poll feeds — this ingests items and queues notifications
+        const results = await pollAllFeeds(siteDir, {
+          defaultInterval: readerConfig?.defaultInterval ?? 15,
+        });
+
+        for (const result of results) {
+          if (result.error) {
+            console.error(pc.dim(`  Feed error (${result.title}): ${result.error}`));
+          } else if (result.newItems.length > 0) {
+            console.log(
+              pc.dim(`  ${result.title}: ${result.newItems.length} new item(s), ${result.notified} notification(s) queued`),
+            );
+          }
+        }
+
+        // Deliver notifications if schedule says it's time
+        const notifyConfig = await loadConfig(siteDir);
+        if (notifyConfig.enabled && lastChatId && isDeliveryTime(notifyConfig, lastDeliveredAt)) {
+          const entries = await drainInbox(siteDir);
+          if (entries.length > 0) {
+            const msg = notifyConfig.schedule === "immediate"
+              ? entries.map(formatNotification).join("\n\n")
+              : formatDigest(entries);
+
+            try {
+              await channel.reply(lastChatId, msg);
+              lastDeliveredAt = new Date().toISOString();
+              console.log(pc.dim(`  Delivered ${entries.length} notification(s)`));
+            } catch {
+              // Re-queue on delivery failure
+              const { addToInbox } = await import("../reader/notifications.js");
+              await addToInbox(siteDir, entries);
+            }
+          }
+        }
+      } catch {
+        // Feed polling errors are non-fatal
+      }
+    }, 60_000);
+
     const controller = new AbortController();
     process.on("SIGINT", () => {
       console.log(pc.yellow("\nShutting down..."));
       clearInterval(schedulerInterval);
+      clearInterval(feedPollInterval);
       controller.abort();
     });
 
     await channel.poll(
       async (message: InboundMessage) => {
+        // Track chatId for notification delivery
+        lastChatId = message.chatId;
+
         console.log(
           pc.dim(
             `[${new Date().toISOString()}] ${message.sender.name}: ${message.text.slice(0, 60)}`,
