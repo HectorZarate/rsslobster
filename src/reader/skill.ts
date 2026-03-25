@@ -10,6 +10,7 @@ import {
   starItem,
   unstarItem,
   getItemCounts,
+  removeItemsForFeed,
 } from "./store.js";
 import { discoverFeed } from "./discover.js";
 import { pollFeed } from "./poll.js";
@@ -36,8 +37,26 @@ export interface SkillResult {
  */
 const lastListings = new Map<string, StoredItem[]>();
 const pageOffsets = new Map<string, number>();
+const lastAccess = new Map<string, number>();
 const DEFAULT_CHAT = "__default__";
 const PAGE_SIZE = 5;
+const STALE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+/** Remove in-memory state for chats that haven't been accessed in 30 minutes. */
+function evictStale(): void {
+  const now = Date.now();
+  for (const [chatId, ts] of lastAccess) {
+    if (now - ts > STALE_TTL_MS) {
+      lastListings.delete(chatId);
+      pageOffsets.delete(chatId);
+      lastAccess.delete(chatId);
+    }
+  }
+}
+
+function touchAccess(chatId: string): void {
+  lastAccess.set(chatId, Date.now());
+}
 
 /**
  * Handle a reader command from the chat channel.
@@ -52,7 +71,7 @@ const PAGE_SIZE = 5;
  *   read <n>              — show item N from last listing, mark read
  *   star <n>              — star item N
  *   unstar <n>            — unstar item N
- *   share <n>             — publish item N as a link post
+ *   share <n> [comment]   — publish item N as a link post (with optional commentary)
  *   mute <url>            — mute feed notifications
  *   unmute <url>          — unmute feed notifications
  *   recap [daily|weekly]  — generate a recap
@@ -64,7 +83,9 @@ export async function handleReaderCommand(
   siteDir: string,
   context: { callModel?: CallModel; chatId?: string },
 ): Promise<SkillResult> {
+  evictStale();
   const chatId = context.chatId ?? DEFAULT_CHAT;
+  touchAccess(chatId);
   const trimmed = text.trim();
   const NOT_HANDLED: SkillResult = { reply: "", handled: false };
 
@@ -123,10 +144,10 @@ export async function handleReaderCommand(
     return handleUnstar(siteDir, parseInt(unstarMatch[1]!, 10), chatId);
   }
 
-  // share <n>
-  const shareMatch = trimmed.match(/^share\s+(\d+)$/i);
+  // share <n> or share <n> <commentary>
+  const shareMatch = trimmed.match(/^share\s+(\d+)(?:\s+(.+))?$/i);
   if (shareMatch) {
-    return handleShare(siteDir, parseInt(shareMatch[1]!, 10), chatId);
+    return handleShare(siteDir, parseInt(shareMatch[1]!, 10), chatId, shareMatch[2]);
   }
 
   // mute <url>
@@ -192,6 +213,9 @@ async function handleSubscribe(siteDir: string, url: string): Promise<SkillResul
 
 async function handleUnsubscribe(siteDir: string, url: string): Promise<SkillResult> {
   const removed = await unsubscribe(siteDir, url);
+  if (removed) {
+    await removeItemsForFeed(siteDir, url);
+  }
   return {
     reply: removed ? `Unsubscribed from ${url}` : `Not subscribed to ${url}`,
     handled: true,
@@ -302,23 +326,47 @@ async function handleUnstar(siteDir: string, n: number, chatId: string): Promise
   return { reply: `Unstarred: ${item.title}`, handled: true };
 }
 
-async function handleShare(siteDir: string, n: number, chatId: string): Promise<SkillResult> {
+/** Strip all HTML except safe tags. Allowlist approach for untrusted RSS content. */
+function sanitizeHtml(html: string): string {
+  // Remove script, style, iframe, object, embed, form tags entirely (including content)
+  let s = html
+    .replace(/<(script|style|iframe|object|embed|form|svg|math)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
+    .replace(/<(script|style|iframe|object|embed|form|svg|math)\b[^>]*\/?>/gi, "");
+  // Strip event handlers and javascript: URIs from remaining tags
+  s = s.replace(/\s+on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, "");
+  s = s.replace(/href\s*=\s*["']javascript:[^"']*["']/gi, 'href="#"');
+  // Keep only allowlisted tags (strip everything else but keep their text content)
+  const allowed = new Set(["p", "a", "em", "strong", "b", "i", "code", "pre", "blockquote", "ul", "ol", "li", "h1", "h2", "h3", "h4", "h5", "h6", "br", "img", "hr", "del", "ins", "sub", "sup", "table", "thead", "tbody", "tr", "th", "td"]);
+  s = s.replace(/<\/?([a-z][a-z0-9]*)\b[^>]*\/?>/gi, (match, tag: string) => {
+    return allowed.has(tag.toLowerCase()) ? match : "";
+  });
+  return s;
+}
+
+async function handleShare(siteDir: string, n: number, chatId: string, commentary?: string): Promise<SkillResult> {
   const item = getFromListing(n, chatId);
   if (!item) {
     return { reply: `No item #${n}. Send "unread" first.`, handled: true };
   }
 
   const now = new Date().toISOString();
-  const slug = item.title
+  const titleSlug = item.title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 60) || "shared-item";
+  const slug = `${titleSlug}-${now.slice(0, 10).replace(/-/g, "")}`;
+
+
+  const sanitizedContent = sanitizeHtml(item.content || item.title);
+  const body = commentary
+    ? `${commentary}\n\n${sanitizedContent}`
+    : sanitizedContent;
 
   const content: ClassifiedContent = {
     type: "link",
     title: item.title,
-    body: item.content || item.title,
+    body,
     slug,
     tags: item.categories,
     linkUrl: item.link,
@@ -331,7 +379,7 @@ async function handleShare(siteDir: string, n: number, chatId: string): Promise<
   await markRead(siteDir, item.dedupKey);
 
   return {
-    reply: `Sharing: ${item.title}`,
+    reply: `Published: "${item.title}"\n  From: ${item.link ?? "(no link)"}\n  ${commentary ? `Note: ${commentary}\n  ` : ""}→ Link post ready for your site`,
     handled: true,
     content,
   };

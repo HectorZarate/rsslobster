@@ -176,22 +176,31 @@ export async function pollAllFeeds(
   const now = Date.now();
   const results: PollResult[] = [];
 
-  for (const sub of subs) {
-    if (!opts?.force && !isDue(sub, now, defaultInterval)) continue;
-
-    const result = await pollFeed(siteDir, sub.feedUrl, opts);
-    if (result.newItems.length > 0 || result.error) {
-      results.push(result);
+  // Filter to feeds that are due, then poll with bounded concurrency
+  const dueSubs = subs.filter((sub) => opts?.force || isDue(sub, now, defaultInterval));
+  const CONCURRENCY = 5;
+  for (let i = 0; i < dueSubs.length; i += CONCURRENCY) {
+    const batch = dueSubs.slice(i, i + CONCURRENCY);
+    const batchResults = await Promise.all(
+      batch.map((sub) => pollFeed(siteDir, sub.feedUrl, opts)),
+    );
+    for (const result of batchResults) {
+      if (result.newItems.length > 0 || result.error) {
+        results.push(result);
+      }
     }
   }
 
   return results;
 }
 
-/** Check if a subscription is due for polling based on its interval */
+/** Check if a subscription is due for polling based on its interval.
+ *  Applies exponential backoff for feeds with consecutive errors. */
 function isDue(sub: Subscription, now: number, defaultMinutes: number): boolean {
   if (!sub.lastFetchedAt) return true;
-  const intervalMs = defaultMinutes * 60 * 1000;
+  // Exponential backoff: double interval for each consecutive error, cap at 24h
+  const backoffFactor = sub.errorCount > 0 ? Math.min(Math.pow(2, sub.errorCount), 96) : 1;
+  const intervalMs = defaultMinutes * 60 * 1000 * backoffFactor;
   const lastFetch = new Date(sub.lastFetchedAt).getTime();
   return now - lastFetch >= intervalMs;
 }

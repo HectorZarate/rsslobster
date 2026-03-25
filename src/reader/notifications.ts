@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
   NotificationConfig,
@@ -6,10 +6,19 @@ import type {
   StoredItem,
   Subscription,
 } from "./types.js";
-import { readerDir, ensureReaderDir } from "./paths.js";
+import { readerDir, ensureReaderDir, writeJsonAtomic } from "./paths.js";
 
 const CONFIG_FILE = "config.json";
 const INBOX_FILE = "inbox.json";
+
+// Per-siteDir lock to serialize inbox file access
+const inboxLocks = new Map<string, Promise<void>>();
+async function withInboxLock<T>(siteDir: string, fn: () => Promise<T>): Promise<T> {
+  const prev = inboxLocks.get(siteDir) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  inboxLocks.set(siteDir, next.then(() => {}, () => {}));
+  return next;
+}
 
 // ---------------------------------------------------------------------------
 // Default configuration
@@ -57,7 +66,7 @@ export async function saveConfig(
   config: NotificationConfig,
 ): Promise<void> {
   await ensureReaderDir(siteDir);
-  await writeFile(configPath(siteDir), JSON.stringify(config, null, 2));
+  await writeJsonAtomic(configPath(siteDir), config);
 }
 
 /** Update specific config fields (merge). Validates time formats. */
@@ -127,7 +136,7 @@ async function saveInbox(
   entries: InboxEntry[],
 ): Promise<void> {
   await ensureReaderDir(siteDir);
-  await writeFile(inboxPath(siteDir), JSON.stringify(entries, null, 2));
+  await writeJsonAtomic(inboxPath(siteDir), entries);
 }
 
 const MAX_INBOX_SIZE = 1000;
@@ -138,22 +147,26 @@ export async function addToInbox(
   entries: InboxEntry[],
 ): Promise<void> {
   if (entries.length === 0) return;
-  const existing = await loadInbox(siteDir);
-  existing.push(...entries);
-  // Trim oldest entries if over limit
-  const trimmed = existing.length > MAX_INBOX_SIZE
-    ? existing.slice(existing.length - MAX_INBOX_SIZE)
-    : existing;
-  await saveInbox(siteDir, trimmed);
+  return withInboxLock(siteDir, async () => {
+    const existing = await loadInbox(siteDir);
+    existing.push(...entries);
+    // Trim oldest entries if over limit
+    const trimmed = existing.length > MAX_INBOX_SIZE
+      ? existing.slice(existing.length - MAX_INBOX_SIZE)
+      : existing;
+    await saveInbox(siteDir, trimmed);
+  });
 }
 
 /** Drain the inbox — returns all entries and clears it. */
 export async function drainInbox(siteDir: string): Promise<InboxEntry[]> {
-  const entries = await loadInbox(siteDir);
-  if (entries.length > 0) {
-    await saveInbox(siteDir, []);
-  }
-  return entries;
+  return withInboxLock(siteDir, async () => {
+    const entries = await loadInbox(siteDir);
+    if (entries.length > 0) {
+      await saveInbox(siteDir, []);
+    }
+    return entries;
+  });
 }
 
 /** Count pending inbox entries. */
@@ -197,9 +210,11 @@ export function shouldNotify(
     if (!matches) return null;
   }
 
-  // Quiet hours (high-priority bypasses)
+  // Quiet hours (high-priority bypasses).
+  // For batched schedules, still queue during quiet hours — they'll be delivered later.
   if (
     config.quietHours &&
+    config.schedule === "immediate" &&
     sub.notify?.priority !== "high"
   ) {
     if (isInQuietHours(config.quietHours.start, config.quietHours.end)) {
@@ -213,7 +228,7 @@ export function shouldNotify(
     itemDedupKey: item.dedupKey,
     title: item.title,
     link: item.link,
-    summary: item.content.slice(0, 300),
+    summary: item.content.replace(/<[^>]+>/g, "").trim().slice(0, 300),
     author: item.author,
     receivedAt: item.firstSeenAt,
   };
@@ -261,8 +276,9 @@ export function isDeliveryTime(
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const deliverMinutes = parseTimeToMinutes(config.deliverAt);
 
-  // Check if we're within the delivery window (±2 minutes)
-  if (Math.abs(currentMinutes - deliverMinutes) > 2) return false;
+  // Check if we're within the delivery window (±5 minutes).
+  // The daemon polls every 60s, so a narrow window risks missed deliveries.
+  if (Math.abs(currentMinutes - deliverMinutes) > 5) return false;
 
   // Check if we already delivered recently
   if (lastDeliveredAt) {

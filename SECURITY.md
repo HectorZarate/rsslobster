@@ -27,6 +27,7 @@ RSS Lobster generates static HTML from user-provided content. Key security areas
 - **No JavaScript in output** — Generated sites contain zero client-side JavaScript
 - **No database** — No SQL injection surface; data lives in files and git
 - **Minimal dependencies** — Small dependency tree reduces supply chain risk
+- **RSS reader fetch scope** — The RSS reader fetches URLs provided by the user (feed subscriptions). It does not validate that resolved IPs are public. If you run RSS Lobster on shared or cloud infrastructure, be aware that a subscription to an internal URL (e.g., cloud metadata endpoints) could expose internal data. This is acceptable for the intended use case (personal blogging tool on your own machine) but should be considered if deploying in a multi-tenant environment.
 
 ## Disclosure Policy
 

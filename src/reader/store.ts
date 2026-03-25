@@ -96,6 +96,16 @@ interface UnreadEntry {
   firstSeenAt: string;
 }
 
+// Per-siteDir lock for unread index — serialises concurrent index writes
+// that can occur when multiple feeds are polled in parallel.
+const indexLocks = new Map<string, Promise<void>>();
+async function withIndexLock<T>(siteDir: string, fn: () => Promise<T>): Promise<T> {
+  const prev = indexLocks.get(siteDir) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  indexLocks.set(siteDir, next.then(() => {}, () => {}));
+  return next;
+}
+
 async function loadUnreadIndex(siteDir: string): Promise<UnreadEntry[]> {
   try {
     const raw = await readFile(unreadIndexPath(siteDir), "utf-8");
@@ -220,10 +230,12 @@ export async function ingestItems(
     if (added > 0) {
       await saveFeedItems(siteDir, slug, existing);
 
-      // Append to unread index
-      const index = await loadUnreadIndex(siteDir);
-      index.push(...newEntries);
-      await saveUnreadIndex(siteDir, index);
+      // Append to unread index (locked to prevent races from concurrent feeds)
+      await withIndexLock(siteDir, async () => {
+        const index = await loadUnreadIndex(siteDir);
+        index.push(...newEntries);
+        await saveUnreadIndex(siteDir, index);
+      });
     }
 
     return added;
@@ -286,6 +298,11 @@ export async function listItems(
         for (const item of items) {
           if (keys.has(item.dedupKey)) results.push(item);
         }
+      }
+
+      // Self-heal: if index has orphaned entries, schedule a background rebuild
+      if (results.length < sliced.length) {
+        rebuildUnreadIndex(siteDir).catch(() => {});
       }
 
       // Re-sort results (they came from multiple feeds)
@@ -371,11 +388,13 @@ export async function markRead(
   if (count > 0) {
     // Remove from unread index
     const keySet = new Set(Array.isArray(keys) ? keys : [keys]);
-    const index = await loadUnreadIndex(siteDir);
-    const filtered = index.filter((e) => !keySet.has(e.dedupKey));
-    if (filtered.length !== index.length) {
-      await saveUnreadIndex(siteDir, filtered);
-    }
+    await withIndexLock(siteDir, async () => {
+      const index = await loadUnreadIndex(siteDir);
+      const filtered = index.filter((e) => !keySet.has(e.dedupKey));
+      if (filtered.length !== index.length) {
+        await saveUnreadIndex(siteDir, filtered);
+      }
+    });
   }
 
   return count;
@@ -400,9 +419,11 @@ export async function markUnread(
   });
 
   if (count > 0) {
-    const index = await loadUnreadIndex(siteDir);
-    index.push(...unmarkedItems);
-    await saveUnreadIndex(siteDir, index);
+    await withIndexLock(siteDir, async () => {
+      const index = await loadUnreadIndex(siteDir);
+      index.push(...unmarkedItems);
+      await saveUnreadIndex(siteDir, index);
+    });
   }
 
   return count;
@@ -441,15 +462,17 @@ export async function markAllRead(
   }
 
   if (count > 0) {
-    if (feedUrl) {
-      // Remove entries for this feed from index
-      const index = await loadUnreadIndex(siteDir);
-      const filtered = index.filter((e) => e.feedUrl !== feedUrl);
-      await saveUnreadIndex(siteDir, filtered);
-    } else {
-      // Clear the entire index
-      await saveUnreadIndex(siteDir, []);
-    }
+    await withIndexLock(siteDir, async () => {
+      if (feedUrl) {
+        // Remove entries for this feed from index
+        const index = await loadUnreadIndex(siteDir);
+        const filtered = index.filter((e) => e.feedUrl !== feedUrl);
+        await saveUnreadIndex(siteDir, filtered);
+      } else {
+        // Clear the entire index
+        await saveUnreadIndex(siteDir, []);
+      }
+    });
   }
 
   return count;
@@ -555,11 +578,13 @@ export async function removeItemsForFeed(
 
   if (count > 0) {
     // Clean up unread index for this feed
-    const index = await loadUnreadIndex(siteDir);
-    const filtered = index.filter((e) => e.feedUrl !== feedUrl);
-    if (filtered.length !== index.length) {
-      await saveUnreadIndex(siteDir, filtered);
-    }
+    await withIndexLock(siteDir, async () => {
+      const index = await loadUnreadIndex(siteDir);
+      const filtered = index.filter((e) => e.feedUrl !== feedUrl);
+      if (filtered.length !== index.length) {
+        await saveUnreadIndex(siteDir, filtered);
+      }
+    });
   }
 
   return count;

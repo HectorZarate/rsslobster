@@ -198,6 +198,7 @@ export async function recordFetchError(
 
     sub.errorCount++;
     sub.lastError = error;
+    sub.lastFetchedAt = new Date().toISOString(); // Enable backoff timing
     await saveSubs(siteDir, subs);
   });
 }

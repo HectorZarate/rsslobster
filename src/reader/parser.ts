@@ -280,9 +280,9 @@ function stripCdata(s: string): string {
 /** Decode XML entities. &amp; is decoded last to prevent double-decoding. */
 export function decodeXml(s: string): string {
   return s
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
     .replace(/&#x([0-9a-fA-F]+);/g, (_, h) =>
-      String.fromCharCode(parseInt(h as string, 16)),
+      String.fromCodePoint(parseInt(h as string, 16)),
     )
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")

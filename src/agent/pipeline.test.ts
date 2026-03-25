@@ -6,6 +6,9 @@ import { processMessage, type PipelineConfig } from "./pipeline.js";
 import { scaffoldSite, readPostsIndex } from "../generator/site.js";
 import { createDraft } from "../drafts/drafts.js";
 import type { SiteConfig } from "../config/types.js";
+import { subscribe } from "../reader/subscriptions.js";
+import { ingestItems } from "../reader/store.js";
+import type { ParsedItem } from "../reader/types.js";
 
 describe("agent pipeline", () => {
   let siteDir: string;
@@ -470,6 +473,104 @@ describe("agent pipeline", () => {
       expect(result.post!.images).toHaveLength(1);
 
       await rm(tempDir, { recursive: true, force: true });
+    });
+  });
+
+  describe("reader command integration", () => {
+    const FEED_URL = "https://example.com/feed.xml";
+
+    function makeParsedItems(count: number): ParsedItem[] {
+      return Array.from({ length: count }, (_, i) => ({
+        id: `item-${i}`,
+        title: `Article ${i + 1}`,
+        link: `https://example.com/article-${i}`,
+        content: `Content for article ${i + 1}`,
+        publishedAt: new Date(Date.now() - i * 60000).toISOString(),
+        categories: ["test"],
+      }));
+    }
+
+    function makeMsg(text: string) {
+      return {
+        id: `msg-${Date.now()}`,
+        text,
+        images: [] as { localPath: string; filename: string }[],
+        mediaFiles: [] as { localPath: string; filename: string; mimeType: string }[],
+        chatId: "reader-test",
+        sender: { id: "99", name: "Hector" },
+        receivedAt: new Date().toISOString(),
+      };
+    }
+
+    it("'feeds' is handled as a reader command before LLM classification", async () => {
+      const mockCallModel = vi.fn();
+
+      const result = await processMessage(
+        makeMsg("feeds"),
+        { siteDir, callModel: mockCallModel, deploy: false },
+      );
+
+      // Reader handled it — LLM should NOT be called
+      expect(mockCallModel).not.toHaveBeenCalled();
+      expect(result.deployed).toBe(false);
+      expect(result.reply).toBeTruthy();
+    });
+
+    it("'unread' is handled as a reader command before LLM classification", async () => {
+      const mockCallModel = vi.fn();
+
+      const result = await processMessage(
+        makeMsg("unread"),
+        { siteDir, callModel: mockCallModel, deploy: false },
+      );
+
+      expect(mockCallModel).not.toHaveBeenCalled();
+      expect(result.reply).toContain("No unread");
+    });
+
+    it("normal message passes through to LLM classification", async () => {
+      const mockCallModel = vi.fn().mockResolvedValue(
+        JSON.stringify({
+          type: "micro",
+          body: "Hello world",
+          tags: [],
+          isDraft: false,
+        }),
+      );
+
+      const result = await processMessage(
+        makeMsg("Hello world"),
+        { siteDir, callModel: mockCallModel, deploy: false },
+      );
+
+      // LLM SHOULD have been called — not a reader command
+      expect(mockCallModel).toHaveBeenCalled();
+      expect(result.post).toBeDefined();
+    });
+
+    it("'share 3' returns content that flows through to publishing", async () => {
+      await subscribe(siteDir, FEED_URL, "Test Feed");
+      await ingestItems(siteDir, FEED_URL, makeParsedItems(5));
+
+      // First get a listing so positional refs work
+      await processMessage(
+        makeMsg("unread"),
+        { siteDir, callModel: vi.fn(), deploy: false },
+      );
+
+      const mockCallModel = vi.fn();
+
+      const result = await processMessage(
+        makeMsg("share 3"),
+        { siteDir, callModel: mockCallModel, deploy: false },
+      );
+
+      // Reader handled it — LLM should NOT be called
+      expect(mockCallModel).not.toHaveBeenCalled();
+      // Share command produces a published post via handleSharePublish
+      expect(result.post).toBeDefined();
+      expect(result.post!.type).toBe("link");
+      expect(result.reply).toContain("Published:");
     });
   });
 });

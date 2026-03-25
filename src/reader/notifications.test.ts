@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -317,5 +317,96 @@ describe("formatDigest", () => {
     );
     const digest = formatDigest(entries);
     expect(digest).toContain("...and 3 more");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Quiet hours
+// ---------------------------------------------------------------------------
+
+describe("shouldNotify — quiet hours", () => {
+  const baseConfig = defaultNotificationConfig();
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function setSystemTime(hours: number, minutes: number): void {
+    const date = new Date(2026, 2, 25, hours, minutes, 0);
+    vi.useFakeTimers();
+    vi.setSystemTime(date);
+  }
+
+  // Same-day quiet hours (10:00 - 14:00)
+
+  it("suppresses notification during same-day quiet hours", () => {
+    setSystemTime(12, 0); // noon — inside 10:00-14:00
+    const config = { ...baseConfig, quietHours: { start: "10:00", end: "14:00" } };
+    const result = shouldNotify(makeItem(), makeSub(), config, "Test Feed");
+    expect(result).toBeNull();
+  });
+
+  it("allows notification outside same-day quiet hours", () => {
+    setSystemTime(15, 0); // 15:00 — outside 10:00-14:00
+    const config = { ...baseConfig, quietHours: { start: "10:00", end: "14:00" } };
+    const result = shouldNotify(makeItem(), makeSub(), config, "Test Feed");
+    expect(result).not.toBeNull();
+  });
+
+  // Overnight quiet hours (22:00 - 08:00)
+
+  it("suppresses notification at 23:00 during overnight quiet hours", () => {
+    setSystemTime(23, 0);
+    const config = { ...baseConfig, quietHours: { start: "22:00", end: "08:00" } };
+    const result = shouldNotify(makeItem(), makeSub(), config, "Test Feed");
+    expect(result).toBeNull();
+  });
+
+  it("allows notification at 09:00 outside overnight quiet hours", () => {
+    setSystemTime(9, 0);
+    const config = { ...baseConfig, quietHours: { start: "22:00", end: "08:00" } };
+    const result = shouldNotify(makeItem(), makeSub(), config, "Test Feed");
+    expect(result).not.toBeNull();
+  });
+
+  it("suppresses notification at 07:00 during overnight quiet hours", () => {
+    setSystemTime(7, 0);
+    const config = { ...baseConfig, quietHours: { start: "22:00", end: "08:00" } };
+    const result = shouldNotify(makeItem(), makeSub(), config, "Test Feed");
+    expect(result).toBeNull();
+  });
+
+  // Boundary conditions
+
+  it("suppresses notification exactly at quiet hours start", () => {
+    setSystemTime(10, 0); // exactly 10:00 — start of 10:00-14:00
+    const config = { ...baseConfig, quietHours: { start: "10:00", end: "14:00" } };
+    const result = shouldNotify(makeItem(), makeSub(), config, "Test Feed");
+    expect(result).toBeNull();
+  });
+
+  it("allows notification exactly at quiet hours end", () => {
+    setSystemTime(14, 0); // exactly 14:00 — end of 10:00-14:00 (exclusive)
+    const config = { ...baseConfig, quietHours: { start: "10:00", end: "14:00" } };
+    const result = shouldNotify(makeItem(), makeSub(), config, "Test Feed");
+    expect(result).not.toBeNull();
+  });
+
+  // High-priority bypass
+
+  it("high-priority feed bypasses quiet hours", () => {
+    setSystemTime(12, 0); // inside 10:00-14:00
+    const config = { ...baseConfig, quietHours: { start: "10:00", end: "14:00" } };
+    const sub = makeSub({ notify: { priority: "high" } });
+    const result = shouldNotify(makeItem(), sub, config, "Test Feed");
+    expect(result).not.toBeNull();
+  });
+
+  // No quiet hours configured
+
+  it("allows notification at any time when no quiet hours configured", () => {
+    setSystemTime(3, 0); // 03:00 — would be quiet if configured
+    const result = shouldNotify(makeItem(), makeSub(), baseConfig, "Test Feed");
+    expect(result).not.toBeNull();
   });
 });

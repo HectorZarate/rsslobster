@@ -1,4 +1,5 @@
 import type { OpmlOutline, Subscription } from "./types.js";
+import { decodeXml } from "./parser.js";
 
 /**
  * OPML import/export for RSS reader subscriptions.
@@ -127,7 +128,7 @@ function extractAttrValue(
 ): string | undefined {
   const re = new RegExp(`${name}\\s*=\\s*"([^"]*)"`, "i");
   const m = re.exec(attrs);
-  return m ? decodeXmlEntities(m[1]!) : undefined;
+  return m ? decodeXml(m[1]!) : undefined;
 }
 
 function escXml(s: string): string {
@@ -138,15 +139,6 @@ function escXml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Decode XML entities. &amp; is decoded last to prevent double-decoding. */
-function decodeXmlEntities(s: string): string {
-  return s
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&");
-}
 
 /** Extract block content between tags */
 function extractBlock(xml: string, tag: string): string | undefined {

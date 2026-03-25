@@ -151,7 +151,10 @@ export const startCommand = new Command("start")
 
     // Feed poller + notification delivery (every 60s)
     const readerConfig = lobsterConfig.reader;
+    let feedPollRunning = false;
     const feedPollInterval = setInterval(async () => {
+      if (feedPollRunning) return; // Skip if previous cycle still running
+      feedPollRunning = true;
       try {
         // Poll feeds — this ingests items and queues notifications
         const results = await pollAllFeeds(siteDir, {
@@ -188,8 +191,10 @@ export const startCommand = new Command("start")
             }
           }
         }
-      } catch {
-        // Feed polling errors are non-fatal
+      } catch (err) {
+        console.error(pc.yellow("Feed poll error:"), err instanceof Error ? err.message : String(err));
+      } finally {
+        feedPollRunning = false;
       }
     }, 60_000);
 
