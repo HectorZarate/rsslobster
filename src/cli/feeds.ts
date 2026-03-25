@@ -5,7 +5,6 @@ import {
   subscribe,
   unsubscribe,
   listSubscriptions,
-  listFolders,
   updateSubscription,
 } from "../reader/subscriptions.js";
 import { parseOpml, generateOpml } from "../reader/opml.js";
@@ -35,10 +34,12 @@ export const feedsCommand = new Command("feeds")
 
 feedsCommand
   .command("list", { isDefault: true })
-  .description("List all feed subscriptions with unread counts")
+  .description("Show your feed — unread items with subscription summary")
   .argument("[site-dir]", "Path to site directory", ".")
+  .option("--subs", "Show subscriptions only (no items)")
   .option("--folder <folder>", "Filter by folder")
-  .action(async (siteDir: string, opts: { folder?: string }) => {
+  .option("-n, --limit <n>", "Max unread items to show", "15")
+  .action(async (siteDir: string, opts: { subs?: boolean; folder?: string; limit: string }) => {
     const dir = resolve(siteDir);
     const subs = await listSubscriptions(
       dir,
@@ -50,25 +51,53 @@ feedsCommand
       return;
     }
 
-    const pending = await inboxCount(dir);
-    if (pending > 0) {
-      console.log(`${pending} pending notification(s)\n`);
+    // Subscription summary line
+    const totalCounts = await getItemCounts(dir);
+    console.log(
+      `${subs.length} feed(s) — ${totalCounts.unread} unread, ${totalCounts.total} total\n`,
+    );
+
+    // --subs: just show subscriptions
+    if (opts.subs) {
+      for (const sub of subs) {
+        const counts = await getItemCounts(dir, sub.feedUrl);
+        const folder = sub.folder ? ` [${sub.folder}]` : "";
+        const muted = sub.notify?.muted ? " (muted)" : "";
+        const health = sub.errorCount > 0 ? ` !! ${sub.lastError}` : "";
+        console.log(
+          `  ${sub.title}${folder}${muted} — ${counts.unread} unread, ${counts.total} total${health}`,
+        );
+        console.log(`    ${sub.feedUrl}`);
+      }
+      return;
     }
 
-    for (const sub of subs) {
-      const counts = await getItemCounts(dir, sub.feedUrl);
-      const folder = sub.folder ? ` [${sub.folder}]` : "";
-      const muted = sub.notify?.muted ? " (muted)" : "";
-      const health = sub.errorCount > 0 ? ` !! ${sub.lastError}` : "";
-      console.log(
-        `  ${sub.title}${folder}${muted} — ${counts.unread} unread, ${counts.total} total${health}`,
-      );
-      console.log(`    ${sub.feedUrl}`);
+    // Default: show unread items
+    const limit = parseInt(opts.limit, 10) || 15;
+    const items = await listItems(dir, { read: false }, limit);
+
+    if (items.length === 0) {
+      console.log("All caught up.");
+      return;
     }
 
-    const folders = await listFolders(dir);
-    if (folders.length > 0) {
-      console.log(`\nFolders: ${folders.join(", ")}`);
+    // Build feed title lookup
+    const subMap = new Map(subs.map((s) => [s.feedUrl, s.title]));
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]!;
+      const feedName = subMap.get(item.feedUrl) ?? "";
+      const displayTitle = item.title || item.content.replace(/<[^>]+>/g, "").trim().slice(0, 80) || "(untitled)";
+      const date = item.publishedAt
+        ? new Date(item.publishedAt).toLocaleDateString()
+        : "";
+      console.log(`  ${String(i + 1).padStart(3)}. ${displayTitle}`);
+      console.log(`       ${feedName}  ${date}`);
+      if (item.link) console.log(`       ${item.link}`);
+    }
+
+    if (totalCounts.unread > limit) {
+      console.log(`\n  ...and ${totalCounts.unread - limit} more (rsslobster feeds items --all)`);
     }
   });
 

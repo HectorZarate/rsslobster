@@ -238,6 +238,52 @@ describe("handleReaderCommand", () => {
     expect(sub!.notify!.priority).toBe("high");
   });
 
+  // --- natural language feed access ---
+  it("'my feed' shows unread items", async () => {
+    await subscribe(siteDir, FEED_URL, "Test Feed");
+    await ingestItems(siteDir, FEED_URL, makeItems(2));
+
+    const result = await handleReaderCommand("my feed", siteDir, ctx);
+    expect(result.handled).toBe(true);
+    expect(result.reply).toContain("2 unread");
+    expect(result.reply).toContain("Article 1");
+  });
+
+  it("'show me my feed' shows unread items", async () => {
+    await subscribe(siteDir, FEED_URL, "Test Feed");
+    await ingestItems(siteDir, FEED_URL, makeItems(1));
+
+    const result = await handleReaderCommand("show me my feed", siteDir, ctx);
+    expect(result.handled).toBe(true);
+    expect(result.reply).toContain("1 unread");
+  });
+
+  it("'feed' shows unread items", async () => {
+    const result = await handleReaderCommand("feed", siteDir, ctx);
+    expect(result.handled).toBe(true);
+    expect(result.reply).toContain("No unread");
+  });
+
+  it("'what's new' shows unread items", async () => {
+    const result = await handleReaderCommand("what's new", siteDir, ctx);
+    expect(result.handled).toBe(true);
+  });
+
+  it("'whats new' shows unread items", async () => {
+    const result = await handleReaderCommand("whats new", siteDir, ctx);
+    expect(result.handled).toBe(true);
+  });
+
+  it("'feeds' still shows subscriptions", async () => {
+    await subscribe(siteDir, FEED_URL, "Test Feed");
+    const result = await handleReaderCommand("feeds", siteDir, ctx);
+    expect(result.handled).toBe(true);
+    expect(result.reply).toContain("Test Feed");
+    expect(result.reply).toContain("unread");
+    // Should NOT contain numbered items
+    expect(result.reply).not.toContain("1.");
+  });
+
   // --- case insensitivity ---
   it("handles uppercase commands", async () => {
     const result = await handleReaderCommand("FEEDS", siteDir, ctx);
@@ -246,6 +292,11 @@ describe("handleReaderCommand", () => {
 
   it("handles mixed case", async () => {
     const result = await handleReaderCommand("Unread", siteDir, ctx);
+    expect(result.handled).toBe(true);
+  });
+
+  it("'Show Me My Feed' works case-insensitively", async () => {
+    const result = await handleReaderCommand("Show Me My Feed", siteDir, ctx);
     expect(result.handled).toBe(true);
   });
 });
