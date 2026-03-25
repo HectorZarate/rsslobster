@@ -4,11 +4,10 @@
 
 [![CI](https://github.com/HectorZarate/rsslobster/actions/workflows/ci.yml/badge.svg)](https://github.com/HectorZarate/rsslobster/actions/workflows/ci.yml)
 
-Send a message from your chat app. Get a published website with RSS — in four seconds.
+Send a message from your chat app to your RSS Lobster. This publishes a post to your own website with an RSS feed, the update goes out to your subscribers in seconds. Work on drafts, schedule and preview posts, all for the price of a domain. No hosting costs because RSS Lobster outputs a static site, which are free to host on popular providers like CloudFlare Pages, Digital Ocean, and Github Pages.  
 
-No database. No CMS. No JavaScript in the output. Just semantic HTML, RSS, and git.
 
-**Cost:** $12/year for a domain. Hosting: free (Cloudflare Workers).
+**Cost:** $12/year for a domain. Hosting: free (Cloudflare Pages).
 
 ## Quick Start
 
@@ -87,7 +86,7 @@ All config lives in `lobster.json` at your site root:
 }
 ```
 
-Swap `"channel": "telegram"` for any other channel type. The model config supports any OpenAI-compatible API — use Ollama locally, or point to OpenAI/Anthropic.
+Swap `"channel": "telegram"` for any other channel type. The model config supports any OpenAI-compatible API — use any model locally, or point to OpenAI/Anthropic/OpenRouter/etc.
 
 ## Style Presets
 
