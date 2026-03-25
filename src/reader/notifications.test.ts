@@ -107,6 +107,29 @@ describe("notification config", () => {
     expect(updated.enabled).toBe(true); // preserved
   });
 
+  it("rejects invalid time format", async () => {
+    await expect(
+      updateConfig(siteDir, { deliverAt: "25:99" }),
+    ).rejects.toThrow("Invalid time format");
+  });
+
+  it("rejects invalid day of week", async () => {
+    await expect(
+      updateConfig(siteDir, { dayOfWeek: 7 }),
+    ).rejects.toThrow("Invalid day of week");
+  });
+
+  it("rejects invalid schedule", async () => {
+    await expect(
+      updateConfig(siteDir, { schedule: "biweekly" as never }),
+    ).rejects.toThrow("Invalid schedule");
+  });
+
+  it("accepts valid time formats", async () => {
+    const config = await updateConfig(siteDir, { deliverAt: "09:00" });
+    expect(config.deliverAt).toBe("09:00");
+  });
+
   it("merges recap config independently", async () => {
     await saveConfig(siteDir, defaultNotificationConfig());
 
@@ -156,6 +179,19 @@ describe("inbox", () => {
   it("drain on empty inbox returns empty", async () => {
     const drained = await drainInbox(siteDir);
     expect(drained).toEqual([]);
+  });
+
+  it("caps inbox at max size, dropping oldest", async () => {
+    // Add more than MAX_INBOX_SIZE (1000) entries
+    const entries = Array.from({ length: 1050 }, (_, i) =>
+      makeEntry({ title: `Item ${i}`, itemDedupKey: `id:item-${i}` }),
+    );
+    await addToInbox(siteDir, entries);
+
+    const loaded = await loadInbox(siteDir);
+    expect(loaded).toHaveLength(1000);
+    // Oldest entries should be dropped — first item should be #50
+    expect(loaded[0]!.title).toBe("Item 50");
   });
 });
 

@@ -255,7 +255,8 @@ feedsCommand
         const date = item.publishedAt
           ? new Date(item.publishedAt).toLocaleDateString()
           : "";
-        console.log(`  ${String(i + 1).padStart(3)}. [${flags}] ${item.title}`);
+        const displayTitle = item.title || item.content.replace(/<[^>]+>/g, "").trim().slice(0, 80) || "(untitled)";
+        console.log(`  ${String(i + 1).padStart(3)}. [${flags}] ${displayTitle}`);
         if (item.link) console.log(`       ${item.link}`);
         console.log(`       ${date}  |  ${item.dedupKey}`);
       }
@@ -280,13 +281,12 @@ feedsCommand
       process.exit(1);
     }
 
-    console.log(`${item.title}`);
+    const text = item.content.replace(/<[^>]+>/g, "").trim();
+    const displayTitle = item.title || text.slice(0, 80) || "(untitled)";
+    console.log(displayTitle);
     if (item.author) console.log(`by ${item.author}`);
     if (item.link) console.log(item.link);
     console.log(`${item.publishedAt ?? item.firstSeenAt}\n`);
-
-    // Strip HTML tags for terminal display
-    const text = item.content.replace(/<[^>]+>/g, "").trim();
     console.log(text);
 
     await markRead(dir, id);

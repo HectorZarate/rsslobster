@@ -197,6 +197,37 @@ describe("updateSubscription", () => {
     });
     expect(result).toBeNull();
   });
+
+  it("deep-merges notify — muting preserves filter and priority", async () => {
+    await subscribe(siteDir, "https://example.com/feed.xml", "Example");
+    // Set filter and priority
+    await updateSubscription(siteDir, "https://example.com/feed.xml", {
+      notify: { filter: ["important", "breaking"], priority: "high" },
+    });
+    // Mute — should NOT clobber filter/priority
+    await updateSubscription(siteDir, "https://example.com/feed.xml", {
+      notify: { muted: true },
+    });
+
+    const sub = await getSubscription(siteDir, "https://example.com/feed.xml");
+    expect(sub!.notify!.muted).toBe(true);
+    expect(sub!.notify!.filter).toEqual(["important", "breaking"]);
+    expect(sub!.notify!.priority).toBe("high");
+  });
+
+  it("deep-merges notify — updating filter preserves muted state", async () => {
+    await subscribe(siteDir, "https://example.com/feed.xml", "Example");
+    await updateSubscription(siteDir, "https://example.com/feed.xml", {
+      notify: { muted: true },
+    });
+    await updateSubscription(siteDir, "https://example.com/feed.xml", {
+      notify: { filter: ["crypto"] },
+    });
+
+    const sub = await getSubscription(siteDir, "https://example.com/feed.xml");
+    expect(sub!.notify!.muted).toBe(true);
+    expect(sub!.notify!.filter).toEqual(["crypto"]);
+  });
 });
 
 describe("recordFetchSuccess", () => {
