@@ -97,7 +97,7 @@ export function generatePageHtml(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escHtml(page.title)} — ${escHtml(config.title)}</title>
+  <title>${page.title === config.title ? escHtml(page.title) : `${escHtml(page.title)} — ${escHtml(config.title)}`}</title>
   <meta name="description" content="${escHtml(page.body.slice(0, 160))}">
   <meta name="author" content="${escHtml(config.author)}">
   <link rel="alternate" type="application/rss+xml" title="${escHtml(config.title)}" href="/feed.xml">
