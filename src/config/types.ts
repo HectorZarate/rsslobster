@@ -19,6 +19,8 @@ export interface SiteConfig {
   pages?: PageConfig[];
   /** Plugins to load */
   plugins?: PluginConfigEntry[];
+  /** Page slug to use as the homepage (index.html). Posts move to /posts/. */
+  homepage?: string;
 }
 
 /** A static page — not part of the chronological feed */
@@ -29,6 +31,8 @@ export interface PageConfig {
   slug: string;
   /** Page body (plain text or HTML) */
   body: string;
+  /** Path to a file containing the page body (relative to site dir). .md files are rendered as Markdown, .html used as-is. */
+  bodyFile?: string;
   /** Nav order (lower = first). Omit to hide from nav. */
   navOrder?: number;
 }

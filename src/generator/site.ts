@@ -212,7 +212,15 @@ export async function rebuildIndex(
 ): Promise<void> {
   const outDir = outputDir(siteDir);
   const html = generateIndexPage(posts, config, injections);
-  await writeFile(join(outDir, "index.html"), html);
+
+  // If a homepage page is set, post listing goes to /posts/index.html
+  if (config.homepage) {
+    const postsDir = join(outDir, "posts");
+    await mkdir(postsDir, { recursive: true });
+    await writeFile(join(postsDir, "index.html"), html);
+  } else {
+    await writeFile(join(outDir, "index.html"), html);
+  }
 
   // Generate archive page if there are enough posts
   if (posts.length > 30) {
