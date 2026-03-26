@@ -37,6 +37,10 @@ export interface PageConfig {
   bodyFile?: string;
   /** Nav order (lower = first). Omit to hide from nav. */
   navOrder?: number;
+  /** Layout mode. "default" wraps in nav/article/h1 chrome. "raw" renders body content directly — for custom page structures like portfolios. */
+  layout?: "default" | "raw";
+  /** Show the RSS Lobster footer. Defaults to true for "default" layout, false for "raw". */
+  showFooter?: boolean;
 }
 
 /** Plugin entry in site config */

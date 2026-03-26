@@ -302,3 +302,111 @@ describe("homepage override", () => {
     expect(html).toContain("language-bash");
   });
 });
+
+describe("raw layout", () => {
+  const RAW_BODY = '<section class="profile"><img src="/headshot.jpg"><h1>Jane Doe</h1></section>';
+
+  it("omits blog chrome — no nav, header, article, h1 wrapper, skip-link, footer", () => {
+    const page: PageConfig = {
+      title: "Jane Doe",
+      slug: "home",
+      body: "",
+      layout: "raw",
+    };
+    const html = generatePageHtml(page, CONFIG, undefined, RAW_BODY);
+    // Check the body section (after </head>) for absence of chrome
+    const bodySection = html.split("</head>")[1] ?? "";
+    expect(bodySection).not.toContain('<a class="skip-link"');
+    expect(bodySection).not.toContain("<nav>");
+    expect(bodySection).not.toContain("<header>");
+    expect(bodySection).not.toContain("<article>");
+    expect(bodySection).not.toContain("<footer");
+    // The h1 inside the raw body is the user's, not RSS Lobster's wrapper
+    expect(html).toContain('<section class="profile">');
+    expect(html).toContain("Jane Doe");
+  });
+
+  it("still includes head section with CSS, meta, OG, and feed links", () => {
+    const page: PageConfig = {
+      title: "Jane Doe",
+      slug: "home",
+      body: "Portfolio site",
+      layout: "raw",
+    };
+    const html = generatePageHtml(page, CONFIG, undefined, RAW_BODY);
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain('<meta charset="utf-8">');
+    expect(html).toContain("<style>");
+    expect(html).toContain("og:title");
+    expect(html).toContain("feed.xml");
+    expect(html).toContain("feed.json");
+  });
+
+  it("includes footer when showFooter is true", () => {
+    const page: PageConfig = {
+      title: "Jane Doe",
+      slug: "home",
+      body: "",
+      layout: "raw",
+      showFooter: true,
+    };
+    const html = generatePageHtml(page, CONFIG, undefined, RAW_BODY);
+    expect(html).not.toContain("<nav>");
+    expect(html).not.toContain("<article>");
+    expect(html).toContain("site-footer");
+    expect(html).toContain("Powered by");
+  });
+
+  it("default layout is unchanged — regression", () => {
+    const page: PageConfig = {
+      title: "About",
+      slug: "about",
+      body: "About this site",
+    };
+    const html = generatePageHtml(page, CONFIG);
+    expect(html).toContain("skip-link");
+    expect(html).toContain("<nav>");
+    expect(html).toContain("<header>");
+    expect(html).toContain("<article>");
+    expect(html).toContain("<h1>About</h1>");
+    expect(html).toContain("site-footer");
+    expect(html).toContain("About this site");
+  });
+
+  it("default layout with showFooter false suppresses footer", () => {
+    const page: PageConfig = {
+      title: "About",
+      slug: "about",
+      body: "About this site",
+      showFooter: false,
+    };
+    const html = generatePageHtml(page, CONFIG);
+    const bodySection = html.split("</head>")[1] ?? "";
+    expect(bodySection).toContain("<nav>");
+    expect(bodySection).toContain("<article>");
+    expect(bodySection).toContain("<h1>About</h1>");
+    expect(bodySection).not.toContain("<footer");
+  });
+
+  it("writePages with raw layout + homepage writes index.html with raw content", async () => {
+    let siteDir = await mkdtemp(join(tmpdir(), "rsslobster-raw-"));
+    await mkdir(join(siteDir, "_site"), { recursive: true });
+    await writeFile(join(siteDir, "portfolio.html"), RAW_BODY);
+
+    const config: SiteConfig = {
+      ...CONFIG,
+      homepage: "home",
+      pages: [
+        { title: "Jane Doe", slug: "home", body: "", bodyFile: "portfolio.html", layout: "raw", showFooter: true },
+      ],
+    };
+    await writePages(siteDir, config);
+
+    const html = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
+    expect(html).toContain('<section class="profile">');
+    expect(html).not.toContain("<article>");
+    expect(html).toContain("site-footer");
+
+    await rm(siteDir, { recursive: true, force: true });
+  });
+});

@@ -115,7 +115,11 @@ export function generatePageHtml(
   <link rel="alternate" type="application/feed+json" title="${escHtml(config.title)}" href="/feed.json">
   <style>${css}</style>${extraHead}
 </head>
-<body>
+${(page.layout === "raw") ? `<body>
+${bodyContent}
+${(page.showFooter ?? false) ? renderSiteFooter(config) : ""}
+${bodyEnd}
+</body>` : `<body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header>
     ${nav}
@@ -126,9 +130,9 @@ export function generatePageHtml(
       <div>${bodyContent}</div>
     </article>
   </main>
-${renderSiteFooter(config)}
+${(page.showFooter ?? true) ? renderSiteFooter(config) : ""}
 ${bodyEnd}
-</body>
+</body>`}
 </html>`;
 }
 
