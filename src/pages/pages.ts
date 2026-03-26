@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { PageConfig, SiteConfig } from "../config/types.js";
 import { resolveStyle, generateStylesheet } from "../styles/presets.js";
-import { escHtml } from "../generator/html.js";
+import { escHtml, renderSiteFooter } from "../generator/html.js";
 import { renderMarkdown } from "../generator/markdown.js";
 import type { PageInjections } from "../plugins/types.js";
 import { outputDir } from "../config/paths.js";
@@ -114,7 +114,9 @@ export function generatePageHtml(
       <h1>${escHtml(page.title)}</h1>
       <div>${bodyContent}</div>
     </article>
-  </main>${bodyEnd}
+  </main>
+${renderSiteFooter(config)}
+${bodyEnd}
 </body>
 </html>`;
 }
