@@ -105,6 +105,12 @@ export function generatePageHtml(
   <title>${page.title === config.title ? escHtml(page.title) : `${escHtml(page.title)} — ${escHtml(config.title)}`}</title>
   <meta name="description" content="${escHtml(descriptionSource.slice(0, 160))}">
   <meta name="author" content="${escHtml(config.author)}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="${escHtml(page.title === config.title ? `${page.title} — ${config.description}` : page.title)}">
+  <meta property="og:description" content="${escHtml(descriptionSource.slice(0, 200))}">
+  <meta property="og:url" content="https://${escHtml(config.domain)}${config.homepage === page.slug ? "/" : `/${page.slug}.html`}">
+  <meta property="og:site_name" content="${escHtml(config.title)}">
+  <meta property="og:image" content="https://${escHtml(config.domain)}/og-image.png">
   <link rel="alternate" type="application/rss+xml" title="${escHtml(config.title)}" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="${escHtml(config.title)}" href="/feed.json">
   <style>${css}</style>${extraHead}
