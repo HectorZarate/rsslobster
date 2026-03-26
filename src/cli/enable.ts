@@ -46,11 +46,8 @@ async function showStatus(siteDir: string): Promise<void> {
       join(siteDir, "reader", "unread-index.json"),
       "utf-8",
     );
-    const unreadData = JSON.parse(unreadRaw) as Record<string, unknown[]>;
-    unread = Object.values(unreadData).reduce(
-      (sum, items) => sum + items.length,
-      0,
-    );
+    const unreadData = JSON.parse(unreadRaw) as unknown[];
+    unread = Array.isArray(unreadData) ? unreadData.length : 0;
   } catch {
     // No unread index
   }
