@@ -92,13 +92,18 @@ export function generatePageHtml(
   // If not, escape the inline body.
   const bodyContent = resolvedBody !== undefined ? resolvedBody : escHtml(page.body);
 
+  // For description: use page.body if available, otherwise strip HTML tags from resolved body
+  const descriptionSource = page.body
+    || (resolvedBody ? resolvedBody.replace(/<[^>]*>/g, "").trim() : "")
+    || config.description;
+
   return `<!DOCTYPE html>
 <html lang="${escHtml(config.language)}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${page.title === config.title ? escHtml(page.title) : `${escHtml(page.title)} — ${escHtml(config.title)}`}</title>
-  <meta name="description" content="${escHtml(page.body.slice(0, 160))}">
+  <meta name="description" content="${escHtml(descriptionSource.slice(0, 160))}">
   <meta name="author" content="${escHtml(config.author)}">
   <link rel="alternate" type="application/rss+xml" title="${escHtml(config.title)}" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="${escHtml(config.title)}" href="/feed.json">
