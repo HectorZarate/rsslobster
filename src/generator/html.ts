@@ -295,7 +295,9 @@ export function generateIndexPage(
       <h1>${escHtml(config.title)}</h1>
       <a href="/feed.xml" class="header-rss" aria-label="RSS Feed">${RSS_ICON} RSS</a>
     </div>${pageLinks}
-    <p>${escHtml(config.description)}</p>
+    <p>${config.authorUrl && config.author && config.description.includes(config.author)
+      ? config.description.replace(config.author, `<a href="${escAttr(config.authorUrl)}">${escHtml(config.author)}</a>`)
+      : escHtml(config.description)}</p>
   </header>
   <main id="main">
     ${SEARCH_HTML}

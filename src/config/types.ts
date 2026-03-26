@@ -10,6 +10,8 @@ export interface SiteConfig {
   title: string;
   description: string;
   author: string;
+  /** URL for the author's personal site. If set, the author name links to this URL in the site header and footer. */
+  authorUrl?: string;
   language: string;
   style: StyleConfig;
   repo: string;
