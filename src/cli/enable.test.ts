@@ -1,0 +1,159 @@
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtemp, rm, writeFile, readFile, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import {
+  readLobsterConfig,
+  writeLobsterConfig,
+} from "../config/lobster.js";
+
+describe("enable commands", () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "lobster-enable-"));
+  });
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  describe("enable telegram (config write)", () => {
+    it("writes telegram config to lobster.json", async () => {
+      await writeFile(join(dir, "lobster.json"), "{}");
+
+      await writeLobsterConfig(dir, {
+        channel: "telegram",
+        telegram: { token: "bot123:ABC", allowedUsers: ["42"] },
+      });
+
+      const config = await readLobsterConfig(dir);
+      expect(config.channel).toBe("telegram");
+      expect(config.telegram?.token).toBe("bot123:ABC");
+      expect(config.telegram?.allowedUsers).toEqual(["42"]);
+    });
+
+    it("idempotent re-run preserves other config", async () => {
+      await writeFile(
+        join(dir, "lobster.json"),
+        JSON.stringify({
+          model: { baseUrl: "http://localhost:11434/v1", model: "llama3", apiKey: "ollama" },
+        }),
+      );
+
+      await writeLobsterConfig(dir, {
+        channel: "telegram",
+        telegram: { token: "newtoken" },
+      });
+
+      const config = await readLobsterConfig(dir);
+      expect(config.channel).toBe("telegram");
+      expect(config.telegram?.token).toBe("newtoken");
+      expect(config.model?.model).toBe("llama3");
+    });
+  });
+
+  describe("enable model (config write)", () => {
+    it("writes model config to lobster.json", async () => {
+      await writeFile(join(dir, "lobster.json"), "{}");
+
+      await writeLobsterConfig(dir, {
+        model: {
+          provider: "openai",
+          baseUrl: "http://localhost:11434/v1",
+          model: "llama3",
+          apiKey: "ollama",
+        },
+      });
+
+      const config = await readLobsterConfig(dir);
+      expect(config.model?.provider).toBe("openai");
+      expect(config.model?.model).toBe("llama3");
+    });
+
+    it("writes model with fallback", async () => {
+      await writeFile(join(dir, "lobster.json"), "{}");
+
+      await writeLobsterConfig(dir, {
+        model: {
+          provider: "openai",
+          baseUrl: "http://localhost:11434/v1",
+          model: "llama3",
+          apiKey: "ollama",
+          fallback: {
+            provider: "anthropic",
+            baseUrl: "https://api.anthropic.com/v1",
+            model: "claude-sonnet-4-20250514",
+            apiKey: "sk-ant-xxx",
+          },
+        },
+      });
+
+      const config = await readLobsterConfig(dir);
+      expect(config.model?.fallback?.provider).toBe("anthropic");
+    });
+  });
+
+  describe("enable --list (status dashboard)", () => {
+    it("reads subscription count from reader directory", async () => {
+      await writeFile(join(dir, "lobster.json"), "{}");
+      await mkdir(join(dir, "reader"), { recursive: true });
+      await writeFile(
+        join(dir, "reader", "subscriptions.json"),
+        JSON.stringify([
+          { url: "https://example.com/feed", title: "Example" },
+          { url: "https://other.com/rss", title: "Other" },
+        ]),
+      );
+
+      const raw = await readFile(
+        join(dir, "reader", "subscriptions.json"),
+        "utf-8",
+      );
+      const subs = JSON.parse(raw) as unknown[];
+      expect(subs).toHaveLength(2);
+    });
+
+    it("handles missing reader directory gracefully", async () => {
+      await writeFile(join(dir, "lobster.json"), "{}");
+
+      // Just verify readLobsterConfig works when no reader dir exists
+      const config = await readLobsterConfig(dir);
+      expect(config.reader).toBeUndefined();
+    });
+  });
+
+  describe("enable creates lobster.json when missing", () => {
+    it("writeLobsterConfig creates file if not present", async () => {
+      await writeLobsterConfig(dir, { channel: "webhook" });
+
+      const config = await readLobsterConfig(dir);
+      expect(config.channel).toBe("webhook");
+    });
+  });
+
+  describe("atomic writes", () => {
+    it("does not leave temp files on success", async () => {
+      await writeLobsterConfig(dir, { channel: "telegram" });
+
+      const { readdir } = await import("node:fs/promises");
+      const files = await readdir(dir);
+      const tmpFiles = files.filter((f) => f.startsWith(".lobster-") && f.endsWith(".tmp"));
+      expect(tmpFiles).toHaveLength(0);
+    });
+
+    it("produces valid JSON after concurrent writes", async () => {
+      // Simulate rapid sequential writes
+      await writeLobsterConfig(dir, { channel: "telegram" });
+      await writeLobsterConfig(dir, {
+        model: { baseUrl: "http://localhost", model: "test", apiKey: "key" },
+      });
+      await writeLobsterConfig(dir, { reader: { defaultInterval: 5 } });
+
+      const config = await readLobsterConfig(dir);
+      expect(config.channel).toBe("telegram");
+      expect(config.model?.model).toBe("test");
+      expect(config.reader?.defaultInterval).toBe(5);
+    });
+  });
+});

@@ -12,11 +12,28 @@ RSS Lobster is a personal publishing and reading system built on RSS. You publis
 
 ```bash
 npm install -g rsslobster
-rsslobster onboard          # interactive — domain, style, channel, model
-rsslobster start             # you're live
+rsslobster onboard          # domain + style → site in 30 seconds
 ```
 
-Send a message from Telegram. It's published. Subscribe to a feed. It shows up.
+Your site is running at localhost:4321. Now add what you need:
+
+```bash
+# Read feeds (works immediately — no setup required)
+rsslobster feeds add https://simonwillison.net
+rsslobster feeds
+
+# Publish from your phone
+rsslobster enable telegram   # set up your Telegram bot
+rsslobster start             # start listening
+
+# Add AI classification
+rsslobster enable model      # configure Ollama, OpenAI, or Anthropic
+
+# Auto-deploy
+rsslobster enable deploy     # git remote for Cloudflare Pages, GitHub Pages, etc.
+```
+
+Each capability is independent. Use what you need, skip what you don't.
 
 ## What it does
 
@@ -265,9 +282,12 @@ src/
 
 | Command | Description |
 |---------|-------------|
-| `rsslobster onboard` | Interactive setup |
+| `rsslobster` | Status dashboard (in a configured directory) |
+| `rsslobster onboard` | Interactive setup (domain + style) |
+| `rsslobster enable <cap>` | Enable a capability: `telegram`, `model`, `deploy` |
+| `rsslobster enable --list` | Show what's configured |
 | `rsslobster start` | Start the daemon |
-| `rsslobster publish <text>` | Publish from CLI |
+| `rsslobster publish <text>` | Publish from CLI (requires `--type` without a model) |
 | `rsslobster dev` | Local preview server (localhost:4321) |
 | `rsslobster regenerate` | Rebuild all pages |
 | `rsslobster drafts` | Manage drafts |
@@ -297,6 +317,17 @@ pnpm build          # tsdown → dist/
 ```
 
 Requires Node.js >= 22 and pnpm >= 10. Pre-commit hook runs `pnpm check`.
+
+## Troubleshooting
+
+**`sharp` install failures:** RSS Lobster uses [sharp](https://sharp.pixelplumbing.com/) for image processing. It downloads prebuilt native binaries during install. If this fails (corporate proxy, unusual architecture):
+
+```bash
+npm install --ignore-scripts rsslobster
+npx sharp install
+```
+
+**Node version:** Requires Node.js >= 22. Check with `node --version`.
 
 ## Contributing
 

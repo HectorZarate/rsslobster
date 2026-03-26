@@ -3,14 +3,13 @@ import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import pc from "picocolors";
 import { readSiteConfig } from "../generator/site.js";
-import { createModelCaller, type ModelConfig } from "../agent/model.js";
+import { createModelCaller } from "../agent/model.js";
 import { processMessage } from "../agent/pipeline.js";
-import type { InboundMessage, ChannelType } from "../channels/types.js";
+import type { InboundMessage } from "../channels/types.js";
 import { createChannel, CHANNEL_LABELS } from "../channels/channel.js";
 import { publishDueScheduled } from "../agent/scheduler.js";
 import { cleanExpiredPreviews } from "../previews/previews.js";
 import { deployToGit } from "../deploy/git.js";
-import type { HooksConfig } from "../hooks/hooks.js";
 import { PluginRegistry } from "../plugins/registry.js";
 import { pollAllFeeds } from "../reader/poll.js";
 import {
@@ -20,42 +19,10 @@ import {
   formatNotification,
   formatDigest,
 } from "../reader/notifications.js";
-import type { ReaderConfig } from "../config/types.js";
-
-interface LobsterConfig {
-  /** Which channel to use. Default: "telegram" */
-  channel?: ChannelType;
-  telegram?: { token: string; allowedUsers?: string[] };
-  discord?: { botToken: string; channelId: string };
-  slack?: { botToken: string; appToken: string; channelId?: string };
-  whatsapp?: {
-    phoneNumberId: string;
-    accessToken: string;
-    verifyToken: string;
-  };
-  signal?: { apiUrl: string; phoneNumber: string };
-  nostr?: { privateKey: string; relays: string[] };
-  matrix?: { homeserverUrl: string; accessToken: string; roomId: string };
-  webhook?: { port?: number; secret?: string; tokens?: string[] };
-  irc?: {
-    server: string;
-    port?: number;
-    nick: string;
-    channel: string;
-    password?: string;
-    tls?: boolean;
-  };
-  model: ModelConfig;
-  /** Lifecycle hooks */
-  hooks?: HooksConfig;
-  /** RSS reader / feed polling config */
-  reader?: ReaderConfig;
-}
-
-async function loadLobsterConfig(siteDir: string): Promise<LobsterConfig> {
-  const raw = await readFile(join(siteDir, "lobster.json"), "utf-8");
-  return JSON.parse(raw) as LobsterConfig;
-}
+import {
+  readLobsterConfig,
+  validateLobsterConfig,
+} from "../config/lobster.js";
 
 export const startCommand = new Command("start")
   .description(
@@ -66,48 +33,39 @@ export const startCommand = new Command("start")
     const siteDir = resolve(siteDirArg);
 
     // Load configs
-    let lobsterConfig: LobsterConfig;
-    try {
-      lobsterConfig = await loadLobsterConfig(siteDir);
-    } catch {
-      console.error(
-        pc.red("Missing lobster.json — run `rsslobster onboard` first."),
-      );
+    const lobsterConfig = await readLobsterConfig(siteDir);
+
+    // Validate config
+    const errors = validateLobsterConfig(lobsterConfig);
+    if (errors.length > 0) {
+      for (const err of errors) {
+        console.error(pc.red(`lobster.json: ${err.field} — ${err.message}`));
+      }
       process.exit(1);
     }
 
     const siteConfig = await readSiteConfig(siteDir);
 
-    // Read SOUL.md if present for system prompt
-    let systemPrompt: string | undefined;
-    try {
-      systemPrompt = await readFile(join(siteDir, "SOUL.md"), "utf-8");
-    } catch {
-      // No SOUL.md, use defaults
+    // Model setup (optional)
+    let callModel: Awaited<ReturnType<typeof createModelCaller>> | undefined;
+    if (lobsterConfig.model) {
+      // Read SOUL.md if present for system prompt
+      try {
+        const systemPrompt = await readFile(join(siteDir, "SOUL.md"), "utf-8");
+        lobsterConfig.model.systemPrompt = systemPrompt;
+      } catch {
+        // No SOUL.md, use defaults
+      }
+      callModel = createModelCaller(lobsterConfig.model);
     }
 
-    if (systemPrompt) {
-      lobsterConfig.model.systemPrompt = systemPrompt;
-    }
-
-    const callModel = createModelCaller(lobsterConfig.model);
-
-    // Resolve channel type (default to telegram for backward compat)
-    const channelType: ChannelType = lobsterConfig.channel ?? "telegram";
-    const channelConfig = lobsterConfig[channelType];
-
-    if (!channelConfig) {
-      console.error(
-        pc.red(
-          `No config found for channel "${channelType}" in lobster.json. ` +
-            `Add a "${channelType}" section or run \`rsslobster onboard\`.`,
-        ),
-      );
-      process.exit(1);
-    }
-
-    const channel = createChannel(channelType, channelConfig as never);
-    const channelLabel = CHANNEL_LABELS[channelType];
+    // Channel setup (optional)
+    const channelType = lobsterConfig.channel;
+    const channelConfig = channelType ? lobsterConfig[channelType] : undefined;
+    const channel = channelType && channelConfig
+      ? createChannel(channelType, channelConfig as never)
+      : undefined;
+    const channelLabel = channelType ? CHANNEL_LABELS[channelType] : undefined;
 
     // Load plugins if configured
     const pluginRegistry = new PluginRegistry();
@@ -116,10 +74,19 @@ export const startCommand = new Command("start")
       console.log(pc.dim(`   Plugins: ${siteConfig.plugins.length} loaded`));
     }
 
-    console.log(pc.green("🦞 Lobster is live."));
+    console.log(pc.green("Lobster is live."));
     console.log(`   Site: ${pc.cyan(`https://${siteConfig.domain}`)}`);
-    console.log(`   Model: ${pc.cyan(lobsterConfig.model.model)}`);
-    console.log(`   Listening on ${pc.cyan(channelLabel)}...\n`);
+    if (callModel && lobsterConfig.model) {
+      console.log(`   Model: ${pc.cyan(lobsterConfig.model.model)}`);
+    } else {
+      console.log(pc.dim("   Model: not configured — publish via CLI with --type"));
+    }
+    if (channel && channelLabel) {
+      console.log(`   Listening on ${pc.cyan(channelLabel)}...\n`);
+    } else {
+      console.log(pc.dim("   No channel configured. Publishing via CLI only."));
+      console.log(pc.dim(`   Run ${pc.cyan("rsslobster enable telegram")} to publish from your phone.\n`));
+    }
 
     // Track last notification delivery time
     let lastDeliveredAt: string | undefined;
@@ -171,23 +138,25 @@ export const startCommand = new Command("start")
           }
         }
 
-        // Deliver notifications if schedule says it's time
-        const notifyConfig = await loadConfig(siteDir);
-        if (notifyConfig.enabled && lastChatId && isDeliveryTime(notifyConfig, lastDeliveredAt)) {
-          const entries = await drainInbox(siteDir);
-          if (entries.length > 0) {
-            const msg = notifyConfig.schedule === "immediate"
-              ? entries.map(formatNotification).join("\n\n")
-              : formatDigest(entries);
+        // Deliver notifications if schedule says it's time (requires channel)
+        if (channel && lastChatId) {
+          const notifyConfig = await loadConfig(siteDir);
+          if (notifyConfig.enabled && isDeliveryTime(notifyConfig, lastDeliveredAt)) {
+            const entries = await drainInbox(siteDir);
+            if (entries.length > 0) {
+              const msg = notifyConfig.schedule === "immediate"
+                ? entries.map(formatNotification).join("\n\n")
+                : formatDigest(entries);
 
-            try {
-              await channel.reply(lastChatId, msg);
-              lastDeliveredAt = new Date().toISOString();
-              console.log(pc.dim(`  Delivered ${entries.length} notification(s)`));
-            } catch {
-              // Re-queue on delivery failure
-              const { addToInbox } = await import("../reader/notifications.js");
-              await addToInbox(siteDir, entries);
+              try {
+                await channel.reply(lastChatId, msg);
+                lastDeliveredAt = new Date().toISOString();
+                console.log(pc.dim(`  Delivered ${entries.length} notification(s)`));
+              } catch {
+                // Re-queue on delivery failure
+                const { addToInbox } = await import("../reader/notifications.js");
+                await addToInbox(siteDir, entries);
+              }
             }
           }
         }
@@ -206,42 +175,54 @@ export const startCommand = new Command("start")
       controller.abort();
     });
 
-    await channel.poll(
-      async (message: InboundMessage) => {
-        // Track chatId for notification delivery
-        lastChatId = message.chatId;
+    if (channel && callModel) {
+      await channel.poll(
+        async (message: InboundMessage) => {
+          // Track chatId for notification delivery
+          lastChatId = message.chatId;
 
-        console.log(
-          pc.dim(
-            `[${new Date().toISOString()}] ${message.sender.name}: ${message.text.slice(0, 60)}`,
-          ),
-        );
+          console.log(
+            pc.dim(
+              `[${new Date().toISOString()}] ${message.sender.name}: ${message.text.slice(0, 60)}`,
+            ),
+          );
 
-        try {
-          // Download any pending attachments (images + media) before processing
-          await channel.downloadAttachments(message);
-
-          const pluginInjections = pluginRegistry.getInjections(null, siteConfig, "post");
-          const result = await processMessage(message, {
-            siteDir,
-            callModel,
-            deploy: true,
-            hooks: lobsterConfig.hooks,
-            pluginInjections,
-          });
-
-          await channel.reply(message.chatId, result.reply);
-          console.log(pc.green(`  → ${result.reply}`));
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : "Unknown error";
-          console.error(pc.red(`  ✗ ${msg}`));
           try {
-            await channel.reply(message.chatId, `Error: ${msg}`);
-          } catch {
-            // If we can't even send the error reply, just log it
+            // Download any pending attachments (images + media) before processing
+            await channel.downloadAttachments(message);
+
+            const pluginInjections = pluginRegistry.getInjections(null, siteConfig, "post");
+            const result = await processMessage(message, {
+              siteDir,
+              callModel: callModel!,
+              deploy: true,
+              hooks: lobsterConfig.hooks,
+              pluginInjections,
+            });
+
+            await channel.reply(message.chatId, result.reply);
+            console.log(pc.green(`  → ${result.reply}`));
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "Unknown error";
+            console.error(pc.red(`  ✗ ${msg}`));
+            try {
+              await channel.reply(message.chatId, `Error: ${msg}`);
+            } catch {
+              // If we can't even send the error reply, just log it
+            }
           }
-        }
-      },
-      controller.signal,
-    );
+        },
+        controller.signal,
+      );
+    } else {
+      // No channel or no model — keep alive for feed polling only
+      if (!channel) {
+        console.log(pc.dim("Feed polling active. Press Ctrl+C to stop."));
+      } else if (!callModel) {
+        console.log(pc.dim("Channel active but no model configured. Run `rsslobster enable model`."));
+      }
+      await new Promise<void>((resolve) => {
+        controller.signal.addEventListener("abort", () => resolve());
+      });
+    }
   });

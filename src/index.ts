@@ -11,6 +11,8 @@ import { pagesCommand } from "./cli/pages.js";
 import { regenerateCommand } from "./cli/regenerate.js";
 import { devCommand } from "./cli/dev.js";
 import { feedsCommand } from "./cli/feeds.js";
+import { enableCommand } from "./cli/enable.js";
+import { lobsterConfigExists } from "./config/lobster.js";
 
 const program = new Command();
 
@@ -30,5 +32,20 @@ program.addCommand(pagesCommand);
 program.addCommand(regenerateCommand);
 program.addCommand(devCommand);
 program.addCommand(feedsCommand);
+program.addCommand(enableCommand);
 
-program.parse();
+// Bare `rsslobster` with no subcommand: show status dashboard if in a configured directory
+const args = process.argv.slice(2);
+if (args.length === 0) {
+  lobsterConfigExists(".").then((exists) => {
+    if (exists) {
+      // Run enable --list (status dashboard)
+      process.argv.push("enable", "--list");
+      program.parse();
+    } else {
+      program.parse();
+    }
+  });
+} else {
+  program.parse();
+}
