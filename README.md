@@ -41,7 +41,7 @@ RSS Lobster does two things:
 
 **1. Publish.** Send a message from any chat app. The lobster classifies it, generates a static HTML page with inlined CSS, updates your RSS and JSON feeds, commits to git, and deploys. Under 4 seconds end-to-end. Zero JavaScript in the output. Your words are never rewritten — the LLM classifies metadata only.
 
-**2. Read.** Subscribe to feeds. Poll them. Get notified of new items. Star what matters. Share back to your site as link posts. Generate daily or weekly recaps. OPML import/export so you can bring your subscriptions from anywhere and take them when you leave.
+**2. Read.** Subscribe to feeds. Poll them. Get notified of new items. Star what matters. Reblog to any of your sites as link posts. Generate daily or weekly recaps. OPML import/export so you can bring your subscriptions from anywhere and take them when you leave.
 
 The two sides compose: you read something interesting, you reblog it to your site, your subscribers get it in their readers. The open web feedback loop, running on a protocol from 1999.
 
@@ -246,7 +246,7 @@ src/
 ├── agent/       LLM classification + pipeline
 ├── channels/    messaging platform adapters
 ├── cli/         command handlers
-├── config/      types and paths
+├── config/      types, paths, workspace registry
 ├── deploy/      git commit + push
 ├── drafts/      draft lifecycle
 ├── generator/   HTML, RSS, JSON Feed, search, SEO
@@ -279,6 +279,30 @@ src/
 
 **Notifications:** Evaluated at ingestion time for immediate delivery, queued for batched schedules. Quiet hours only suppress immediate notifications — batched digests still include all items.
 
+## Multi-site
+
+Register multiple sites and publish across them from one CLI.
+
+```bash
+rsslobster sites add blog ~/workspace/myblog
+rsslobster sites add photo ~/workspace/myphotos
+rsslobster sites
+```
+
+Reblog an item from your reader to a specific site:
+
+```bash
+rsslobster feed reblog 1 --to blog -m "This is worth reading"
+```
+
+Publish directly to a registered site:
+
+```bash
+rsslobster publish --to photo --type image "Austin sunset"
+```
+
+Cross-site operations are local-only by default. Add `--deploy` to git commit and push the target site. The site registry lives at `~/.rsslobster/sites.json`.
+
 ## CLI reference
 
 | Command | Description |
@@ -293,6 +317,8 @@ src/
 | `rsslobster regenerate` | Rebuild all pages |
 | `rsslobster drafts` | Manage drafts |
 | `rsslobster feed` | RSS reader (see [Reading](#reading)) |
+| `rsslobster sites` | List, add, remove registered sites |
+| `rsslobster publish --to <site>` | Publish to a different registered site |
 
 ## Docker
 
@@ -306,7 +332,7 @@ docker run -v /path/to/site:/site rsslobster
 ```bash
 git clone https://github.com/HectorZarate/rsslobster.git
 cd rsslobster && pnpm install
-pnpm check    # lint + typecheck + 884 tests
+pnpm check    # lint + typecheck + 953 tests
 ```
 
 ```bash

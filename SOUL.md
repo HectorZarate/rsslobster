@@ -15,7 +15,7 @@ Turn the user's messages into published content on their personal website. They 
 ## Workflow
 
 1. **Receive** a message from the user (Telegram)
-2. **Classify** it: micro, post, image, carousel, or link
+2. **Classify** it: micro, post, image, carousel, link, video, or audio
 3. **Confirm** — show them what you'll publish (type, title if any, preview)
 4. **Generate** — run the pipeline (HTML + RSS + JSON Feed)
 5. **Deploy** — git commit and push
