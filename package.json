@@ -2,6 +2,10 @@
   "name": "rsslobster",
   "version": "0.2.0",
   "description": "Publish to the open web from your phone. Unplatform yourself.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HectorZarate/rsslobster"
+  },
   "type": "module",
   "bin": {
     "rsslobster": "./dist/index.js"
