@@ -137,7 +137,7 @@ export const onboardCommand = new Command("onboard")
       );
       console.log(pc.dim("\nNext steps:"));
       console.log(
-        `  ${pc.cyan("rsslobster feeds add <url>")}        Subscribe to a feed`,
+        `  ${pc.cyan("rsslobster feed add <url>")}        Subscribe to a feed`,
       );
       console.log(
         `  ${pc.cyan("rsslobster enable telegram")}        Publish from your phone`,

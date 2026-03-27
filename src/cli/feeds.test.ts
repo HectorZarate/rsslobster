@@ -13,6 +13,8 @@ import { subscribe } from "../reader/subscriptions.js";
 import { ingestItems, listItems, getItem, markRead, starItem } from "../reader/store.js";
 import type { ParsedItem, StoredItem } from "../reader/types.js";
 import { ensureReaderDir } from "../reader/paths.js";
+import { scaffoldSite } from "../generator/site.js";
+import type { SiteConfig } from "../config/types.js";
 
 let siteDir: string;
 
@@ -165,9 +167,9 @@ describe("saveLastListing / loadLastListing", () => {
 // feedsCommand structure
 // ---------------------------------------------------------------------------
 
-describe("feedsCommand", () => {
-  it("is named feeds", () => {
-    expect(feedsCommand.name()).toBe("feeds");
+describe("feedCommand", () => {
+  it("is named feed", () => {
+    expect(feedsCommand.name()).toBe("feed");
   });
 
   it("has list as default subcommand", () => {
@@ -185,6 +187,7 @@ describe("feedsCommand", () => {
     expect(names).toContain("read");
     expect(names).toContain("star");
     expect(names).toContain("unstar");
+    expect(names).toContain("reblog");
     expect(names).toContain("share");
     expect(names).toContain("mark-read");
     expect(names).toContain("mute");
@@ -539,8 +542,24 @@ describe("feeds filter behavior", () => {
 // Integration: share behavior
 // ---------------------------------------------------------------------------
 
-describe("feeds share behavior", () => {
-  it("shows share info and marks item as read", async () => {
+const REBLOG_SITE_CONFIG: SiteConfig = {
+  domain: "example.com",
+  title: "Test Blog",
+  description: "A test blog",
+  author: "Tester",
+  language: "en",
+  style: { preset: "minimal" },
+  repo: "",
+};
+
+describe("feeds reblog", () => {
+  it("is registered as a subcommand", () => {
+    const reblog = feedsCommand.commands.find((c) => c.name() === "reblog");
+    expect(reblog).toBeDefined();
+  });
+
+  it("publishes link post and marks item as read", async () => {
+    await scaffoldSite(siteDir, REBLOG_SITE_CONFIG);
     await subscribe(siteDir, FEED_A, "Feed A");
     await ingestItems(siteDir, FEED_A, [
       makeItem({ id: "1", title: "Share This", link: "https://example.com/post" }),
@@ -553,21 +572,22 @@ describe("feeds share behavior", () => {
       logs.push(args.join(" "));
     });
 
-    const share = feedsCommand.commands.find((c) => c.name() === "share")!;
-    await share.parseAsync(["node", "test", "1", siteDir]);
+    const reblog = feedsCommand.commands.find((c) => c.name() === "reblog")!;
+    await reblog.parseAsync(["node", "test", "1", siteDir]);
 
-    expect(logs.some((l) => l.includes('Shared: "Share This"'))).toBe(true);
-    expect(logs.some((l) => l.includes("https://example.com/post"))).toBe(true);
+    expect(logs.some((l) => l.includes("Reblogged"))).toBe(true);
+    expect(logs.some((l) => l.includes("Share This"))).toBe(true);
 
     const item = await getItem(siteDir, "id:1");
     expect(item!.read).toBe(true);
     vi.restoreAllMocks();
   });
 
-  it("includes message when -m is provided", async () => {
+  it("includes commentary when -m is provided", async () => {
+    await scaffoldSite(siteDir, REBLOG_SITE_CONFIG);
     await subscribe(siteDir, FEED_A, "Feed A");
     await ingestItems(siteDir, FEED_A, [
-      makeItem({ id: "1", title: "Share This" }),
+      makeItem({ id: "1", title: "Share This", link: "https://example.com/post" }),
     ]);
     const items = await listItems(siteDir);
     await saveLastListing(siteDir, items);
@@ -577,11 +597,43 @@ describe("feeds share behavior", () => {
       logs.push(args.join(" "));
     });
 
-    const share = feedsCommand.commands.find((c) => c.name() === "share")!;
-    await share.parseAsync(["node", "test", "1", "-m", "Great read!", siteDir]);
+    const reblog = feedsCommand.commands.find((c) => c.name() === "reblog")!;
+    await reblog.parseAsync(["node", "test", "1", "-m", "Great read!", siteDir]);
 
-    expect(logs.some((l) => l.includes("Note: Great read!"))).toBe(true);
+    expect(logs.some((l) => l.includes("Reblogged"))).toBe(true);
+
+    // Verify the post was created with commentary
+    const postsRaw = await readFile(join(siteDir, "posts.json"), "utf-8");
+    const posts = JSON.parse(postsRaw);
+    expect(posts.length).toBeGreaterThan(0);
+    expect(posts[0].body).toContain("Great read!");
+
     vi.restoreAllMocks();
+  });
+
+  it("rejects invalid item number", async () => {
+    await scaffoldSite(siteDir, REBLOG_SITE_CONFIG);
+    await ensureReaderDir(siteDir);
+    await saveLastListing(siteDir, []);
+
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("process.exit");
+    });
+
+    const reblog = feedsCommand.commands.find((c) => c.name() === "reblog")!;
+    await expect(
+      reblog.parseAsync(["node", "test", "99", siteDir]),
+    ).rejects.toThrow("process.exit");
+
+    vi.restoreAllMocks();
+  });
+});
+
+describe("feeds share is aliased to reblog", () => {
+  it("share still exists as an alias", () => {
+    const share = feedsCommand.commands.find((c) => c.name() === "share");
+    expect(share).toBeDefined();
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, access } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { scaffoldSite, addContent } from "../generator/site.js";
@@ -167,6 +167,71 @@ describe("regenerateSite", () => {
     const configAfter = await readFile(join(siteDir, "rsslobster.json"), "utf-8");
 
     expect(configAfter).toBe(configBefore);
+  });
+
+  it("writes homepage page as index.html, not slug.html", async () => {
+    const homepageConfig: SiteConfig = {
+      ...SITE_CONFIG,
+      homepage: "landing",
+      pages: [
+        {
+          title: "Landing Page",
+          slug: "landing",
+          body: "<p>Welcome to the landing page</p>",
+        },
+      ],
+    };
+    await scaffoldSite(siteDir, homepageConfig);
+
+    // Write a markdown bodyFile to test the full flow
+    await writeFile(join(siteDir, "landing.md"), "# Hello from landing\n\nThis is the landing page.");
+
+    // Update config to use bodyFile
+    const configWithFile: SiteConfig = {
+      ...homepageConfig,
+      pages: [
+        {
+          title: "Landing Page",
+          slug: "landing",
+          body: "",
+          bodyFile: "landing.md",
+        },
+      ],
+    };
+    await writeFile(join(siteDir, "rsslobster.json"), JSON.stringify(configWithFile, null, 2));
+
+    await regenerateSite(siteDir);
+
+    // index.html should contain the landing page content
+    const indexHtml = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
+    expect(indexHtml).toContain("Hello from landing");
+    expect(indexHtml).toContain("This is the landing page");
+
+    // landing.html should NOT exist
+    const landingExists = await access(join(siteDir, "_site", "landing.html")).then(() => true).catch(() => false);
+    expect(landingExists).toBe(false);
+  });
+
+  it("moves post listing to /posts/index.html when homepage is set", async () => {
+    const homepageConfig: SiteConfig = {
+      ...SITE_CONFIG,
+      homepage: "landing",
+      pages: [
+        {
+          title: "Landing Page",
+          slug: "landing",
+          body: "<p>Welcome</p>",
+        },
+      ],
+    };
+    await scaffoldSite(siteDir, homepageConfig);
+    await addContent(siteDir, MICRO);
+
+    await regenerateSite(siteDir);
+
+    // Post listing should be at /posts/index.html
+    const postsHtml = await readFile(join(siteDir, "_site", "posts", "index.html"), "utf-8");
+    expect(postsHtml).toContain("Hello from the test suite");
   });
 });
 

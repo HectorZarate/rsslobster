@@ -6,6 +6,7 @@ import { VALID_TYPES, MAX_TAGS, slugify } from "../config/content.js";
 import { addContent, readSiteConfig } from "../generator/site.js";
 import { deployToGit } from "../deploy/git.js";
 import { pingWebSubHub } from "../deploy/websub.js";
+import { resolveTargetSite } from "../config/workspace.js";
 
 export interface PublishOptions {
   type: ContentType;
@@ -71,6 +72,7 @@ export const publishCommand = new Command("publish")
   .option("--link-url <url>", "URL for link-type posts")
   .option("--no-deploy", "Skip git commit and push")
   .option("--site-dir <dir>", "Path to site directory", ".")
+  .option("--to <site>", "Publish to a different registered site")
   .action(
     async (
       text: string,
@@ -82,9 +84,22 @@ export const publishCommand = new Command("publish")
         linkUrl?: string;
         deploy: boolean;
         siteDir: string;
+        to?: string;
       },
     ) => {
-      const siteDir = resolve(opts.siteDir);
+      let siteDir = resolve(opts.siteDir);
+
+      // Resolve target site from registry
+      if (opts.to) {
+        try {
+          const resolved = await resolveTargetSite(opts.to);
+          siteDir = resolved.siteDir;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Failed to resolve target site";
+          console.error(pc.red(msg));
+          process.exit(1);
+        }
+      }
 
       let content: ClassifiedContent;
       try {

@@ -104,7 +104,7 @@ async function showStatus(siteDir: string): Promise<void> {
     console.log(`  [OK] Reader       ${subs} subscription${subs !== 1 ? "s" : ""}, ${unread} unread`);
   } else {
     console.log(
-      `  [--] Reader       no subscriptions — run: ${pc.cyan("rsslobster feeds add <url>")}`,
+      `  [--] Reader       no subscriptions — run: ${pc.cyan("rsslobster feed add <url>")}`,
     );
   }
 
@@ -298,12 +298,13 @@ export const enableCommand = new Command("enable")
   .description("Enable a capability (telegram, model, deploy)")
   .argument("[capability]", "What to enable: telegram, model, deploy")
   .option("--list", "Show status of all capabilities")
+  .option("--site-dir <dir>", "Path to site directory", ".")
   .action(
     async (
       capability: string | undefined,
-      opts: { list?: boolean },
+      opts: { list?: boolean; siteDir: string },
     ) => {
-      const siteDir = resolve(".");
+      const siteDir = resolve(opts.siteDir);
 
       if (opts.list || !capability) {
         if (!(await lobsterConfigExists(siteDir))) {

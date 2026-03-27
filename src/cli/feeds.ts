@@ -9,6 +9,12 @@ import {
   listSubscriptions,
   updateSubscription,
 } from "../reader/subscriptions.js";
+import { resolveTargetSite } from "../config/workspace.js";
+import { addContent, readSiteConfig } from "../generator/site.js";
+import { deployToGit } from "../deploy/git.js";
+import { pingWebSubHub } from "../deploy/websub.js";
+import { slugify } from "../config/content.js";
+import type { ClassifiedContent } from "../config/types.js";
 import { parseOpml, generateOpml } from "../reader/opml.js";
 import {
   getItemCounts,
@@ -29,7 +35,8 @@ import {
 } from "../reader/notifications.js";
 import type { SubscriptionNotify, StoredItem } from "../reader/types.js";
 
-export const feedsCommand = new Command("feeds")
+export const feedsCommand = new Command("feed")
+  .alias("feeds")
   .description("RSS reader — subscribe, poll, and read feeds");
 
 /** Truncate verbose feed titles to something scannable */
@@ -128,7 +135,7 @@ feedsCommand
     );
 
     if (subs.length === 0) {
-      console.log("No subscriptions. Add one with: rsslobster feeds add <url>");
+      console.log("No subscriptions. Add one with: rsslobster feed add <url>");
       return;
     }
 
@@ -175,7 +182,7 @@ feedsCommand
     await saveLastListing(dir, items);
 
     if (page < totalPages) {
-      console.log(`\nNext: rsslobster feeds -p ${page + 1}`);
+      console.log(`\nNext: rsslobster feed -p ${page + 1}`);
     }
   });
 
@@ -372,7 +379,7 @@ feedsCommand
       // Check if there are more
       const next = await listItems(dir, filter, 1, offset + limit);
       if (next.length > 0) {
-        console.log(`\nMore: rsslobster feeds items -p ${page + 1}`);
+        console.log(`\nMore: rsslobster feed items -p ${page + 1}`);
       }
     },
   );
@@ -392,14 +399,14 @@ feedsCommand
     const listing = await loadLastListing(dir);
 
     if (num < 1 || num > listing.length) {
-      console.error(`No item #${num}. Run 'rsslobster feeds' first to see items.`);
+      console.error(`No item #${num}. Run 'rsslobster feed' first to see items.`);
       process.exit(1);
     }
 
     const entry = listing[num - 1]!;
     const item = await getItem(dir, entry.dedupKey);
     if (!item) {
-      console.error(`Item not found. The listing may be stale — run 'rsslobster feeds' again.`);
+      console.error(`Item not found. The listing may be stale — run 'rsslobster feed' again.`);
       process.exit(1);
     }
 
@@ -434,14 +441,14 @@ feedsCommand
     const listing = await loadLastListing(dir);
 
     if (num < 1 || num > listing.length) {
-      console.error(`No item #${num}. Run 'rsslobster feeds' first to see items.`);
+      console.error(`No item #${num}. Run 'rsslobster feed' first to see items.`);
       process.exit(1);
     }
 
     const entry = listing[num - 1]!;
     const ok = await starItem(dir, entry.dedupKey);
     if (!ok) {
-      console.error(`Item not found. The listing may be stale — run 'rsslobster feeds' again.`);
+      console.error(`Item not found. The listing may be stale — run 'rsslobster feed' again.`);
       process.exit(1);
     }
     console.log(`Starred: ${entry.title}`);
@@ -458,14 +465,14 @@ feedsCommand
     const listing = await loadLastListing(dir);
 
     if (num < 1 || num > listing.length) {
-      console.error(`No item #${num}. Run 'rsslobster feeds' first to see items.`);
+      console.error(`No item #${num}. Run 'rsslobster feed' first to see items.`);
       process.exit(1);
     }
 
     const entry = listing[num - 1]!;
     const ok = await unstarItem(dir, entry.dedupKey);
     if (!ok) {
-      console.error(`Item not found. The listing may be stale — run 'rsslobster feeds' again.`);
+      console.error(`Item not found. The listing may be stale — run 'rsslobster feed' again.`);
       process.exit(1);
     }
     console.log(`Unstarred: ${entry.title}`);
@@ -475,33 +482,103 @@ feedsCommand
 // feeds share
 // ---------------------------------------------------------------------------
 
-feedsCommand
-  .command("share")
-  .description("Share an item as a link post on your site")
-  .argument("<n>", "Item number from last listing")
-  .argument("[site-dir]", "Path to site directory", ".")
-  .option("-m, --message <text>", "Add commentary to the shared post")
-  .action(async (n: string, siteDir: string, opts: { message?: string }) => {
-    const dir = resolve(siteDir);
-    const num = parseInt(n, 10);
-    const listing = await loadLastListing(dir);
+/** Shared reblog action — used by both `reblog` and `share` (alias) */
+async function reblogAction(
+  n: string,
+  siteDir: string,
+  opts: { message?: string; to?: string; deploy?: boolean },
+): Promise<void> {
+  const dir = resolve(siteDir);
+  const num = parseInt(n, 10);
+  const listing = await loadLastListing(dir);
 
-    if (num < 1 || num > listing.length) {
-      console.error(`No item #${num}. Run 'rsslobster feeds' first to see items.`);
+  if (num < 1 || num > listing.length) {
+    console.error(`No item #${num}. Run 'rsslobster feed' first to see items.`);
+    process.exit(1);
+  }
+
+  const entry = listing[num - 1]!;
+
+  // Resolve target site
+  let targetDir = dir;
+  let targetDomain = "";
+  if (opts.to) {
+    try {
+      const resolved = await resolveTargetSite(opts.to);
+      targetDir = resolved.siteDir;
+      targetDomain = resolved.config.domain;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to resolve target site";
+      console.error(pc.red(msg));
       process.exit(1);
     }
+  }
 
-    const entry = listing[num - 1]!;
+  // Build link post content
+  const body = opts.message
+    ? `${opts.message}\n\n${entry.link ?? ""}`
+    : entry.link ?? entry.title;
 
-    console.log(`Shared: "${entry.title}"`);
-    console.log(`  Source: ${entry.link ?? "(no link)"}`);
-    if (opts.message) {
-      console.log(`  Note: ${opts.message}`);
+  const content: ClassifiedContent = {
+    type: "link",
+    title: entry.title,
+    body,
+    slug: slugify(entry.title),
+    tags: [],
+    linkUrl: entry.link,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    const post = await addContent(targetDir, content);
+
+    const siteName = opts.to ? ` → ${opts.to} (${targetDomain})` : "";
+    console.log(pc.green(`Reblogged${siteName}: "${entry.title}"`));
+    console.log(`  ${post.url}`);
+
+    // Deploy if requested
+    if (opts.deploy) {
+      const result = await deployToGit(targetDir, `reblog: link — ${content.slug}`);
+      if (result.committed && !result.pushError) {
+        const config = await readSiteConfig(targetDir);
+        await pingWebSubHub(`https://${config.domain}/feed.xml`);
+        await pingWebSubHub(`https://${config.domain}/feed.json`);
+        console.log(pc.green("  Deployed."));
+      } else if (result.pushError) {
+        console.log(pc.yellow(`  Committed locally but push failed: ${result.pushError}`));
+      }
+    } else if (opts.to) {
+      console.log(pc.dim("  Local only. Add --deploy to push."));
     }
-    console.log(`  Use: rsslobster publish "${entry.title} ${entry.link ?? ""}"`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to publish";
+    console.error(pc.red(msg));
+    process.exit(1);
+  }
 
-    await markRead(dir, entry.dedupKey);
-  });
+  await markRead(dir, entry.dedupKey);
+}
+
+const reblogOpts = (cmd: import("commander").Command) =>
+  cmd
+    .argument("<n>", "Item number from the last listing")
+    .argument("[site-dir]", "Path to site directory", ".")
+    .option("-m, --message <text>", "Add your commentary")
+    .option("--to <site>", "Publish to a different registered site")
+    .option("--deploy", "Git commit and push the target site")
+    .action(reblogAction);
+
+reblogOpts(
+  feedsCommand.command("reblog").description(
+    "Reblog an item from your subscriptions as a link post, optionally to another site",
+  ),
+);
+
+// Keep `share` as an alias for backwards compatibility
+reblogOpts(
+  feedsCommand.command("share").description("Alias for reblog"),
+);
 
 // ---------------------------------------------------------------------------
 // feeds mark-read

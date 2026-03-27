@@ -19,8 +19,8 @@ Your site is running at localhost:4321. Now add what you need:
 
 ```bash
 # Read feeds (works immediately — no setup required)
-rsslobster feeds add https://simonwillison.net
-rsslobster feeds
+rsslobster feed add https://simonwillison.net
+rsslobster feed
 
 # Publish from your phone
 rsslobster enable telegram   # set up your Telegram bot
@@ -43,14 +43,14 @@ RSS Lobster does two things:
 
 **2. Read.** Subscribe to feeds. Poll them. Get notified of new items. Star what matters. Share back to your site as link posts. Generate daily or weekly recaps. OPML import/export so you can bring your subscriptions from anywhere and take them when you leave.
 
-The two sides compose: you read something interesting, you share it to your site, your subscribers get it in their readers. The open web feedback loop, running on a protocol from 1999.
+The two sides compose: you read something interesting, you reblog it to your site, your subscribers get it in their readers. The open web feedback loop, running on a protocol from 1999.
 
 ```
 publish:                              read:
 
   phone → classify → html + rss         subscribe → poll → notify
             ↓                                        ↓
-        git push → deploy               star → share → publish
+        git push → deploy               star → reblog → publish
             ↓                                        ↓
     live in < 4 seconds                 your site ← link post
 ```
@@ -74,11 +74,11 @@ Classification is automatic. Drafts and scheduling are built in — say "draft" 
 ## Reading
 
 ```bash
-rsslobster feeds add https://simonwillison.net    # auto-discovers the feed
-rsslobster feeds                                    # show unread items
-rsslobster feeds read 3                             # read item #3
-rsslobster feeds star 2                             # save for later
-rsslobster feeds share 1 -m "This is excellent"     # publish as link post
+rsslobster feed add https://simonwillison.net    # auto-discovers the feed
+rsslobster feed                                    # show unread items
+rsslobster feed read 3                             # read item #3
+rsslobster feed star 2                             # save for later
+rsslobster feed reblog 1 -m "This is excellent"    # reblog as link post
 ```
 
 Or talk to the lobster directly from chat:
@@ -98,37 +98,38 @@ Lobster:  In defense of simple architectures
           by Dan Luu
           ...
 
-You:      share 1 This is the post I point people to when they want microservices
-Lobster:  Published: "In defense of simple architectures"
-          → Link post ready for your site
+You:      reblog 1 This is the post I point people to when they want microservices
+Lobster:  Reblogged: "In defense of simple architectures"
+          → Link post on your site
 ```
 
 ### Feed management
 
 | Command | What it does |
 |---------|-------------|
-| `feeds add <url>` | Subscribe (auto-discovers feed from HTML) |
-| `feeds remove <url>` | Unsubscribe and remove stored items |
-| `feeds list` | Unread items, paginated |
-| `feeds list --subs` | Show subscriptions with unread counts |
-| `feeds poll` | Fetch all due feeds |
-| `feeds poll --force` | Fetch all feeds regardless of interval |
-| `feeds read <n>` | Show item content, mark read |
-| `feeds star <n>` | Star an item |
-| `feeds share <n>` | Publish as link post on your site |
-| `feeds mark-read --all` | Catch up |
-| `feeds items --starred` | Show starred items |
+| `feed add <url>` | Subscribe (auto-discovers feed from HTML) |
+| `feed remove <url>` | Unsubscribe and remove stored items |
+| `feed list` | Unread items, paginated |
+| `feed list --subs` | Show subscriptions with unread counts |
+| `feed poll` | Fetch all due feeds |
+| `feed poll --force` | Fetch all feeds regardless of interval |
+| `feed read <n>` | Show item content, mark read |
+| `feed star <n>` | Star an item |
+| `feed reblog <n>` | Reblog as link post on your site |
+| `feed reblog <n> --to blog` | Reblog to a different registered site |
+| `feed mark-read --all` | Catch up |
+| `feed items --starred` | Show starred items |
 
 ### Notifications
 
 Per-feed control over what you get notified about and when.
 
 ```bash
-rsslobster feeds notify                              # show current settings
-rsslobster feeds notify --schedule daily --deliver-at 09:00
-rsslobster feeds notify --quiet-start 22:00 --quiet-end 08:00
-rsslobster feeds mute https://noisy-feed.com/rss
-rsslobster feeds filter https://important.com/feed --keywords ai rust
+rsslobster feed notify                              # show current settings
+rsslobster feed notify --schedule daily --deliver-at 09:00
+rsslobster feed notify --quiet-start 22:00 --quiet-end 08:00
+rsslobster feed mute https://noisy-feed.com/rss
+rsslobster feed filter https://important.com/feed --keywords ai rust
 ```
 
 Schedules: `immediate`, `hourly`, `daily`, `weekly`. High-priority feeds bypass quiet hours. Keyword filters are per-feed (match any term against title + content).
@@ -136,8 +137,8 @@ Schedules: `immediate`, `hourly`, `daily`, `weekly`. High-priority feeds bypass 
 ### OPML
 
 ```bash
-rsslobster feeds import subscriptions.opml    # bring your feeds from anywhere
-rsslobster feeds export > backup.opml          # take them when you leave
+rsslobster feed import subscriptions.opml    # bring your feeds from anywhere
+rsslobster feed export > backup.opml          # take them when you leave
 ```
 
 Folder structure is preserved in both directions.
@@ -145,8 +146,8 @@ Folder structure is preserved in both directions.
 ### Recaps
 
 ```bash
-rsslobster feeds recap              # plain-text daily recap
-rsslobster feeds recap --enable     # enable AI-powered recaps
+rsslobster feed recap              # plain-text daily recap
+rsslobster feed recap --enable     # enable AI-powered recaps
 ```
 
 When an LLM is configured, recaps summarize the most interesting items across your feeds. Saved to disk so you can review past recaps.
@@ -291,7 +292,7 @@ src/
 | `rsslobster dev` | Local preview server (localhost:4321) |
 | `rsslobster regenerate` | Rebuild all pages |
 | `rsslobster drafts` | Manage drafts |
-| `rsslobster feeds` | RSS reader (see [Reading](#reading)) |
+| `rsslobster feed` | RSS reader (see [Reading](#reading)) |
 
 ## Docker
 
