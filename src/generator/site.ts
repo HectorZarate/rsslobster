@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { outputDir } from "../config/paths.js";
 export { outputDir } from "../config/paths.js";
@@ -139,6 +139,47 @@ export async function addContent(
     writeSeo(siteDir, config, posts),
     writePages(siteDir, config, options?.pluginInjections),
     rebuildBlogroll(siteDir, config),
+  ]);
+
+  return post;
+}
+
+/** Delete a post by slug. Returns the deleted post, or null if not found. */
+export async function deletePost(
+  siteDir: string,
+  slug: string,
+): Promise<Post | null> {
+  await initMarkdown();
+  const config = await readSiteConfig(siteDir);
+  const posts = await readPostsIndex(siteDir);
+  const outDir = outputDir(siteDir);
+
+  const idx = posts.findIndex((p) => p.slug === slug);
+  if (idx === -1) return null;
+
+  const post = posts[idx]!;
+  posts.splice(idx, 1);
+  await writePostsIndex(siteDir, posts);
+
+  // Delete the generated HTML directory for this post
+  const domain = `https://${config.domain}`;
+  const permalink = post.url.startsWith(domain)
+    ? post.url.slice(domain.length)
+    : `/${post.slug}.html`;
+  const htmlDir = permalinkDir(permalink);
+  if (htmlDir) {
+    await rm(join(outDir, htmlDir), { recursive: true, force: true });
+  } else {
+    const htmlPath = permalink.startsWith("/") ? permalink.slice(1) : permalink;
+    await rm(join(outDir, htmlPath), { force: true });
+  }
+
+  // Rebuild feeds, index, search, SEO
+  await Promise.all([
+    rebuildFeeds(siteDir, config, posts),
+    rebuildIndex(siteDir, config, posts),
+    writeSearchIndex(siteDir, posts),
+    writeSeo(siteDir, config, posts),
   ]);
 
   return post;

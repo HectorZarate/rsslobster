@@ -7,6 +7,7 @@ import {
   scaffoldSite,
   readSiteConfig,
   addContent,
+  deletePost,
   readPostsIndex,
 } from "./site.js";
 
@@ -175,6 +176,74 @@ describe("addContent", () => {
 
     expect(post.publishedAt).toBeTruthy();
     expect(post.url).toBe("https://test.example.com/posts/hello-test/index.html");
+  });
+});
+
+describe("deletePost", () => {
+  it("removes post from posts.json", async () => {
+    await scaffoldSite(siteDir, CONFIG);
+    await addContent(siteDir, MICRO);
+    await addContent(siteDir, POST);
+
+    const deleted = await deletePost(siteDir, "hello-test");
+    expect(deleted).not.toBeNull();
+    expect(deleted!.slug).toBe("hello-test");
+
+    const posts = await readPostsIndex(siteDir);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.slug).toBe("test-blog-post");
+  });
+
+  it("deletes the generated HTML file", async () => {
+    await scaffoldSite(siteDir, CONFIG);
+    const post = await addContent(siteDir, MICRO);
+
+    // Verify HTML exists before delete
+    const htmlPath = join(siteDir, "_site", "posts", "hello-test", "index.html");
+    await expect(access(htmlPath)).resolves.toBeUndefined();
+
+    await deletePost(siteDir, "hello-test");
+
+    // HTML should be gone
+    await expect(access(htmlPath)).rejects.toThrow();
+  });
+
+  it("rebuilds feeds without the deleted post", async () => {
+    await scaffoldSite(siteDir, CONFIG);
+    await addContent(siteDir, MICRO);
+    await addContent(siteDir, POST);
+
+    await deletePost(siteDir, "hello-test");
+
+    const raw = await readFile(join(siteDir, "_site", "feed.json"), "utf-8");
+    const feed = JSON.parse(raw);
+    expect(feed.items).toHaveLength(1);
+    expect(feed.items[0].title).toBe("Test Blog Post");
+  });
+
+  it("rebuilds search index without the deleted post", async () => {
+    await scaffoldSite(siteDir, CONFIG);
+    await addContent(siteDir, MICRO);
+    await addContent(siteDir, POST);
+
+    await deletePost(siteDir, "hello-test");
+
+    const raw = await readFile(join(siteDir, "_site", "search-index.json"), "utf-8");
+    const index = JSON.parse(raw);
+    expect(index).toHaveLength(1);
+    expect(index[0].s).toBe("test-blog-post");
+  });
+
+  it("returns null for nonexistent slug", async () => {
+    await scaffoldSite(siteDir, CONFIG);
+    await addContent(siteDir, MICRO);
+
+    const result = await deletePost(siteDir, "nonexistent");
+    expect(result).toBeNull();
+
+    // Posts unchanged
+    const posts = await readPostsIndex(siteDir);
+    expect(posts).toHaveLength(1);
   });
 });
 
