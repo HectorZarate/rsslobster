@@ -147,6 +147,20 @@ describe("comments approve", () => {
     const output = logs.join("\n").replace(/\x1b\[[0-9;]*m/g, "");
     expect(output).toMatch(/approved/i);
   });
+
+  it("handles timeout on approve", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", mockFetch);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const approve = commentsCommand.commands.find((c) => c.name() === "approve")!;
+    await approve.parseAsync(["node", "test", "abc123", "--site-dir", siteDir]);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
 });
 
 describe("comments reject", () => {

@@ -17,6 +17,7 @@ export function renderComment(comment: Comment): string {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: "UTC",
   });
 
   return `<article class="comment">

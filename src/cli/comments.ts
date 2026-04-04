@@ -5,6 +5,27 @@ import { readSiteConfig } from "../generator/site.js";
 import { readLobsterConfig } from "../config/lobster.js";
 import { fetchComments } from "../comments/fetch.js";
 
+/** Shared helper for approve/reject admin actions */
+async function adminAction(
+  action: "approve" | "reject",
+  id: string,
+  endpoint: string,
+  adminSecret: string,
+): Promise<void> {
+  const res = await fetch(`${endpoint}/${action}/${id}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${adminSecret}` },
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!res.ok) {
+    const status = res.status;
+    let detail = "";
+    try { detail = await res.text(); } catch { /* ignore */ }
+    throw new Error(`Failed to ${action} (${status})${detail ? `: ${detail}` : ""}`);
+  }
+}
+
 /** Read endpoint and admin secret from config files */
 async function loadCommentConfig(siteDir: string) {
   const config = await readSiteConfig(siteDir);
@@ -77,15 +98,7 @@ commentsCommand
         throw new Error("No commentsAdminSecret configured in lobster.json");
       }
 
-      const res = await fetch(`${endpoint}/approve/${id}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${adminSecret}` },
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Failed to approve (${res.status}): ${text}`);
-      }
+      await adminAction("approve", id, endpoint, adminSecret);
 
       console.log(pc.green(`Comment ${id} approved.`));
     } catch (err) {
@@ -108,15 +121,7 @@ commentsCommand
         throw new Error("No commentsAdminSecret configured in lobster.json");
       }
 
-      const res = await fetch(`${endpoint}/reject/${id}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${adminSecret}` },
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Failed to reject (${res.status}): ${text}`);
-      }
+      await adminAction("reject", id, endpoint, adminSecret);
 
       console.log(pc.green(`Comment ${id} rejected.`));
     } catch (err) {

@@ -28,15 +28,17 @@ export async function fetchComments(
     if (!res.ok) return [];
     const data = await res.json();
     if (!Array.isArray(data)) return [];
+    const validStatuses = ["pending", "approved", "rejected"];
     return (data as D1Comment[]).map((c) => ({
       id: c.id,
       slug: c.slug,
       author: c.author,
       body: c.body,
-      status: (c.status ?? "approved") as Comment["status"],
-      createdAt: c.createdAt ?? c.created_at ?? "",
+      status: (validStatuses.includes(c.status) ? c.status : "pending") as Comment["status"],
+      createdAt: c.createdAt ?? c.created_at ?? new Date().toISOString(),
     }));
-  } catch {
+  } catch (err) {
+    console.error(`[comments] fetch failed for "${slug}" from ${endpoint}:`, err instanceof Error ? err.message : err);
     return [];
   }
 }

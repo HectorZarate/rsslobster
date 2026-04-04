@@ -54,6 +54,34 @@ describe("fetchComments", () => {
     expect(result[1]!.author).toBe("Bob");
   });
 
+  it("defaults unknown status to pending, not approved", async () => {
+    const d1Response = [
+      { id: "1", author: "Ada", body: "Hello", created_at: "2026-03-25T12:00:00Z", slug: "test", status: null },
+    ];
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(d1Response), { status: 200 })));
+    const result = await fetchComments("test", "https://comments.example.com");
+    expect(result[0]!.status).toBe("pending");
+  });
+
+  it("logs error on network failure", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network error")));
+    await fetchComments("test", "https://comments.example.com");
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("[comments]"), expect.any(String));
+    consoleSpy.mockRestore();
+  });
+
+  it("uses current timestamp if createdAt is missing from API", async () => {
+    const d1Response = [
+      { id: "1", author: "Ada", body: "Hello", slug: "test", status: "approved" },
+    ];
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(d1Response), { status: 200 })));
+    const result = await fetchComments("test", "https://comments.example.com");
+    // Should be a valid ISO date string, not empty
+    expect(result[0]!.createdAt).toBeTruthy();
+    expect(new Date(result[0]!.createdAt).getTime()).not.toBeNaN();
+  });
+
   it("maps snake_case fields from D1 API to camelCase", async () => {
     // D1 returns snake_case (created_at, approved_at) but Comment type uses camelCase
     const d1Response = [
