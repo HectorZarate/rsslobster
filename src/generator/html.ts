@@ -156,7 +156,6 @@ export function generateHtmlPage(
   const nav = renderNav(config);
   const favicon = faviconLinkTags(generateFaviconSvg(config.title, config.style.preset, config.style.overrides), config.style.preset, config.style.overrides);
 
-  // Combine all head injections
   const ogTags = generateOgTags(content, config, options?.pageUrl);
   const jsonLd = generateJsonLd(content, config, options?.pageUrl);
   const pluginHead = options?.pluginInjections?.head ?? "";
@@ -166,7 +165,6 @@ export function generateHtmlPage(
   const articleFooter = options?.pluginInjections?.articleFooter ?? "";
   const bodyEnd = options?.pluginInjections?.bodyEnd ?? "";
 
-  // Comments section: baked into static HTML when comments data is provided
   const commentsHtml = options?.commentsSubmitUrl
     ? `\n      ${renderCommentsSection(options.comments ?? [], content.slug, options.commentsSubmitUrl)}`
     : "";
@@ -383,7 +381,6 @@ export function generateBlogrollPage(
   const nav = renderNav(config);
   const favicon = faviconLinkTags(generateFaviconSvg(config.title, config.style.preset, config.style.overrides), config.style.preset, config.style.overrides);
 
-  // Group by folder
   const folders = new Map<string, BlogrollEntry[]>();
   for (const entry of entries) {
     const key = entry.folder ?? "";
@@ -392,7 +389,6 @@ export function generateBlogrollPage(
     folders.set(key, list);
   }
 
-  // Render entries as a list — title links to siteUrl if available, feedUrl otherwise
   function renderEntries(items: BlogrollEntry[]): string {
     return items
       .map((e) => {
@@ -406,10 +402,8 @@ export function generateBlogrollPage(
   let content: string;
   const sortedKeys = [...folders.keys()].sort();
   if (sortedKeys.length === 1 && sortedKeys[0] === "") {
-    // No folders — flat list
     content = `    <ul class="blogroll">\n${renderEntries(folders.get("")!)}\n    </ul>`;
   } else {
-    // Grouped by folder
     content = sortedKeys
       .map((key) => {
         const heading = key ? `    <h2>${escHtml(key)}</h2>` : `    <h2>Uncategorized</h2>`;

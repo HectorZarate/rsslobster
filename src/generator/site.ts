@@ -78,7 +78,6 @@ export async function addContent(
   await initMarkdown();
   const config = await readSiteConfig(siteDir);
 
-  // Load custom CSS if configured and fold into style overrides
   if (config.style.cssFile) {
     const customCss = await loadCustomCss(siteDir, config.style.cssFile);
     if (customCss) {
@@ -90,7 +89,6 @@ export async function addContent(
 
   const posts = await readPostsIndex(siteDir);
 
-  // Resolve slug collisions — append -2, -3, etc. if slug already exists
   const existingSlugs = new Set(posts.map((p) => p.slug));
   let slug = content.slug;
   let counter = 1;
@@ -101,7 +99,6 @@ export async function addContent(
     content = { ...content, slug };
   }
 
-  // Resolve permalink path
   const permalink = expandPermalink(config.permalink, content);
   const dir = permalinkDir(permalink);
   const outDir = outputDir(siteDir);
@@ -109,7 +106,6 @@ export async function addContent(
     await mkdir(join(outDir, dir), { recursive: true });
   }
 
-  // Generate HTML page with OG, JSON-LD, plugin injections, and comments
   const pageUrl = `https://${config.domain}${permalink}`;
   const commentsSubmitUrl = config.commentsEndpoint
     ? `${config.commentsEndpoint}/submit`
@@ -121,22 +117,18 @@ export async function addContent(
     commentsSubmitUrl,
   });
 
-  // Write to the permalink path (strip leading /)
   const htmlPath = permalink.startsWith("/") ? permalink.slice(1) : permalink;
   await writeFile(join(outDir, htmlPath), html);
 
-  // Create post record
   const post: Post = {
     ...content,
     url: pageUrl,
     publishedAt: new Date().toISOString(),
   };
 
-  // Prepend to posts (newest first)
   posts.unshift(post);
   await writePostsIndex(siteDir, posts);
 
-  // Rebuild feeds, index, search, SEO, pages, and blogroll — all independent, run in parallel
   await Promise.all([
     rebuildFeeds(siteDir, config, posts),
     rebuildIndex(siteDir, config, posts, options?.pluginInjections),
@@ -166,7 +158,6 @@ export async function deletePost(
   posts.splice(idx, 1);
   await writePostsIndex(siteDir, posts);
 
-  // Delete the generated HTML directory for this post
   const domain = `https://${config.domain}`;
   const permalink = post.url.startsWith(domain)
     ? post.url.slice(domain.length)
@@ -179,7 +170,6 @@ export async function deletePost(
     await rm(join(outDir, htmlPath), { force: true });
   }
 
-  // Rebuild feeds, index, search, SEO
   await Promise.all([
     rebuildFeeds(siteDir, config, posts),
     rebuildIndex(siteDir, config, posts),
@@ -297,11 +287,9 @@ export async function scaffoldSite(
   await writeSiteConfig(siteDir, config);
   await writePostsIndex(siteDir, []);
 
-  // Generate favicon and OG image
   await writeFavicon(siteDir, config.title, config.style.preset, config.style.overrides);
   await writeOgImage(siteDir, config.title, config.description, config.style.preset, config.style.overrides);
 
-  // Generate empty index, feeds, search, SEO, and pages
   await rebuildFeeds(siteDir, config, []);
   await rebuildIndex(siteDir, config, []);
   await writeSearchIndex(siteDir, []);

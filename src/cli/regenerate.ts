@@ -41,7 +41,6 @@ export async function regenerateSite(
   await initMarkdown();
   const config = await readSiteConfig(siteDir);
 
-  // Load custom CSS if configured
   if (config.style.cssFile) {
     const customCss = await loadCustomCss(siteDir, config.style.cssFile);
     if (customCss) {
@@ -54,7 +53,6 @@ export async function regenerateSite(
   const posts = await readPostsIndex(siteDir);
   const outDir = outputDir(siteDir);
 
-  // Determine which posts to regenerate HTML for
   const targetPosts = options?.slug
     ? posts.filter((p) => p.slug === options.slug)
     : posts;
@@ -63,15 +61,12 @@ export async function regenerateSite(
     throw new Error(`Post with slug "${options.slug}" not found`);
   }
 
-  // Comments endpoint for baking comments into pages
   const commentsEndpoint = config.commentsEndpoint;
   const commentsSubmitUrl = commentsEndpoint
     ? `${commentsEndpoint}/submit`
     : undefined;
 
-  // Regenerate each target post's HTML page
   for (const post of targetPosts) {
-    // Derive file path from stored URL (O(1) string manipulation)
     const domain = `https://${config.domain}`;
     const permalink = post.url.startsWith(domain)
       ? post.url.slice(domain.length)
@@ -82,7 +77,6 @@ export async function regenerateSite(
       await mkdir(join(outDir, dir), { recursive: true });
     }
 
-    // Fetch comments from Worker API if endpoint is configured
     let comments;
     if (commentsEndpoint) {
       comments = await fetchComments(post.slug, commentsEndpoint);
@@ -97,7 +91,6 @@ export async function regenerateSite(
     await writeFile(join(outDir, htmlPath), html);
   }
 
-  // Rebuild assets, feeds, index, search, SEO, pages, and blogroll
   await writeFavicon(siteDir, config.title, config.style.preset, config.style.overrides);
   await writeOgImage(siteDir, config.title, config.description, config.style.preset, config.style.overrides);
   await rebuildFeeds(siteDir, config, posts);
@@ -106,7 +99,6 @@ export async function regenerateSite(
   await writeSeo(siteDir, config, posts);
   await writePages(siteDir, config);
 
-  // Blogroll: render subscriptions as a public following page
   const subs = await listSubscriptions(siteDir);
   if (subs.length > 0) {
     const followingDir = join(outDir, "following");
