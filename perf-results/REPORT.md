@@ -220,6 +220,52 @@ Uses constant-arrival-rate to push a fixed CPS independent of response time. Ste
 | `scenario7-write-ceiling.txt` | Write ceiling (sustained) | 4 min | 5,609 |
 | `scenario8-cps-ceiling.txt` | CPS ceiling (arrival rate) | 3.5 min | 9,358 |
 
+## Scenario 9: Full Loop CPS (Live Rebuilds)
+
+**File:** `scenario9-cps-fullloop.txt`
+**Script:** `k6/cps-ceiling.js` (slug: `comments-load-test`)
+**Duration:** 3 minutes 33 seconds
+**Full pipeline active:** Worker -> D1 -> repository_dispatch -> GitHub Action -> regenerate --slug -> git push -> Cloudflare Pages deploy
+
+This test ran the CPS ramp (10-100 cps) with the complete rebuild pipeline active. A monitoring agent polled the live page every 15 seconds.
+
+### Live Dashboard (15-second polls)
+
+| Time | D1 (API) | Baked (CDN) | Page Size | Action Status |
+|------|----------|-------------|-----------|---------------|
+| 17:48:22 | 29 | 0 | 15.3 KB | queued |
+| 17:48:37 | 186 | 0 | 15.3 KB | in_progress |
+| 17:48:53 | 386 | 0 | 15.3 KB | queued |
+| 17:49:09 | 703 | **211** | **81.5 KB** | in_progress |
+| 17:49:26 | 1,081 | 211 | 81.5 KB | in_progress |
+| 17:49:41 | 1,572 | **704** | **236.9 KB** | success |
+| 17:49:58 | 2,125 | 704 | 236.9 KB | in_progress |
+| 17:50:15 | 2,711 | **1,436** | **468.4 KB** | in_progress |
+| 17:50:32 | 3,358 | 1,436 | 468.4 KB | queued |
+| 17:50:52 | 4,036 | 1,436 | 468.4 KB | queued |
+| 17:51:10 | ~4,700 | **2,516** | **810.1 KB** | queued |
+| 17:51:30 | 5,165 | **3,619** | **1,159 KB** | queued |
+| 17:51:46 | 6,278 | 3,619 | 1,159 KB | queued |
+| 17:52:02 | 6,690 | **5,168** | **1,649 KB** | queued |
+
+### Results
+
+| Metric | Result |
+|--------|--------|
+| Total stored in D1 | **6,690** (0 duplicates) |
+| Live rebuilds during test | **6** (page updated 6 times) |
+| Page size growth | 15.3 KB -> 1,649 KB |
+| Comments baked at test end | 5,168 / 6,690 (77%) |
+| Time to first bake | **~47 seconds** (0 -> 211 baked) |
+| Rebuild cadence | ~every 30-40 seconds |
+
+### Bottlenecks Identified
+
+1. **HTMLRewriter response**: Queries ALL comments from D1 on every submission. At 6,690 comments the query is expensive, causing 73% of higher-CPS submissions to timeout. Not relevant at production rates (5/IP/hour).
+2. **Debounce race condition**: Concurrent Workers bypass the 30-second debounce, triggering excess GitHub Action dispatches. Fixable with atomic compare-and-swap in D1.
+
+---
+
 ## k6 Test Scripts
 
 All scripts are in `computationalsubstrate/k6/`:
