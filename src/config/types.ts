@@ -23,6 +23,8 @@ export interface SiteConfig {
   plugins?: PluginConfigEntry[];
   /** Page slug to use as the homepage (index.html). Posts move to /posts/. */
   homepage?: string;
+  /** Base URL of the comments Worker (e.g. "https://comments.example.com"). Enables comment forms and baking. */
+  commentsEndpoint?: string;
 }
 
 /** A static page — not part of the chronological feed */
@@ -97,6 +99,8 @@ export interface ClassifiedContent {
   linkDescription?: string;
   createdAt: string;
   updatedAt: string;
+  /** Exclude this post from RSS/JSON feeds and the index page. The HTML page is still generated. */
+  noRss?: boolean;
 }
 
 export interface MediaAttachment {

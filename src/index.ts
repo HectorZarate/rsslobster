@@ -14,6 +14,7 @@ import { feedsCommand } from "./cli/feeds.js";
 import { enableCommand } from "./cli/enable.js";
 import { sitesCommand } from "./cli/sites.js";
 import { deleteCommand } from "./cli/delete.js";
+import { commentsCommand } from "./cli/comments.js";
 import { lobsterConfigExists } from "./config/lobster.js";
 
 const program = new Command();
@@ -37,6 +38,7 @@ program.addCommand(feedsCommand);
 program.addCommand(enableCommand);
 program.addCommand(sitesCommand);
 program.addCommand(deleteCommand);
+program.addCommand(commentsCommand);
 
 // Bare `rsslobster` with no subcommand: show status dashboard if in a configured directory
 const args = process.argv.slice(2);

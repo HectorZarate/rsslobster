@@ -5,6 +5,9 @@ import { generateFaviconSvg, faviconLinkTags } from "./favicon.js";
 import { renderNav, renderPageLinks } from "../pages/pages.js";
 import type { PageInjections } from "../plugins/types.js";
 import { renderMarkdown, renderInline } from "./markdown.js";
+import type { Comment } from "../comments/render.js";
+import { renderCommentsSection } from "../comments/render.js";
+import { commentStyles } from "../comments/styles.js";
 
 /**
  * Generate an HTML page from classified content.
@@ -28,6 +31,10 @@ export interface HtmlPageOptions {
   pluginInjections?: PageInjections;
   /** Override the URL for this page (used with permalink patterns) */
   pageUrl?: string;
+  /** Comments to bake into the page */
+  comments?: Comment[];
+  /** URL for the comment submission endpoint */
+  commentsSubmitUrl?: string;
 }
 
 /** Return HtmlPageOptions for a preview page: noindex meta + banner. */
@@ -159,6 +166,12 @@ export function generateHtmlPage(
   const articleFooter = options?.pluginInjections?.articleFooter ?? "";
   const bodyEnd = options?.pluginInjections?.bodyEnd ?? "";
 
+  // Comments section: baked into static HTML when comments data is provided
+  const commentsHtml = options?.commentsSubmitUrl
+    ? `\n      ${renderCommentsSection(options.comments ?? [], content.slug, options.commentsSubmitUrl)}`
+    : "";
+  const commentsCss = options?.commentsSubmitUrl ? commentStyles() : "";
+
   return `<!DOCTYPE html>
 <html lang="${escHtml(config.language)}">
 <head>
@@ -172,7 +185,7 @@ export function generateHtmlPage(
   ${favicon}
   <link rel="alternate" type="application/rss+xml" title="${escAttr(config.title)}" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="${escAttr(config.title)}" href="/feed.json">
-  <style>${css}</style>${pluginHead}${extraHead}
+  <style>${css}${commentsCss}</style>${pluginHead}${extraHead}
 </head>
 <body>${bodyPrefix}
   <a class="skip-link" href="#main">Skip to content</a>
@@ -188,7 +201,7 @@ export function generateHtmlPage(
       <footer class="meta">
         <time datetime="${escAttr(content.createdAt)}">${formatDate(content.createdAt)}</time>
         ${renderTags(content.tags)}
-      </footer>${articleFooter}
+      </footer>${articleFooter}${commentsHtml}
     </article>
   </main>
 ${renderSiteFooter(config)}

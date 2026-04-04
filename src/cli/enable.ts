@@ -294,6 +294,62 @@ async function enableDeploy(siteDir: string): Promise<void> {
   );
 }
 
+/**
+ * Non-interactive comments enablement — used by tests and scripted setup.
+ * Writes commentsEndpoint to rsslobster.json and commentsAdminSecret to lobster.json.
+ */
+export async function enableCommentsNonInteractive(
+  siteDir: string,
+  endpoint: string,
+  adminSecret: string,
+): Promise<void> {
+  // Update rsslobster.json
+  const siteConfigPath = join(siteDir, "rsslobster.json");
+  const raw = await readFile(siteConfigPath, "utf-8");
+  const siteConfig = JSON.parse(raw) as Record<string, unknown>;
+  siteConfig.commentsEndpoint = endpoint;
+  const { writeFile: wf } = await import("node:fs/promises");
+  await wf(siteConfigPath, JSON.stringify(siteConfig, null, 2));
+
+  // Update lobster.json
+  await writeLobsterConfig(siteDir, {
+    commentsAdminSecret: adminSecret,
+  } as Partial<LobsterConfig> & { commentsAdminSecret: string });
+}
+
+/** Interactive comments enablement. */
+async function enableComments(siteDir: string): Promise<void> {
+  const rl = createPrompt();
+
+  console.log(
+    pc.dim(
+      "\nComments setup — configure the comments Worker endpoint.",
+    ),
+  );
+
+  const endpoint = await ask(rl, "Comments Worker URL (e.g. https://comments.yourdomain.com)");
+  if (!endpoint) {
+    console.error(pc.red("Comments endpoint URL is required."));
+    rl.close();
+    process.exit(1);
+  }
+
+  const secret = await ask(rl, "Admin secret (for approving/rejecting comments)");
+  if (!secret) {
+    console.error(pc.red("Admin secret is required."));
+    rl.close();
+    process.exit(1);
+  }
+
+  rl.close();
+
+  await enableCommentsNonInteractive(siteDir, endpoint, secret);
+
+  console.log(
+    pc.green("\n[OK] Comments configured. Comment forms will appear on post pages.\n"),
+  );
+}
+
 export const enableCommand = new Command("enable")
   .description("Enable a capability (telegram, model, deploy)")
   .argument("[capability]", "What to enable: telegram, model, deploy")
@@ -329,10 +385,13 @@ export const enableCommand = new Command("enable")
         case "deploy":
           await enableDeploy(siteDir);
           break;
+        case "comments":
+          await enableComments(siteDir);
+          break;
         default:
           console.error(
             pc.red(
-              `Unknown capability: "${capability}". Use: telegram, model, deploy`,
+              `Unknown capability: "${capability}". Use: telegram, model, deploy, comments`,
             ),
           );
           process.exit(1);

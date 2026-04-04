@@ -6,6 +6,7 @@ import {
   readLobsterConfig,
   writeLobsterConfig,
 } from "../config/lobster.js";
+import { enableCommentsNonInteractive } from "./enable.js";
 
 describe("enable commands", () => {
   let dir: string;
@@ -129,6 +130,73 @@ describe("enable commands", () => {
 
       const config = await readLobsterConfig(dir);
       expect(config.channel).toBe("webhook");
+    });
+  });
+
+  describe("enable comments (config write)", () => {
+    it("writes commentsEndpoint to rsslobster.json", async () => {
+      await writeFile(
+        join(dir, "rsslobster.json"),
+        JSON.stringify({
+          domain: "test.example.com",
+          title: "Test",
+          description: "Test",
+          author: "Tester",
+          language: "en",
+          style: { preset: "minimal" },
+          repo: "",
+        }),
+      );
+
+      await enableCommentsNonInteractive(dir, "https://comments.example.com", "secret");
+
+      const raw = await readFile(join(dir, "rsslobster.json"), "utf-8");
+      const config = JSON.parse(raw);
+      expect(config.commentsEndpoint).toBe("https://comments.example.com");
+    });
+
+    it("writes commentsAdminSecret to lobster.json", async () => {
+      await writeFile(
+        join(dir, "rsslobster.json"),
+        JSON.stringify({
+          domain: "test.example.com",
+          title: "Test",
+          description: "Test",
+          author: "Tester",
+          language: "en",
+          style: { preset: "minimal" },
+          repo: "",
+        }),
+      );
+
+      await enableCommentsNonInteractive(dir, "https://comments.example.com", "my-secret");
+
+      const config = await readLobsterConfig(dir);
+      expect((config as Record<string, unknown>).commentsAdminSecret).toBe("my-secret");
+    });
+
+    it("preserves existing rsslobster.json fields", async () => {
+      await writeFile(
+        join(dir, "rsslobster.json"),
+        JSON.stringify({
+          domain: "keep-this.com",
+          title: "Keep This",
+          description: "Keep",
+          author: "Keep",
+          language: "en",
+          style: { preset: "brutalist" },
+          repo: "git@github.com:user/site.git",
+        }),
+      );
+
+      await enableCommentsNonInteractive(dir, "https://comments.example.com", "secret");
+
+      const raw = await readFile(join(dir, "rsslobster.json"), "utf-8");
+      const config = JSON.parse(raw);
+      expect(config.domain).toBe("keep-this.com");
+      expect(config.style.preset).toBe("brutalist");
+      expect(config.repo).toBe("git@github.com:user/site.git");
+      expect(config.commentsEndpoint).toBe("https://comments.example.com");
     });
   });
 

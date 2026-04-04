@@ -18,13 +18,26 @@ import { loadCustomCss } from "../styles/presets.js";
 import { permalinkDir } from "../config/permalink.js";
 import { writeFavicon, writeOgImage } from "../generator/favicon.js";
 import { listSubscriptions } from "../reader/subscriptions.js";
+import { fetchComments } from "../comments/fetch.js";
+
+/** Options for regeneration */
+export interface RegenerateOptions {
+  /** Only regenerate the page for this slug */
+  slug?: string;
+}
 
 /**
- * Regenerate all HTML pages, feeds, and search index from existing posts.
+ * Regenerate HTML pages, feeds, and search index from existing posts.
  * Reads posts.json + rsslobster.json and rebuilds everything.
  * Does not modify posts.json or rsslobster.json.
+ *
+ * When `options.slug` is provided, only the matching post's HTML is regenerated.
+ * Feeds, index, search, and SEO are always rebuilt.
  */
-export async function regenerateSite(siteDir: string): Promise<void> {
+export async function regenerateSite(
+  siteDir: string,
+  options?: RegenerateOptions,
+): Promise<void> {
   await initMarkdown();
   const config = await readSiteConfig(siteDir);
 
@@ -39,11 +52,25 @@ export async function regenerateSite(siteDir: string): Promise<void> {
   }
 
   const posts = await readPostsIndex(siteDir);
-
   const outDir = outputDir(siteDir);
 
-  // Regenerate each post's HTML page
-  for (const post of posts) {
+  // Determine which posts to regenerate HTML for
+  const targetPosts = options?.slug
+    ? posts.filter((p) => p.slug === options.slug)
+    : posts;
+
+  if (options?.slug && targetPosts.length === 0) {
+    throw new Error(`Post with slug "${options.slug}" not found`);
+  }
+
+  // Comments endpoint for baking comments into pages
+  const commentsEndpoint = config.commentsEndpoint;
+  const commentsSubmitUrl = commentsEndpoint
+    ? `${commentsEndpoint}/submit`
+    : undefined;
+
+  // Regenerate each target post's HTML page
+  for (const post of targetPosts) {
     // Derive file path from stored URL (O(1) string manipulation)
     const domain = `https://${config.domain}`;
     const permalink = post.url.startsWith(domain)
@@ -55,7 +82,17 @@ export async function regenerateSite(siteDir: string): Promise<void> {
       await mkdir(join(outDir, dir), { recursive: true });
     }
 
-    const html = generateHtmlPage(post, config, { pageUrl: post.url });
+    // Fetch comments from Worker API if endpoint is configured
+    let comments;
+    if (commentsEndpoint) {
+      comments = await fetchComments(post.slug, commentsEndpoint);
+    }
+
+    const html = generateHtmlPage(post, config, {
+      pageUrl: post.url,
+      comments,
+      commentsSubmitUrl,
+    });
     const htmlPath = permalink.startsWith("/") ? permalink.slice(1) : permalink;
     await writeFile(join(outDir, htmlPath), html);
   }
@@ -84,11 +121,15 @@ export const regenerateCommand = new Command("regenerate")
     "Regenerate all HTML pages, feeds, and search index from existing posts",
   )
   .argument("[site-dir]", "Path to the site directory", ".")
-  .action(async (siteDirArg: string) => {
+  .option("--slug <slug>", "Only regenerate the page for this post slug")
+  .action(async (siteDirArg: string, opts: { slug?: string }) => {
     const siteDir = resolve(siteDirArg);
     try {
-      await regenerateSite(siteDir);
-      console.log(pc.green("Regenerated all pages."));
+      await regenerateSite(siteDir, { slug: opts.slug });
+      const msg = opts.slug
+        ? `Regenerated page for "${opts.slug}".`
+        : "Regenerated all pages.";
+      console.log(pc.green(msg));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Regeneration failed";
       console.error(pc.red(msg));

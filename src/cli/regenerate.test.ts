@@ -235,6 +235,105 @@ describe("regenerateSite", () => {
   });
 });
 
+describe("regenerateSite with slug filter", () => {
+  let siteDir: string;
+
+  beforeEach(async () => {
+    siteDir = await mkdtemp(join(tmpdir(), "rsslobster-regen-slug-"));
+  });
+
+  it("regenerates only the specified post when slug is provided", async () => {
+    await scaffoldSite(siteDir, SITE_CONFIG);
+    await addContent(siteDir, MICRO);
+    await addContent(siteDir, POST);
+
+    // Corrupt the target post's HTML
+    const postPath = join(siteDir, "_site", "posts", "hello-test", "index.html");
+    await writeFile(postPath, "CORRUPTED");
+
+    await regenerateSite(siteDir, { slug: "hello-test" });
+
+    const html = await readFile(postPath, "utf-8");
+    expect(html).toContain("Hello from the test suite");
+    expect(html).not.toBe("CORRUPTED");
+  });
+
+  it("does not regenerate other posts when slug is provided", async () => {
+    await scaffoldSite(siteDir, SITE_CONFIG);
+    await addContent(siteDir, MICRO);
+    await addContent(siteDir, POST);
+
+    // Corrupt the OTHER post to prove it's untouched
+    const otherPath = join(siteDir, "_site", "posts", "why-rss-matters", "index.html");
+    await writeFile(otherPath, "UNTOUCHED");
+
+    await regenerateSite(siteDir, { slug: "hello-test" });
+
+    const html = await readFile(otherPath, "utf-8");
+    expect(html).toBe("UNTOUCHED");
+  });
+
+  it("still rebuilds feeds when slug is specified", async () => {
+    await scaffoldSite(siteDir, SITE_CONFIG);
+    await addContent(siteDir, MICRO);
+
+    await writeFile(join(siteDir, "_site", "feed.xml"), "CORRUPTED");
+    await regenerateSite(siteDir, { slug: "hello-test" });
+
+    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
+    expect(rss).toContain("hello-test");
+  });
+
+  it("throws for nonexistent slug", async () => {
+    await scaffoldSite(siteDir, SITE_CONFIG);
+    await addContent(siteDir, MICRO);
+
+    await expect(
+      regenerateSite(siteDir, { slug: "nonexistent" }),
+    ).rejects.toThrow();
+  });
+});
+
+describe("regenerateSite with comments", () => {
+  let siteDir: string;
+
+  beforeEach(async () => {
+    siteDir = await mkdtemp(join(tmpdir(), "rsslobster-regen-comments-"));
+  });
+
+  it("includes comment form when commentsEndpoint is configured", async () => {
+    const configWithComments: SiteConfig = {
+      ...SITE_CONFIG,
+      commentsEndpoint: "https://comments.example.com",
+    };
+    await scaffoldSite(siteDir, configWithComments);
+    await addContent(siteDir, MICRO);
+
+    await regenerateSite(siteDir);
+
+    const html = await readFile(
+      join(siteDir, "_site", "posts", "hello-test", "index.html"),
+      "utf-8",
+    );
+    expect(html).toContain('<section id="comments"');
+    expect(html).toContain("<form");
+    expect(html).toContain("https://comments.example.com/submit");
+  });
+
+  it("does not include comments section without commentsEndpoint", async () => {
+    await scaffoldSite(siteDir, SITE_CONFIG);
+    await addContent(siteDir, MICRO);
+
+    await regenerateSite(siteDir);
+
+    const html = await readFile(
+      join(siteDir, "_site", "posts", "hello-test", "index.html"),
+      "utf-8",
+    );
+    expect(html).not.toContain('<section id="comments"');
+  });
+});
+
 describe("regenerateCommand", () => {
   it("is named regenerate", () => {
     expect(regenerateCommand.name()).toBe("regenerate");
@@ -243,5 +342,12 @@ describe("regenerateCommand", () => {
   it("accepts optional site-dir argument", () => {
     const args = regenerateCommand.registeredArguments;
     expect(args.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("accepts optional --slug flag", () => {
+    const slugOption = regenerateCommand.options.find(
+      (o) => o.long === "--slug",
+    );
+    expect(slugOption).toBeDefined();
   });
 });

@@ -109,11 +109,16 @@ export async function addContent(
     await mkdir(join(outDir, dir), { recursive: true });
   }
 
-  // Generate HTML page with OG, JSON-LD, and plugin injections
+  // Generate HTML page with OG, JSON-LD, plugin injections, and comments
   const pageUrl = `https://${config.domain}${permalink}`;
+  const commentsSubmitUrl = config.commentsEndpoint
+    ? `${config.commentsEndpoint}/submit`
+    : undefined;
   const html = generateHtmlPage(content, config, {
     pluginInjections: options?.pluginInjections,
     pageUrl,
+    comments: [],
+    commentsSubmitUrl,
   });
 
   // Write to the permalink path (strip leading /)
@@ -201,7 +206,8 @@ export async function rebuildFeeds(
     imageUrl: `https://${config.domain}/icon.png`,
   };
 
-  const items: FeedItem[] = posts.slice(0, 20).map((p) => ({
+  const feedPosts = posts.filter((p) => !p.noRss);
+  const items: FeedItem[] = feedPosts.slice(0, 20).map((p) => ({
     title: p.title,
     link: p.url,
     description: renderMarkdown(p.body),
@@ -252,7 +258,8 @@ export async function rebuildIndex(
   injections?: PageInjections,
 ): Promise<void> {
   const outDir = outputDir(siteDir);
-  const html = generateIndexPage(posts, config, injections);
+  const visiblePosts = posts.filter((p) => !p.noRss);
+  const html = generateIndexPage(visiblePosts, config, injections);
 
   // If a homepage page is set, post listing goes to /posts/index.html
   if (config.homepage) {
@@ -264,8 +271,8 @@ export async function rebuildIndex(
   }
 
   // Generate archive page if there are enough posts
-  if (posts.length > 30) {
-    const archive = generateArchivePage(posts, config, injections);
+  if (visiblePosts.length > 30) {
+    const archive = generateArchivePage(visiblePosts, config, injections);
     await writeFile(join(outDir, "archive.html"), archive);
   }
 }

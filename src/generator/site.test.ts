@@ -265,3 +265,76 @@ describe("rebuildFeeds", () => {
     expect(feed.items).toHaveLength(20);
   });
 });
+
+describe("noRss flag", () => {
+  it("excludes noRss posts from RSS feed", async () => {
+    await scaffoldSite(siteDir, CONFIG);
+    await addContent(siteDir, MICRO);
+    await addContent(siteDir, {
+      ...POST,
+      slug: "hidden-post",
+      noRss: true,
+    });
+
+    const raw = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
+    expect(raw).toContain("hello-test");
+    expect(raw).not.toContain("hidden-post");
+  });
+
+  it("excludes noRss posts from JSON feed", async () => {
+    await scaffoldSite(siteDir, CONFIG);
+    await addContent(siteDir, MICRO);
+    await addContent(siteDir, {
+      ...POST,
+      slug: "hidden-post",
+      noRss: true,
+    });
+
+    const raw = await readFile(join(siteDir, "_site", "feed.json"), "utf-8");
+    const feed = JSON.parse(raw);
+    expect(feed.items).toHaveLength(1);
+    expect(feed.items[0].url).toContain("hello-test");
+  });
+
+  it("excludes noRss posts from index page", async () => {
+    await scaffoldSite(siteDir, CONFIG);
+    await addContent(siteDir, MICRO);
+    await addContent(siteDir, {
+      ...POST,
+      slug: "hidden-post",
+      noRss: true,
+    });
+
+    const html = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
+    expect(html).toContain("hello-test");
+    expect(html).not.toContain("hidden-post");
+  });
+
+  it("still generates HTML page for noRss posts", async () => {
+    await scaffoldSite(siteDir, CONFIG);
+    await addContent(siteDir, {
+      ...POST,
+      slug: "hidden-post",
+      noRss: true,
+    });
+
+    const html = await readFile(
+      join(siteDir, "_site", "posts", "hidden-post", "index.html"),
+      "utf-8",
+    );
+    expect(html).toContain("Test Blog Post");
+  });
+
+  it("still includes noRss posts in posts.json", async () => {
+    await scaffoldSite(siteDir, CONFIG);
+    await addContent(siteDir, {
+      ...POST,
+      slug: "hidden-post",
+      noRss: true,
+    });
+
+    const posts = await readPostsIndex(siteDir);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.slug).toBe("hidden-post");
+  });
+});
