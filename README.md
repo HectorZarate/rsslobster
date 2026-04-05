@@ -128,14 +128,16 @@ jobs:
           git push
 ```
 
-Then set the Worker secrets so it can fire the dispatch:
+Then create a GitHub token and set the Worker secrets so it can fire the dispatch:
 
 ```bash
-# Create a GitHub PAT with repo scope at https://github.com/settings/tokens
-wrangler secret put GITHUB_TOKEN     # paste your PAT
+# Create a fine-grained PAT scoped to your site repo
+gh auth refresh --scopes repo
+GITHUB_TOKEN=$(gh auth token)
 
-# Set your repo (owner/repo format)
+# Set the token and repo on the Worker
 cd worker
+echo "$GITHUB_TOKEN" | wrangler secret put GITHUB_TOKEN
 wrangler var put GITHUB_REPO --value "yourname/yoursite"
 ```
 
