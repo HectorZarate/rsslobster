@@ -324,9 +324,8 @@ wrangler d1 create comments
 cd worker
 wrangler deploy
 
-# 3. Set secrets on the Worker
-wrangler secret put ADMIN_SECRET      # for approving/rejecting
-wrangler secret put GITHUB_TOKEN      # for triggering rebuilds
+# 3. Set the admin secret on the Worker
+wrangler secret put ADMIN_SECRET      # for approving/rejecting comments
 
 # 4. Enable comments in rsslobster
 rsslobster enable comments
@@ -416,11 +415,9 @@ Worker env vars (set via `wrangler secret put` or `wrangler.toml`):
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `ADMIN_SECRET` | Yes | — | Bearer token for moderation API |
-| `GITHUB_TOKEN` | No | — | PAT for triggering rebuild via `repository_dispatch` |
 | `MODERATION` | No | `off` | `on` = new comments start as pending. `off` = auto-approve |
 | `RATE_LIMIT` | No | `5` | Max comments per IP per hour |
 | `SITE_URL` | Yes | — | Your site URL (for redirects and CSRF check) |
-| `GITHUB_REPO` | No | — | `owner/repo` for rebuild dispatch |
 
 ### Excluding posts from comments
 
