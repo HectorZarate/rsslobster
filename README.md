@@ -392,6 +392,55 @@ Built into the Worker, no configuration needed:
 
 **Comment statuses:** `pending` → `approved` or `rejected` or `spam`. Only `approved` comments appear on the site.
 
+### Auto-rebuild with GitHub Actions
+
+When the Worker receives a comment, it fires a `repository_dispatch` event to GitHub. This Action rebuilds the affected page and pushes the update — Cloudflare Pages (or any git-based host) deploys automatically.
+
+```yaml
+# .github/workflows/rebuild-comments.yml
+name: Rebuild page with comments
+on:
+  repository_dispatch:
+    types: [rebuild-comments]
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      - name: Install rsslobster
+        run: |
+          git clone --depth 1 https://github.com/HectorZarate/rsslobster.git /tmp/rsslobster
+          cd /tmp/rsslobster
+          pnpm install --frozen-lockfile
+          pnpm build
+          pnpm link --global
+
+      - name: Regenerate page
+        run: rsslobster regenerate --slug ${{ github.event.client_payload.slug }} .
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add _site/
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "rebuild: bake comments into ${{ github.event.client_payload.slug }}"
+          git push
+```
+
+The Worker needs a GitHub token (`GITHUB_TOKEN` secret via `wrangler secret put`) and the repo name (`GITHUB_REPO` env var) to fire the dispatch. The debounce logic coalesces rapid submissions — dozens of comments in a minute trigger only a few rebuilds.
+
+**Without GitHub Actions:** Comments still work. The commenter sees their comment instantly via HTMLRewriter. Other visitors see it after your next `rsslobster regenerate` + deploy (manual or scheduled).
+
 ### Configuration
 
 In `rsslobster.json`:
