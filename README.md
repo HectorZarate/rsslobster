@@ -128,7 +128,18 @@ jobs:
           git push
 ```
 
-Set `GITHUB_TOKEN` and `GITHUB_REPO` on the Worker (`wrangler secret put`) to enable the dispatch. Without this, comments still work — the commenter sees their comment instantly via HTMLRewriter, and everyone else sees it after your next manual `rsslobster regenerate` + deploy.
+Then set the Worker secrets so it can fire the dispatch:
+
+```bash
+# Create a GitHub PAT with repo scope at https://github.com/settings/tokens
+wrangler secret put GITHUB_TOKEN     # paste your PAT
+
+# Set your repo (owner/repo format)
+cd worker
+wrangler var put GITHUB_REPO --value "yourname/yoursite"
+```
+
+Without this, comments still work — the commenter sees their comment instantly via HTMLRewriter, and everyone else sees it after your next `rsslobster regenerate` + deploy.
 
 ### 5. Moderate comments
 
