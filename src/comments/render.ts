@@ -51,9 +51,14 @@ export function renderCommentList(comments: Comment[]): string {
 export function renderCommentForm(
   slug: string,
   submitUrl: string,
+  options?: { redirectUrl?: string },
 ): string {
+  const redirectField = options?.redirectUrl
+    ? `\n      <input type="hidden" name="redirect" value="${escHtml(options.redirectUrl)}">`
+    : "";
+
   return `<form method="POST" action="${escHtml(submitUrl)}" class="comment-form">
-      <input type="hidden" name="slug" value="${escHtml(slug)}">
+      <input type="hidden" name="slug" value="${escHtml(slug)}">${redirectField}
       <div>
         <label for="comment-author">Name</label>
         <input type="text" name="author" id="comment-author" required>
@@ -71,7 +76,8 @@ export function renderCommentsSection(
   comments: Comment[],
   slug: string,
   submitUrl: string,
+  options?: { redirectUrl?: string },
 ): string {
   return `${renderCommentList(comments)}
-    ${renderCommentForm(slug, submitUrl)}`;
+    ${renderCommentForm(slug, submitUrl, options)}`;
 }

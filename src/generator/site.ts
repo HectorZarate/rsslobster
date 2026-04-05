@@ -267,10 +267,16 @@ export async function rebuildIndex(
   }
 }
 
+export interface ScaffoldOptions {
+  /** Deploy platform — generates platform-specific config files */
+  platform?: "cloudflare" | "github-pages" | "none";
+}
+
 /** Scaffold a new site directory */
 export async function scaffoldSite(
   siteDir: string,
   config: SiteConfig,
+  options?: ScaffoldOptions,
 ): Promise<void> {
   await mkdir(siteDir, { recursive: true });
   const outDir = outputDir(siteDir);
@@ -295,6 +301,21 @@ export async function scaffoldSite(
   await writeSearchIndex(siteDir, []);
   await writeSeo(siteDir, config, []);
   await writePages(siteDir, config);
+
+  // Platform-specific deploy config
+  if (options?.platform === "cloudflare") {
+    await writeCloudflareConfig(siteDir, config);
+  }
+}
+
+/** Generate wrangler.toml for Cloudflare Pages deployment */
+async function writeCloudflareConfig(siteDir: string, config: SiteConfig): Promise<void> {
+  const projectName = config.domain.replace(/\./g, "-");
+  const content = `# Cloudflare Pages — deploy with \`npx wrangler deploy\`
+name = "${projectName}"
+pages_build_output_dir = "_site"
+`;
+  await writeFile(join(siteDir, "wrangler.toml"), content);
 }
 
 const MIME_MAP: Record<string, string> = {

@@ -165,8 +165,9 @@ export function generateHtmlPage(
   const articleFooter = options?.pluginInjections?.articleFooter ?? "";
   const bodyEnd = options?.pluginInjections?.bodyEnd ?? "";
 
+  const postUrl = options?.pageUrl ?? `https://${config.domain}/posts/${content.slug}/`;
   const commentsHtml = options?.commentsSubmitUrl
-    ? `\n      ${renderCommentsSection(options.comments ?? [], content.slug, options.commentsSubmitUrl)}`
+    ? `\n      ${renderCommentsSection(options.comments ?? [], content.slug, options.commentsSubmitUrl, { redirectUrl: postUrl })}`
     : "";
   const commentsCss = options?.commentsSubmitUrl ? commentStyles() : "";
 

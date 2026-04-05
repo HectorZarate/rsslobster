@@ -155,6 +155,17 @@ describe("renderCommentForm", () => {
     const html = renderCommentForm("test-post", SUBMIT_URL);
     expect(html).toContain('type="submit"');
   });
+
+  it("includes redirect field when redirectUrl provided", () => {
+    const html = renderCommentForm("test-post", SUBMIT_URL, { redirectUrl: "https://example.com/posts/test-post/" });
+    expect(html).toContain('name="redirect"');
+    expect(html).toContain('value="https://example.com/posts/test-post/"');
+  });
+
+  it("omits redirect field when redirectUrl not provided", () => {
+    const html = renderCommentForm("test-post", SUBMIT_URL);
+    expect(html).not.toContain('name="redirect"');
+  });
 });
 
 describe("renderCommentsSection", () => {

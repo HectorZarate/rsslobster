@@ -15,6 +15,7 @@ export const initCommand = new Command("init")
     "minimal",
   )
   .option("--repo <repo>", "Git remote URL for deploy")
+  .option("--platform <platform>", "Deploy platform: cloudflare, github-pages, none", "none")
   .argument("[site-dir]", "Path to create site in", ".")
   .action(async (siteDir: string, opts: {
     domain: string;
@@ -24,6 +25,7 @@ export const initCommand = new Command("init")
     language: string;
     style: string;
     repo?: string;
+    platform: string;
   }) => {
     const config: SiteConfig = {
       domain: opts.domain,
@@ -35,6 +37,6 @@ export const initCommand = new Command("init")
       repo: opts.repo ?? "",
     };
 
-    await scaffoldSite(siteDir, config);
-    console.log(JSON.stringify({ ok: true, siteDir, config }));
+    await scaffoldSite(siteDir, config, { platform: opts.platform as "cloudflare" | "github-pages" | "none" });
+    console.log(JSON.stringify({ ok: true, siteDir, config, platform: opts.platform }));
   });
