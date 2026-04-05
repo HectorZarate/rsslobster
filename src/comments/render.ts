@@ -30,7 +30,11 @@ export function renderComment(comment: Comment): string {
 }
 
 /** Render a list of approved comments wrapped in a section */
-export function renderCommentList(comments: Comment[]): string {
+export function renderCommentList(
+  comments: Comment[],
+  options?: { sectionId?: string },
+): string {
+  const id = options?.sectionId ?? "comments";
   const approved = comments.filter((c) => c.status === "approved");
   const count = approved.length;
 
@@ -41,7 +45,7 @@ export function renderCommentList(comments: Comment[]): string {
 
   const items = approved.map((c) => renderComment(c)).join("\n      ");
 
-  return `<section id="comments" class="comments-section">
+  return `<section id="${id}" class="comments-section">
       ${heading}
       ${items}
     </section>`;

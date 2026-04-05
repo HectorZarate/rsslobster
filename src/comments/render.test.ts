@@ -107,6 +107,17 @@ describe("renderCommentList", () => {
     const bobPos = html.indexOf("Bob");
     expect(adaPos).toBeLessThan(bobPos);
   });
+
+  it("uses custom sectionId when provided", () => {
+    const html = renderCommentList([COMMENT], { sectionId: "ziscus" });
+    expect(html).toContain('<section id="ziscus"');
+    expect(html).not.toContain('id="comments"');
+  });
+
+  it("defaults to id='comments' without sectionId", () => {
+    const html = renderCommentList([COMMENT]);
+    expect(html).toContain('<section id="comments"');
+  });
 });
 
 describe("renderCommentForm", () => {
