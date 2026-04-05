@@ -4,62 +4,90 @@
 
 [![CI](https://github.com/HectorZarate/rsslobster/actions/workflows/ci.yml/badge.svg)](https://github.com/HectorZarate/rsslobster/actions/workflows/ci.yml)
 
-Personal publishing and reading system built on RSS. Send a message from any chat app — the lobster classifies it, generates a static HTML page, updates your feeds, and deploys. Subscribe to other people's feeds and read them in the same place. Zero JavaScript in the output. No algorithms. No platform.
+Personal publishing and reading system built on RSS. Send a message from any chat app, get a static site with feeds. Subscribe to other people's feeds in the same place. Zero JS output. No algorithms. No platform.
 
 ```
-publish:                              read:
+read:                                 publish:
 
-  phone → classify → html + rss         subscribe → poll → notify
-            ↓                                        ↓
-        git push → deploy               star → reblog → publish
-            ↓                                        ↓
-    live in < 4 seconds                 your site ← link post
+  subscribe → poll → notify             phone → classify → html + rss
+              ↓                                   ↓
+  star → reblog → publish               git push → deploy
+              ↓                                   ↓
+  your site ← link post                 live in < 4 seconds
 ```
 
-## Features
-
-**Publishing.** Send a message. The lobster classifies the type (micro, post, image, carousel, link, video, audio), generates semantic HTML with inlined CSS, updates RSS and JSON feeds, and deploys. Drafts, scheduling, and WebSub built in.
-
-**Reading.** Subscribe to feeds. Star, reblog, mark read. AI recaps. OPML import/export. Per-feed notification schedules.
-
-**Comments.** Zero-JS comment system baked into static HTML. Cloudflare Worker + D1 for storage, HTMLRewriter for instant feedback, GitHub Actions for auto-rebuilds. CLI moderation with approve, reject, spam, ban, pause, bulk actions. Honeypot, rate limiting, CSRF protection.
-
-**Styles.** Four presets (minimal, brutalist, magazine, terminal). System fonts, WCAG AA, zero external requests. See [DESIGN.md](DESIGN.md).
-
-**Multi-site.** Publish across multiple registered sites from one CLI.
-
-**Hooks.** Shell commands at `afterClassify`, `afterPublish`, `afterDeploy`.
-
-## Setup
+## Quick Start
 
 Requires Node.js >= 22.
-
-### 1. Create your site
 
 ```bash
 npm install -g rsslobster
 rsslobster onboard
 ```
 
-### 2. Add capabilities
+---
+
+## RSS Reader
+
+Subscribe to RSS and Atom feeds. Star, reblog, mark read. AI recaps on your schedule. OPML import/export.
+
+```bash
+rsslobster feed add https://simonwillison.net
+rsslobster feed                        # inbox
+rsslobster feed read 3                 # open entry
+rsslobster feed reblog 1 -m "Worth reading"
+```
+
+### CLI
+
+| Command | Description |
+|---------|-------------|
+| `feed` | Inbox, add, read, star, reblog, mark read, OPML |
+
+---
+
+## RSS Publisher
+
+Send a message. The lobster classifies type (micro, post, image, carousel, link, video, audio), generates semantic HTML with inlined CSS, updates RSS and JSON feeds, and deploys.
+
+```bash
+rsslobster publish "Hello"
+rsslobster start                       # daemon for chat-app publishing
+```
+
+### Capabilities
 
 ```bash
 rsslobster enable telegram   # publish from your phone
 rsslobster enable model      # AI classification (Ollama, OpenAI, Anthropic)
 rsslobster enable deploy     # auto-deploy via git push
-rsslobster enable comments   # comment system (requires Cloudflare Worker)
+rsslobster enable comments   # comment system (Cloudflare Worker)
 ```
 
-### 3. Read feeds
+### Styles
+
+Four presets: minimal, brutalist, magazine, terminal. System fonts, WCAG AA, zero external requests. See [DESIGN.md](DESIGN.md).
+
+### Multi-site
+
+Publish across multiple registered sites from one CLI.
+
+### Hooks
+
+Shell commands at `afterClassify`, `afterPublish`, `afterDeploy`.
+
+### Deploy
 
 ```bash
-rsslobster feed add https://simonwillison.net
-rsslobster feed
-rsslobster feed read 3
-rsslobster feed reblog 1 -m "Worth reading"
+rsslobster enable deploy
+rsslobster publish "Hello"
 ```
 
-### 4. Set up comments
+### Comments
+
+Zero-JS comment system baked into static HTML. Cloudflare Worker + D1 storage, HTMLRewriter for instant feedback, GitHub Actions auto-rebuilds. Honeypot, rate limiting, CSRF.
+
+#### Setup
 
 ```bash
 wrangler d1 create comments
@@ -70,7 +98,7 @@ rsslobster enable comments
 rsslobster regenerate
 ```
 
-For auto-rebuilds when comments are submitted, add this GitHub Action:
+For auto-rebuilds on new comments, add this GitHub Action:
 
 ```yaml
 # .github/workflows/rebuild-comments.yml
@@ -113,7 +141,7 @@ jobs:
           git push
 ```
 
-Then create a GitHub token so the Worker can trigger rebuilds:
+Create a GitHub token so the Worker can trigger rebuilds:
 
 1. Go to https://github.com/settings/personal-access-tokens/new
 2. **Repository access** → Only select repositories → pick your site repo
@@ -125,16 +153,16 @@ cd worker
 wrangler secret put GITHUB_TOKEN     # paste the token
 ```
 
-Set `GITHUB_REPO` in your `worker/wrangler.toml`:
+Set `GITHUB_REPO` in `worker/wrangler.toml`:
 
 ```toml
 [vars]
 GITHUB_REPO = "yourname/yoursite"
 ```
 
-Without this, comments still work — the commenter sees their comment instantly via HTMLRewriter, and everyone else sees it after your next `rsslobster regenerate` + deploy.
+Without this, comments still work — the commenter sees theirs instantly via HTMLRewriter; everyone else sees it after your next `rsslobster regenerate` + deploy.
 
-### 5. Moderate comments
+#### Moderation
 
 ```bash
 rsslobster comments                         # dashboard
@@ -149,14 +177,7 @@ rsslobster comments mode paused             # accept but hide
 rsslobster comments ban <ip-hash>
 ```
 
-### 6. Deploy
-
-```bash
-rsslobster enable deploy
-rsslobster publish "Hello"
-```
-
-## CLI reference
+### CLI
 
 | Command | Description |
 |---------|-------------|
@@ -167,9 +188,10 @@ rsslobster publish "Hello"
 | `dev` | Local preview |
 | `regenerate [--slug <s>]` | Rebuild pages |
 | `comments` | Moderation |
-| `feed` | RSS reader |
-| `sites` | Multi-site |
+| `sites` | Multi-site management |
 | `delete <slug>` | Remove a post |
+
+---
 
 ## Development
 
