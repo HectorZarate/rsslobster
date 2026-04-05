@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, readFile, writeFile, access } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -301,7 +301,15 @@ describe("regenerateSite with comments", () => {
     siteDir = await mkdtemp(join(tmpdir(), "rsslobster-regen-comments-"));
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("includes comment form when commentsEndpoint is configured", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response("[]", { status: 200 }),
+    ));
+
     const configWithComments: SiteConfig = {
       ...SITE_CONFIG,
       commentsEndpoint: "https://comments.example.com",

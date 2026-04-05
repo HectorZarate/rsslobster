@@ -28,7 +28,7 @@ export async function fetchComments(
     if (!res.ok) return [];
     const data = await res.json();
     if (!Array.isArray(data)) return [];
-    const validStatuses = ["pending", "approved", "rejected"];
+    const validStatuses = ["pending", "approved", "rejected", "spam"];
     return (data as D1Comment[]).map((c) => ({
       id: c.id,
       slug: c.slug,

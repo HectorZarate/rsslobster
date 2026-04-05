@@ -7,7 +7,7 @@ export interface Comment {
   body: string;
   createdAt: string;
   slug: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "spam";
 }
 
 /** Render a single comment as an HTML article element */
