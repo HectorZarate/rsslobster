@@ -29,9 +29,4 @@ describe("commentStyles", () => {
     expect(css).toMatch(/var\(--color-/);
   });
 
-  it("hides the honeypot field", () => {
-    const css = commentStyles();
-    expect(css).toContain(".hp-field");
-    expect(css).toMatch(/display:\s*none/);
-  });
 });

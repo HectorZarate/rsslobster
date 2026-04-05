@@ -234,25 +234,6 @@ describe("E2E: comments in generated pages", () => {
     expect(html).toContain('id="comment-body"');
   });
 
-  it("comment form includes honeypot field", async () => {
-    await scaffoldSite(siteDir, CONFIG_WITH_COMMENTS);
-    await addContent(siteDir, POST);
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("[]", { status: 200 })),
-    );
-
-    await regenerateSite(siteDir);
-
-    const html = await readFile(
-      join(siteDir, "_site", "posts", "test-post", "index.html"),
-      "utf-8",
-    );
-    expect(html).toContain('name="website"');
-    expect(html).toContain("hp-field");
-  });
-
   it("comment styles use CSS custom properties", async () => {
     await scaffoldSite(siteDir, CONFIG_WITH_COMMENTS);
     await addContent(siteDir, POST);

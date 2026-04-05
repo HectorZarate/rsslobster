@@ -14,6 +14,5 @@ export function commentStyles(): string {
 .comment-form textarea { resize: vertical; }
 .comment-form button { padding: 0.5rem 1.25rem; border: 1px solid var(--color-border); background: var(--color-text); color: var(--color-bg); font: inherit; cursor: pointer; }
 .comment-form button:hover { opacity: 0.85; }
-.hp-field { display: none; }
 `;
 }

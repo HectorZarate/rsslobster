@@ -203,7 +203,6 @@ Uses constant-arrival-rate to push a fixed CPS independent of response time. Ste
 | Comments appear instantly for commenter | **Yes** | HTMLRewriter serves 200 with fresh comments |
 | Everyone else sees comments after rebuild | **Yes** | `regenerate --slug` + deploy bakes comments |
 | Rate limiting works | **Yes** | 429 after 5th comment per IP per hour |
-| Honeypot rejects bots | **Yes** | 303 returned but 0 stored |
 | Zero data loss under load | **Yes** | D1 unique IDs = stored count across all tests |
 | Debouncing coalesces rebuilds | **Yes** | meta table tracks last_rebuild timestamp |
 | Page handles thousands of comments | **Yes** | 8,874 comments baked, 2.8 MB, served in 274ms |

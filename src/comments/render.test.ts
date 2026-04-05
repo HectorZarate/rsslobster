@@ -142,13 +142,6 @@ describe("renderCommentForm", () => {
     expect(html).toContain('name="body"');
   });
 
-  it("includes honeypot field hidden with CSS for spam defense", () => {
-    const html = renderCommentForm("test-post", SUBMIT_URL);
-    // Honeypot field should exist but be hidden
-    expect(html).toContain('name="website"');
-    expect(html).toMatch(/display:\s*none|aria-hidden="true"/);
-  });
-
   it("has accessible labels for all visible inputs", () => {
     const html = renderCommentForm("test-post", SUBMIT_URL);
     // Each visible input should have a corresponding label with for attribute

@@ -54,10 +54,6 @@ export function renderCommentForm(
 ): string {
   return `<form method="POST" action="${escHtml(submitUrl)}" class="comment-form">
       <input type="hidden" name="slug" value="${escHtml(slug)}">
-      <div class="hp-field" aria-hidden="true">
-        <label for="comment-website">Website</label>
-        <input type="text" name="website" id="comment-website" tabindex="-1" autocomplete="off">
-      </div>
       <div>
         <label for="comment-author">Name</label>
         <input type="text" name="author" id="comment-author" required>

@@ -85,7 +85,7 @@ rsslobster publish "Hello"
 
 ### Comments
 
-Zero-JS comment system baked into static HTML. Cloudflare Worker + D1 storage, HTMLRewriter for instant feedback, GitHub Actions auto-rebuilds. Honeypot, rate limiting, CSRF.
+Zero-JS comment system baked into static HTML. Cloudflare Worker + D1 storage, HTMLRewriter for instant feedback, GitHub Actions auto-rebuilds. Rate limiting, CSRF.
 
 #### Setup
 
