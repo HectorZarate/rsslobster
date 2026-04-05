@@ -246,6 +246,7 @@ src/
 ├── agent/       LLM classification + pipeline
 ├── channels/    messaging platform adapters
 ├── cli/         command handlers
+├── comments/    comment rendering, fetching, styles
 ├── config/      types, paths, workspace registry
 ├── deploy/      git commit + push
 ├── drafts/      draft lifecycle
@@ -303,19 +304,159 @@ rsslobster publish --to photo --type image "Austin sunset"
 
 Cross-site operations are local-only by default. Add `--deploy` to git commit and push the target site. The site registry lives at `~/.rsslobster/sites.json`.
 
+## Comments
+
+Zero-JavaScript comment system. Comments are baked into the static HTML at build time. Readers never hit a server — the CDN serves flat files. When someone submits a comment, a Cloudflare Worker stores it in D1, shows the commenter their comment instantly via HTMLRewriter, and triggers a rebuild that bakes it into the static page for everyone else.
+
+```
+submit comment → Worker → D1 → instant feedback (HTMLRewriter)
+                            → GitHub Action → regenerate --slug → deploy
+                            → ~20 seconds later, static page updated on CDN
+```
+
+### Setup
+
+```bash
+# 1. Create a Cloudflare D1 database
+wrangler d1 create comments
+
+# 2. Deploy the comments Worker (from your site repo)
+cd worker
+wrangler deploy
+
+# 3. Set secrets on the Worker
+wrangler secret put ADMIN_SECRET      # for approving/rejecting
+wrangler secret put GITHUB_TOKEN      # for triggering rebuilds
+
+# 4. Enable comments in rsslobster
+rsslobster enable comments
+# Enter your Worker URL and admin secret when prompted
+
+# 5. Regenerate your site (adds comment forms to posts)
+rsslobster regenerate
+```
+
+The Worker handles submission, validation, rate limiting, and spam defense. The static site generator handles rendering. The GitHub Action handles rebuilding.
+
+### Moderation
+
+```bash
+rsslobster comments                         # dashboard — counts + mode
+rsslobster comments list                    # pending comments across all posts
+rsslobster comments list my-post            # pending for one post
+rsslobster comments list --status approved  # filter by status
+rsslobster comments approve abc123          # approve
+rsslobster comments reject abc123           # reject
+rsslobster comments spam abc123             # mark as spam
+rsslobster comments unapprove abc123        # revert approved → pending
+rsslobster comments delete abc123           # permanent delete
+rsslobster comments approve-all my-post     # approve all pending for a post
+```
+
+### Mode
+
+```bash
+rsslobster comments mode              # show current mode
+rsslobster comments mode on           # normal — accept comments, display on site
+rsslobster comments mode off          # reject all submissions, hide all comments
+rsslobster comments mode paused       # accept submissions (as pending), hide from site
+```
+
+`paused` is useful during a spam wave: new comments queue up for review but don't appear on the site until you unpause.
+
+### IP banning
+
+```bash
+rsslobster comments bans              # list banned IPs
+rsslobster comments ban abc123 --reason "spammer"
+rsslobster comments unban abc123
+```
+
+IPs are stored as SHA-256 hashes — the Worker never stores raw IP addresses.
+
+### Spam defense
+
+Built into the Worker, no configuration needed:
+
+- **Honeypot field** — hidden form field; bots that fill it are silently rejected
+- **Rate limiting** — 5 comments per IP per hour (configurable via `RATE_LIMIT` env var)
+- **CSRF check** — rejects submissions from foreign origins
+- **Length limits** — author (100 chars), body (2–10,000 chars)
+- **URL heuristic** — rejects comments with more than 3 URLs
+- **Slug validation** — alphanumeric + hyphens only, max 255 chars
+
+### How it works
+
+**Read path (every visitor):** Browser → CDN → flat HTML. No Worker. No compute. Scales to any traffic level.
+
+**Write path (commenter):** Browser POST → Worker → validates + rate limits → D1 INSERT → HTMLRewriter serves the page with fresh comments (commenter sees their comment instantly) → debounced `repository_dispatch` → GitHub Action runs `rsslobster regenerate --slug <post>` → git push → CDN updated.
+
+**Comment statuses:** `pending` → `approved` or `rejected` or `spam`. Only `approved` comments appear on the site.
+
+### Configuration
+
+In `rsslobster.json`:
+
+```json
+{
+  "commentsEndpoint": "https://your-comments-worker.workers.dev"
+}
+```
+
+In `lobster.json` (gitignored):
+
+```json
+{
+  "commentsAdminSecret": "your-secret"
+}
+```
+
+Worker env vars (set via `wrangler secret put` or `wrangler.toml`):
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ADMIN_SECRET` | Yes | — | Bearer token for moderation API |
+| `GITHUB_TOKEN` | No | — | PAT for triggering rebuild via `repository_dispatch` |
+| `MODERATION` | No | `off` | `on` = new comments start as pending. `off` = auto-approve |
+| `RATE_LIMIT` | No | `5` | Max comments per IP per hour |
+| `SITE_URL` | Yes | — | Your site URL (for redirects and CSRF check) |
+| `GITHUB_REPO` | No | — | `owner/repo` for rebuild dispatch |
+
+### Excluding posts from comments
+
+Add `noRss: true` to a post to exclude it from RSS feeds and the index page while keeping its HTML page (useful for test posts or unlisted content).
+
+### CLI reference
+
+| Command | Description |
+|---------|-------------|
+| `comments` | Dashboard (pending/approved/rejected/spam counts + mode) |
+| `comments list [slug]` | List comments (default: pending) |
+| `comments approve <id>` | Approve a comment |
+| `comments reject <id>` | Reject a comment |
+| `comments spam <id>` | Mark as spam |
+| `comments unapprove <id>` | Revert to pending |
+| `comments delete <id>` | Permanently delete |
+| `comments approve-all <slug>` | Approve all pending for a post |
+| `comments mode [on\|off\|paused]` | Show or set mode |
+| `comments ban <ip-hash>` | Ban an IP |
+| `comments unban <ip-hash>` | Remove ban |
+| `comments bans` | List banned IPs |
+
 ## CLI reference
 
 | Command | Description |
 |---------|-------------|
 | `rsslobster` | Status dashboard (in a configured directory) |
 | `rsslobster onboard` | Interactive setup (domain + style) |
-| `rsslobster enable <cap>` | Enable a capability: `telegram`, `model`, `deploy` |
+| `rsslobster enable <cap>` | Enable a capability: `telegram`, `model`, `deploy`, `comments` |
 | `rsslobster enable --list` | Show what's configured |
 | `rsslobster start` | Start the daemon |
 | `rsslobster publish <text>` | Publish from CLI (requires `--type` without a model) |
 | `rsslobster dev` | Local preview server (localhost:4321) |
 | `rsslobster regenerate` | Rebuild all pages |
 | `rsslobster drafts` | Manage drafts |
+| `rsslobster comments` | Comment moderation (see [Comments](#comments)) |
 | `rsslobster feed` | RSS reader (see [Reading](#reading)) |
 | `rsslobster sites` | List, add, remove registered sites |
 | `rsslobster publish --to <site>` | Publish to a different registered site |
@@ -332,7 +473,7 @@ docker run -v /path/to/site:/site rsslobster
 ```bash
 git clone https://github.com/HectorZarate/rsslobster.git
 cd rsslobster && pnpm install
-pnpm check    # lint + typecheck + 953 tests
+pnpm check    # lint + typecheck + 1047 tests
 ```
 
 ```bash
