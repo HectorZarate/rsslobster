@@ -113,19 +113,16 @@ jobs:
           git push
 ```
 
-Then create a fine-grained GitHub token and set it on the Worker:
+Then create a GitHub token so the Worker can trigger rebuilds:
+
+1. Go to https://github.com/settings/personal-access-tokens/new
+2. **Repository access** → Only select repositories → pick your site repo
+3. **Permissions** → Contents → **Read and write**
+4. Generate token and copy it
 
 ```bash
-# 1. Create a fine-grained PAT at:
-#    https://github.com/settings/personal-access-tokens/new
-#
-#    Repository access: select only your site repo
-#    Permissions: Contents → Read and write (required for repository_dispatch)
-#    Expiration: 90 days (rotate before it expires)
-
-# 2. Set the token on the Worker
 cd worker
-wrangler secret put GITHUB_TOKEN     # paste the token from step 1
+wrangler secret put GITHUB_TOKEN     # paste the token
 ```
 
 Set `GITHUB_REPO` in your `worker/wrangler.toml`:
