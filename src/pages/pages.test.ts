@@ -410,3 +410,83 @@ describe("raw layout", () => {
     await rm(siteDir, { recursive: true, force: true });
   });
 });
+
+describe("page comments", () => {
+  const SUBMIT_URL = "https://comments.example.com/submit";
+
+  it("generatePageHtml includes comment form when commentsSubmitUrl provided", () => {
+    const page: PageConfig = { title: "About", slug: "about", body: "About us" };
+    const html = generatePageHtml(page, CONFIG, undefined, undefined, {
+      commentsSubmitUrl: SUBMIT_URL,
+    });
+    expect(html).toContain("<form");
+    expect(html).toContain(`action="${SUBMIT_URL}"`);
+    expect(html).toContain('name="slug"');
+    expect(html).toContain('value="about"');
+  });
+
+  it("generatePageHtml renders approved comments when provided", () => {
+    const page: PageConfig = { title: "About", slug: "about", body: "About us" };
+    const comments = [
+      { id: "c1", author: "Alice", body: "Great page!", createdAt: "2026-03-25T14:00:00Z", slug: "about", status: "approved" as const },
+    ];
+    const html = generatePageHtml(page, CONFIG, undefined, undefined, {
+      commentsSubmitUrl: SUBMIT_URL,
+      comments,
+    });
+    expect(html).toContain("Alice");
+    expect(html).toContain("Great page!");
+    expect(html).toContain("1 Comment");
+  });
+
+  it("generatePageHtml has no comment section without commentsSubmitUrl", () => {
+    const page: PageConfig = { title: "About", slug: "about", body: "About us" };
+    const html = generatePageHtml(page, CONFIG);
+    expect(html).not.toContain("comment-form");
+    expect(html).not.toContain('<section id="comments"');
+  });
+
+  it("generatePageHtml includes comment styles when comments enabled", () => {
+    const page: PageConfig = { title: "About", slug: "about", body: "About us" };
+    const html = generatePageHtml(page, CONFIG, undefined, undefined, {
+      commentsSubmitUrl: SUBMIT_URL,
+    });
+    expect(html).toContain(".comment");
+    expect(html).toContain("var(--color-");
+  });
+
+  it("writePages fetches and bakes comments for pages when endpoint configured", async () => {
+    const siteDir = await mkdtemp(join(tmpdir(), "rsslobster-pagecomments-"));
+    await mkdir(join(siteDir, "_site"), { recursive: true });
+
+    const config: SiteConfig = {
+      ...CONFIG,
+      commentsEndpoint: "https://comments.example.com",
+      pages: [
+        { title: "About", slug: "about", body: "About us", navOrder: 1 },
+      ],
+    };
+    const mockComments = [
+      { id: "c1", author: "Alice", body: "Nice page!", created_at: "2026-03-25T14:00:00Z", slug: "about", status: "approved" },
+    ];
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string) => {
+      if (url.includes("/comments/about")) {
+        return new Response(JSON.stringify(mockComments), { status: 200 });
+      }
+      return new Response("[]", { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      await writePages(siteDir, config);
+      const html = await readFile(join(siteDir, "_site", "about.html"), "utf-8");
+      expect(html).toContain("Alice");
+      expect(html).toContain("Nice page!");
+      expect(html).toContain("<form");
+      expect(html).toContain('action="https://comments.example.com/submit"');
+    } finally {
+      globalThis.fetch = origFetch;
+      await rm(siteDir, { recursive: true, force: true });
+    }
+  });
+});

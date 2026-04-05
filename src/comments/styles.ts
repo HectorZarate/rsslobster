@@ -4,7 +4,7 @@ export function commentStyles(): string {
 #comments { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); }
 #comments h2 { font-size: 1.2rem; margin-bottom: 1rem; }
 .comment { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--color-border); }
-.comment-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.25rem; }
+.comment-header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 0.25rem; }
 .comment-author { color: var(--color-text); }
 .comment-header time { font-size: 0.85rem; color: var(--color-muted); }
 .comment-body { margin: 0; color: var(--color-text); }

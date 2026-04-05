@@ -4,6 +4,9 @@ import type { PageConfig, SiteConfig } from "../config/types.js";
 import { resolveStyle, generateStylesheet } from "../styles/presets.js";
 import { escHtml, renderSiteFooter } from "../generator/html.js";
 import { renderMarkdown } from "../generator/markdown.js";
+import { renderCommentsSection, type Comment } from "../comments/render.js";
+import { commentStyles } from "../comments/styles.js";
+import { fetchComments } from "../comments/fetch.js";
 import type { PageInjections } from "../plugins/types.js";
 import { outputDir } from "../config/paths.js";
 
@@ -74,6 +77,11 @@ export async function resolvePageBody(
   }
 }
 
+export interface PageCommentOptions {
+  commentsSubmitUrl?: string;
+  comments?: Comment[];
+}
+
 /** Generate HTML for a static page */
 export function generatePageHtml(
   page: PageConfig,
@@ -81,12 +89,18 @@ export function generatePageHtml(
   injections?: PageInjections,
   /** Pre-resolved body content (from resolvePageBody). If not provided, uses inline body (escaped). */
   resolvedBody?: string,
+  commentOptions?: PageCommentOptions,
 ): string {
   const resolved = resolveStyle(config.style.preset, config.style.overrides);
   const css = generateStylesheet(resolved);
   const nav = renderNav(config);
   const extraHead = injections?.head ?? "";
   const bodyEnd = injections?.bodyEnd ?? "";
+
+  const commentsHtml = commentOptions?.commentsSubmitUrl
+    ? `\n      ${renderCommentsSection(commentOptions.comments ?? [], page.slug, commentOptions.commentsSubmitUrl)}`
+    : "";
+  const commentsCss = commentOptions?.commentsSubmitUrl ? commentStyles() : "";
 
   // If resolvedBody is provided, it's already HTML (from markdown or .html file).
   // If not, escape the inline body.
@@ -113,7 +127,7 @@ export function generatePageHtml(
   <meta property="og:image" content="https://${escHtml(config.domain)}/og-image.png">
   <link rel="alternate" type="application/rss+xml" title="${escHtml(config.title)}" href="/feed.xml">
   <link rel="alternate" type="application/feed+json" title="${escHtml(config.title)}" href="/feed.json">
-  <style>${css}</style>${extraHead}
+  <style>${css}${commentsCss}</style>${extraHead}
 </head>
 ${(page.layout === "raw") ? `<body>
 ${bodyContent}
@@ -126,8 +140,8 @@ ${bodyEnd}
   </header>
   <main id="main">
     <article>
-      <h1>${escHtml(page.title)}</h1>
-      <div>${bodyContent}</div>
+      ${config.homepage === page.slug && page.title === config.title ? "" : `<h1>${escHtml(page.title)}</h1>`}
+      <div>${bodyContent}</div>${commentsHtml}
     </article>
   </main>
 ${(page.showFooter ?? true) ? renderSiteFooter(config) : ""}
@@ -160,7 +174,17 @@ export async function writePages(
       ? await resolvePageBody(page, siteDir)
       : undefined;
 
-    const html = generatePageHtml(page, config, injections, resolvedBody);
+    // Fetch comments for this page if endpoint is configured
+    let commentOptions: PageCommentOptions | undefined;
+    if (config.commentsEndpoint) {
+      const comments = await fetchComments(page.slug, config.commentsEndpoint);
+      commentOptions = {
+        commentsSubmitUrl: `${config.commentsEndpoint}/submit`,
+        comments,
+      };
+    }
+
+    const html = generatePageHtml(page, config, injections, resolvedBody, commentOptions);
 
     // If this page is the homepage, write as index.html instead of slug.html
     if (config.homepage === page.slug) {
