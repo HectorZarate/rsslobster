@@ -113,15 +113,26 @@ jobs:
           git push
 ```
 
-Then set the Worker secrets so it can fire the dispatch:
+Then create a fine-grained GitHub token and set it on the Worker:
 
 ```bash
-gh auth refresh --scopes repo
-GITHUB_TOKEN=$(gh auth token)
+# 1. Create a fine-grained PAT at:
+#    https://github.com/settings/personal-access-tokens/new
+#
+#    Repository access: select only your site repo
+#    Permissions: Contents → Read and write (required for repository_dispatch)
+#    Expiration: 90 days (rotate before it expires)
 
+# 2. Set the token on the Worker
 cd worker
-echo "$GITHUB_TOKEN" | wrangler secret put GITHUB_TOKEN
-wrangler var put GITHUB_REPO --value "yourname/yoursite"
+wrangler secret put GITHUB_TOKEN     # paste the token from step 1
+```
+
+Set `GITHUB_REPO` in your `worker/wrangler.toml`:
+
+```toml
+[vars]
+GITHUB_REPO = "yourname/yoursite"
 ```
 
 Without this, comments still work — the commenter sees their comment instantly via HTMLRewriter, and everyone else sees it after your next `rsslobster regenerate` + deploy.
