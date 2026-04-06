@@ -151,6 +151,8 @@ rsslobster enable comments
 rsslobster regenerate
 ```
 
+**Important:** Set `commentsEndpoint` to your site's custom domain (e.g. `https://mysite.com`), not the `workers.dev` URL. If the Worker serves your site via Static Assets, using the same domain keeps the user on your site after posting a comment. Using the `workers.dev` URL will redirect them away.
+
 **Cloudflare build settings** for the Worker (if auto-deploying from GitHub):
 
 | Setting | Value |
