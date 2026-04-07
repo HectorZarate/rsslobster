@@ -33,8 +33,8 @@ importers:
         specifier: ^0.13.2
         version: 0.13.2
       ziscus:
-        specifier: 0.2.0
-        version: 0.2.0
+        specifier: 0.3.0
+        version: 0.3.0
     devDependencies:
       '@types/markdown-it':
         specifier: ^14.1.2
@@ -1750,8 +1750,8 @@ packages:
     resolution: {integrity: sha512-si7QWI6zUMq56bESFvagtmzMdGOtoxfR+Sez11Mobfc7tm+VkUckk9bW2UeffTGVUbOksxmSw0AA2gs8g71NCQ==}
     engines: {node: '>=12'}
 
-  ziscus@0.2.0:
-    resolution: {integrity: sha512-ylKLQC7HDkV0lZLRvag2XqmGjw29VuRGkQvNLuntpz0bxfewtfn1WNpni+1Ey6tSbXg+kY2uQs7jurmRj+bHJA==}
+  ziscus@0.3.0:
+    resolution: {integrity: sha512-Grd0yI+UhgrRuR5KRKLpM2mgLaMxiQphun0VDvhWW4lklKIaHkZ29/Rfnp29mnv4UwAy+Tz49Gm+iR4arELjTQ==}
     hasBin: true
 
   zwitch@2.0.4:
@@ -3268,7 +3268,7 @@ snapshots:
       string-width: 5.1.2
       strip-ansi: 7.2.0
 
-  ziscus@0.2.0:
+  ziscus@0.3.0:
     dependencies:
       commander: 14.0.3
 
