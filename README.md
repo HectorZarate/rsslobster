@@ -128,102 +128,26 @@ If you use a single Cloudflare build connected to your repo, set the Root direct
 
 ### Comments
 
-Zero-JS comment system baked into static HTML. Cloudflare Worker + D1 storage, HTMLRewriter for instant feedback, GitHub Actions auto-rebuilds. Rate limiting, CSRF.
+Powered by [ziscus](https://github.com/HectorZarate/ziscus). Zero-JS comment system baked into static HTML. Cloudflare Worker + D1 storage, HTMLRewriter for instant feedback, GitHub Actions auto-rebuilds. Optional AI spam filtering via Workers AI. Rate limiting, CSRF.
 
-#### Setup
+rsslobster uses ziscus as an npm dependency for comment rendering and fetching. The Worker and CLI live in the [ziscus repo](https://github.com/HectorZarate/ziscus). See the [ziscus README](https://github.com/HectorZarate/ziscus#readme) for Worker deployment, key management, and AI moderation setup.
+
+#### Quick setup
 
 ```bash
-# Create D1 database and deploy the Worker
-wrangler d1 create comments
-cd worker
-# Update wrangler.toml with your database_id
-wrangler d1 execute comments --remote --file=src/schema.sql
-
-# Generate and set a secure admin secret
-openssl rand -hex 32
-wrangler secret put ADMIN_SECRET
-
-wrangler deploy
-
-# Enable comments in your rsslobster site
-cd ..
+# 1. Deploy the ziscus Worker (see ziscus README for full instructions)
+# 2. Enable comments in your rsslobster site
 rsslobster enable comments
 rsslobster regenerate
 ```
 
-**Important:** Set `commentsEndpoint` to your site's custom domain (e.g. `https://mysite.com`), not the `workers.dev` URL. If the Worker serves your site via Static Assets, using the same domain keeps the user on your site after posting a comment. Using the `workers.dev` URL will redirect them away.
+**Important:** Set `commentsEndpoint` to your site's custom domain (e.g. `https://mysite.com`), not the `workers.dev` URL. If the Worker serves your site via Static Assets, using the same domain keeps the user on your site after posting a comment.
 
-**Cloudflare build settings** for the Worker (if auto-deploying from GitHub):
+#### Auto-rebuild on new comments
 
-| Setting | Value |
-|---------|-------|
-| Build command | *(none)* |
-| Deploy command | `npx wrangler deploy` |
-| Root directory | `worker` |
+The ziscus Worker triggers a GitHub Actions rebuild when comments are posted, approved, deleted, or marked as spam. See the [ziscus README](https://github.com/HectorZarate/ziscus#4-auto-rebuild-on-new-comments) for the workflow setup.
 
-For auto-rebuilds on new comments, add this GitHub Action:
-
-```yaml
-# .github/workflows/rebuild-comments.yml
-name: Rebuild page with comments
-on:
-  repository_dispatch:
-    types: [rebuild-comments]
-
-permissions:
-  contents: write
-
-jobs:
-  rebuild:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with: { version: 10 }
-      - uses: actions/setup-node@v4
-        with: { node-version: 22 }
-
-      - name: Install rsslobster
-        run: |
-          git clone --depth 1 https://github.com/HectorZarate/rsslobster.git /tmp/rsslobster
-          cd /tmp/rsslobster
-          pnpm install --frozen-lockfile
-          pnpm build
-          pnpm link --global
-
-      - name: Regenerate page
-        run: rsslobster regenerate --slug ${{ github.event.client_payload.slug }} .
-
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add _site/
-          git diff --cached --quiet && echo "No changes" && exit 0
-          git commit -m "rebuild: bake comments into ${{ github.event.client_payload.slug }}"
-          git push
-```
-
-Create a GitHub token so the Worker can trigger rebuilds:
-
-1. Go to https://github.com/settings/personal-access-tokens/new
-2. **Repository access** → Only select repositories → pick your site repo
-3. **Permissions** → Contents → **Read and write**
-4. Generate token and copy it
-
-```bash
-cd worker
-wrangler secret put GITHUB_TOKEN     # paste the token
-```
-
-Set `GITHUB_REPO` in `worker/wrangler.toml`:
-
-```toml
-[vars]
-GITHUB_REPO = "yourname/yoursite"
-```
-
-Without this, comments still work — the commenter sees theirs instantly via HTMLRewriter; everyone else sees it after your next `rsslobster regenerate` + deploy.
+Without auto-rebuild, comments still work. The commenter sees theirs instantly via HTMLRewriter; everyone else sees it after your next `rsslobster regenerate` + deploy.
 
 #### Moderation
 
@@ -238,6 +162,15 @@ rsslobster comments approve-all <slug>
 rsslobster comments mode off                # disable
 rsslobster comments mode paused             # accept but hide
 rsslobster comments ban <ip-hash>
+```
+
+The ziscus CLI provides additional tools:
+
+```bash
+npx ziscus mod-log                          # view AI and admin moderation log
+npx ziscus ai-mod status                    # AI moderation stats
+npx ziscus ai-mod test                      # verify AI classification is working
+npx ziscus export                           # backup comments, bans, mod log
 ```
 
 ### CLI
