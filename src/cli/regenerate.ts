@@ -18,7 +18,7 @@ import { loadCustomCss } from "../styles/presets.js";
 import { permalinkDir } from "../config/permalink.js";
 import { writeFavicon, writeOgImage } from "../generator/favicon.js";
 import { listSubscriptions } from "../reader/subscriptions.js";
-import { fetchComments } from "../comments/fetch.js";
+import { fetchComments } from "ziscus";
 
 /** Options for regeneration */
 export interface RegenerateOptions {

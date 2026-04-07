@@ -5,9 +5,7 @@ import { generateFaviconSvg, faviconLinkTags } from "./favicon.js";
 import { renderNav, renderPageLinks } from "../pages/pages.js";
 import type { PageInjections } from "../plugins/types.js";
 import { renderMarkdown, renderInline } from "./markdown.js";
-import type { Comment } from "../comments/render.js";
-import { renderCommentsSection } from "../comments/render.js";
-import { commentStyles } from "../comments/styles.js";
+import { type Comment, renderCommentsSection, commentStyles } from "ziscus";
 
 /**
  * Generate an HTML page from classified content.

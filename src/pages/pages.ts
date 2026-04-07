@@ -4,9 +4,7 @@ import type { PageConfig, SiteConfig } from "../config/types.js";
 import { resolveStyle, generateStylesheet } from "../styles/presets.js";
 import { escHtml, renderSiteFooter } from "../generator/html.js";
 import { renderMarkdown } from "../generator/markdown.js";
-import { renderCommentsSection, type Comment } from "../comments/render.js";
-import { commentStyles } from "../comments/styles.js";
-import { fetchComments } from "../comments/fetch.js";
+import { renderCommentsSection, type Comment, commentStyles, fetchComments } from "ziscus";
 import type { PageInjections } from "../plugins/types.js";
 import { outputDir } from "../config/paths.js";
 
