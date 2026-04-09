@@ -167,7 +167,11 @@ rsslobster comments ban <ip-hash>
 The ziscus CLI provides additional tools:
 
 ```bash
+npx ziscus dashboard                        # open admin dashboard in browser
+npx ziscus comments --status spam           # view caught spam (full content)
+npx ziscus comments --status pending        # review pending queue
 npx ziscus mod-log                          # view AI and admin moderation log
+npx ziscus migrate --from giscus            # import from giscus
 npx ziscus ai-mod status                    # AI moderation stats
 npx ziscus ai-mod test                      # verify AI classification is working
 npx ziscus export                           # backup comments, bans, mod log
