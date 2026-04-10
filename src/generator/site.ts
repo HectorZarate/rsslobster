@@ -110,11 +110,17 @@ export async function addContent(
   const commentsSubmitUrl = config.commentsEndpoint
     ? `${config.commentsEndpoint}/submit`
     : undefined;
+  // New post goes to index 0; next (older) is the current first post
+  const nextPost = posts.length > 0
+    ? { title: posts[0]!.title ?? posts[0]!.body.slice(0, 60), url: posts[0]!.url }
+    : undefined;
+
   const html = generateHtmlPage(content, config, {
     pluginInjections: options?.pluginInjections,
     pageUrl,
     comments: [],
     commentsSubmitUrl,
+    nextPost,
   });
 
   const htmlPath = permalink.startsWith("/") ? permalink.slice(1) : permalink;

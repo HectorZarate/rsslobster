@@ -99,6 +99,15 @@ async function showStatus(siteDir: string): Promise<void> {
     );
   }
 
+  // X (Twitter)
+  if (config.twitter) {
+    console.log(`  [OK] X            configured (key: ...${config.twitter.apiKey.slice(-4)})`);
+  } else {
+    console.log(
+      `  [--] X            not configured — run: ${pc.cyan("rsslobster enable x")}`,
+    );
+  }
+
   // Reader
   if (subs > 0) {
     console.log(`  [OK] Reader       ${subs} subscription${subs !== 1 ? "s" : ""}, ${unread} unread`);
@@ -294,6 +303,53 @@ async function enableDeploy(siteDir: string): Promise<void> {
   );
 }
 
+/** Enable X (Twitter) cross-posting. */
+async function enableX(siteDir: string): Promise<void> {
+  const config = await readLobsterConfig(siteDir);
+  const rl = createPrompt();
+
+  console.log(
+    pc.dim(
+      "\nX API setup — create an app at https://developer.x.com and generate OAuth 1.0a keys.",
+    ),
+  );
+
+  const existing = config.twitter;
+
+  const mask = (val?: string) =>
+    val ? `...${val.slice(-4)}` : undefined;
+
+  let apiKey = await ask(rl, "API Key", mask(existing?.apiKey));
+  if (apiKey === mask(existing?.apiKey) && existing?.apiKey) {
+    apiKey = existing.apiKey;
+  }
+
+  let apiKeySecret = await ask(rl, "API Key Secret", mask(existing?.apiKeySecret));
+  if (apiKeySecret === mask(existing?.apiKeySecret) && existing?.apiKeySecret) {
+    apiKeySecret = existing.apiKeySecret;
+  }
+
+  let accessToken = await ask(rl, "Access Token", mask(existing?.accessToken));
+  if (accessToken === mask(existing?.accessToken) && existing?.accessToken) {
+    accessToken = existing.accessToken;
+  }
+
+  let accessTokenSecret = await ask(rl, "Access Token Secret", mask(existing?.accessTokenSecret));
+  if (accessTokenSecret === mask(existing?.accessTokenSecret) && existing?.accessTokenSecret) {
+    accessTokenSecret = existing.accessTokenSecret;
+  }
+
+  rl.close();
+
+  await writeLobsterConfig(siteDir, {
+    twitter: { apiKey, apiKeySecret, accessToken, accessTokenSecret },
+  });
+
+  console.log(
+    pc.green("\n[OK] X configured. Share posts with: rsslobster post-to-x <slug>\n"),
+  );
+}
+
 /**
  * Non-interactive comments enablement — used by tests and scripted setup.
  * Writes commentsEndpoint to rsslobster.json and commentsAdminSecret to lobster.json.
@@ -351,8 +407,8 @@ async function enableComments(siteDir: string): Promise<void> {
 }
 
 export const enableCommand = new Command("enable")
-  .description("Enable a capability (telegram, model, deploy)")
-  .argument("[capability]", "What to enable: telegram, model, deploy")
+  .description("Enable a capability (telegram, model, deploy, x)")
+  .argument("[capability]", "What to enable: telegram, model, deploy, x")
   .option("--list", "Show status of all capabilities")
   .option("--site-dir <dir>", "Path to site directory", ".")
   .action(
@@ -388,10 +444,13 @@ export const enableCommand = new Command("enable")
         case "comments":
           await enableComments(siteDir);
           break;
+        case "x":
+          await enableX(siteDir);
+          break;
         default:
           console.error(
             pc.red(
-              `Unknown capability: "${capability}". Use: telegram, model, deploy, comments`,
+              `Unknown capability: "${capability}". Use: telegram, model, deploy, comments, x`,
             ),
           );
           process.exit(1);

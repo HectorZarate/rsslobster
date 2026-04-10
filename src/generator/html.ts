@@ -33,6 +33,10 @@ export interface HtmlPageOptions {
   comments?: Comment[];
   /** URL for the comment submission endpoint */
   commentsSubmitUrl?: string;
+  /** Previous post (newer) for navigation */
+  prevPost?: { title: string; url: string };
+  /** Next post (older) for navigation */
+  nextPost?: { title: string; url: string };
 }
 
 /** Return HtmlPageOptions for a preview page: noindex meta + banner. */
@@ -72,8 +76,9 @@ function generateOgTags(
   pageUrl?: string,
 ): string {
   const url = pageUrl ?? `https://${config.domain}/posts/${content.slug}/index.html`;
-  const title = content.title ?? truncate(content.body, 60);
-  const description = truncate(content.body, 200);
+  const plain = stripMarkdown(content.body);
+  const title = content.title ?? truncate(plain, 60);
+  const description = truncate(plain, 200);
   const ogType = content.type === "post" ? "article" : "website";
 
   const tags = [
@@ -110,11 +115,12 @@ function generateJsonLd(
   pageUrl?: string,
 ): string {
   const url = pageUrl ?? `https://${config.domain}/posts/${content.slug}/index.html`;
+  const plain = stripMarkdown(content.body);
 
   const ld: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Article",
-    headline: content.title ?? truncate(content.body, 110),
+    headline: content.title ?? truncate(plain, 110),
     url,
     datePublished: content.createdAt,
     dateModified: content.updatedAt,
@@ -126,7 +132,7 @@ function generateJsonLd(
       "@type": "Person",
       name: config.author,
     },
-    description: truncate(content.body, 200),
+    description: truncate(plain, 200),
     inLanguage: config.language,
   };
 
@@ -168,14 +174,15 @@ export function generateHtmlPage(
     ? `\n      ${renderCommentsSection(options.comments ?? [], content.slug, options.commentsSubmitUrl, { redirectUrl: postUrl })}`
     : "";
   const commentsCss = options?.commentsSubmitUrl ? commentStyles() : "";
+  const postNav = renderPostNav(options?.prevPost, options?.nextPost);
 
   return `<!DOCTYPE html>
 <html lang="${escHtml(config.language)}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escHtml(content.title ?? truncate(content.body, 60))} — ${escHtml(config.title)}</title>
-  <meta name="description" content="${escAttr(truncate(content.body, 160))}">
+  <title>${escHtml(content.title ?? truncate(stripMarkdown(content.body), 60))} — ${escHtml(config.title)}</title>
+  <meta name="description" content="${escAttr(truncate(stripMarkdown(content.body), 160))}">
   <meta name="author" content="${escAttr(config.author)}">
   ${ogTags}
   ${jsonLd}
@@ -199,7 +206,7 @@ export function generateHtmlPage(
         <time datetime="${escAttr(content.createdAt)}">${formatDate(content.createdAt)}</time>
         ${renderTags(content.tags)}
       </footer>${articleFooter}${commentsHtml}
-    </article>
+    </article>${postNav}
   </main>
 ${renderSiteFooter(config)}
 ${bodyEnd}
@@ -210,21 +217,30 @@ ${bodyEnd}
 /** Maximum posts shown on the index page before linking to archive */
 const INDEX_PAGE_LIMIT = 30;
 
+/** Render a thumbnail for image/carousel posts on the index. */
+function renderPostThumbnail(p: ClassifiedContent, url: string): string {
+  if ((p.type !== "image" && p.type !== "carousel") || !p.images?.[0]) return "";
+  const first = p.images[0];
+  const dims = `${first.width ? ` width="${first.width}"` : ""}${first.height ? ` height="${first.height}"` : ""}`;
+  return `      <a href="${escAttr(url)}" class="post-thumb" aria-hidden="true" tabindex="-1"><img src="${escAttr(first.src)}" alt="${escAttr(first.alt)}" loading="lazy"${dims}></a>\n`;
+}
+
 /** Render a list of post articles as HTML. */
 function renderPostList(posts: ClassifiedContent[], permalink?: string): string {
   return posts
     .map((p) => {
       const url = resolvePostUrl(p, permalink);
+      const thumb = renderPostThumbnail(p, url);
       if (p.title) {
         return `    <article>
-      <h2><a href="${escAttr(url)}">${escHtml(p.title)}</a></h2>
-      <p>${escHtml(truncate(p.body, 200))}</p>
+${thumb}      <h2><a href="${escAttr(url)}">${escHtml(p.title)}</a></h2>
+      <p>${renderInline(truncate(p.body, 200))}</p>
       <time datetime="${escAttr(p.createdAt)}">${formatDate(p.createdAt)}</time>
     </article>`;
       }
       // Micro post — no title, body is the content
       return `    <article>
-      <p><a href="${escAttr(url)}">${escHtml(p.body)}</a></p>
+${thumb}      <p><a href="${escAttr(url)}">${escHtml(p.body)}</a></p>
       <time datetime="${escAttr(p.createdAt)}">${formatDate(p.createdAt)}</time>
     </article>`;
     })
@@ -482,6 +498,28 @@ function renderContentBody(content: ClassifiedContent): string {
   }
 }
 
+function renderPostNav(
+  prev?: { title: string; url: string },
+  next?: { title: string; url: string },
+): string {
+  if (!prev && !next) return "";
+  const parts: string[] = [];
+  if (prev) {
+    parts.push(
+      `<a href="${escAttr(prev.url)}" class="post-nav-prev">&larr; ${escHtml(stripMarkdown(prev.title))}</a>`,
+    );
+  }
+  if (next) {
+    parts.push(
+      `<a href="${escAttr(next.url)}" class="post-nav-next">${escHtml(stripMarkdown(next.title))} &rarr;</a>`,
+    );
+  }
+  return `
+    <nav class="post-nav" aria-label="Post navigation">
+      ${parts.join("\n      ")}
+    </nav>`;
+}
+
 function renderTags(tags: string[]): string {
   if (tags.length === 0) return "";
   return tags
@@ -501,6 +539,22 @@ function formatDate(iso: string): string {
 function truncate(s: string, len: number): string {
   if (s.length <= len) return s;
   return s.slice(0, len - 1) + "\u2026";
+}
+
+/** Strip markdown formatting for use in plain-text contexts like meta tags. */
+function stripMarkdown(s: string): string {
+  return s
+    .replace(/\*\*(.+?)\*\*/g, "$1")   // bold
+    .replace(/\*(.+?)\*/g, "$1")        // italic
+    .replace(/__(.+?)__/g, "$1")        // bold alt
+    .replace(/_(.+?)_/g, "$1")          // italic alt
+    .replace(/`(.+?)`/g, "$1")          // inline code
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // links
+    .replace(/^#{1,6}\s+/gm, "")        // headings
+    .replace(/^[-*]\s+/gm, "")          // list items
+    .replace(/\n{2,}/g, " ")            // collapse newlines
+    .replace(/\n/g, " ")
+    .trim();
 }
 
 export function escHtml(s: string): string {

@@ -10,11 +10,14 @@ import { previewsCommand } from "./cli/previews.js";
 import { pagesCommand } from "./cli/pages.js";
 import { regenerateCommand } from "./cli/regenerate.js";
 import { devCommand } from "./cli/dev.js";
+import { styleCommand } from "./cli/style.js";
 import { feedsCommand } from "./cli/feeds.js";
 import { enableCommand } from "./cli/enable.js";
 import { sitesCommand } from "./cli/sites.js";
 import { deleteCommand } from "./cli/delete.js";
 import { commentsCommand } from "./cli/comments.js";
+import { postToXCommand } from "./cli/post-to-x.js";
+import { adminCommand } from "./cli/admin.js";
 import { lobsterConfigExists } from "./config/lobster.js";
 
 const program = new Command();
@@ -34,11 +37,14 @@ program.addCommand(previewsCommand);
 program.addCommand(pagesCommand);
 program.addCommand(regenerateCommand);
 program.addCommand(devCommand);
+program.addCommand(styleCommand);
 program.addCommand(feedsCommand);
 program.addCommand(enableCommand);
 program.addCommand(sitesCommand);
 program.addCommand(deleteCommand);
 program.addCommand(commentsCommand);
+program.addCommand(postToXCommand);
+program.addCommand(adminCommand);
 
 // Bare `rsslobster` with no subcommand: show status dashboard if in a configured directory
 const args = process.argv.slice(2);

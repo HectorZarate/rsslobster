@@ -6,3 +6,15 @@ coverage/
 lobster.json
 reader/
 testsite/
+
+# Local dev site (created when running `rsslobster init` in this repo)
+/_site/
+/posts.json
+/rsslobster.json
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example

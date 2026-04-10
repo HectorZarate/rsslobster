@@ -35,6 +35,13 @@ export interface LobsterConfig {
   };
   /** LLM config — optional. Without it, publish requires explicit --type. */
   model?: ModelConfig;
+  /** X (Twitter) API credentials for cross-posting */
+  twitter?: {
+    apiKey: string;
+    apiKeySecret: string;
+    accessToken: string;
+    accessTokenSecret: string;
+  };
   /** Lifecycle hooks */
   hooks?: HooksConfig;
   /** RSS reader / feed polling config */

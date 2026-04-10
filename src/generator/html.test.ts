@@ -264,6 +264,28 @@ describe("generateIndexPage", () => {
     expect(html).toContain("Deep Dive into RSS");
   });
 
+  it("renders a thumbnail for image-type posts on the index", () => {
+    const html = generateIndexPage([IMAGE], SITE_CONFIG);
+    // Should contain an <img> referencing the first attached image
+    expect(html).toContain("/images/sunset.jpg");
+    expect(html).toContain("Orange sunset over ocean"); // alt text
+    expect(html).toContain("loading=\"lazy\"");
+  });
+
+  it("renders a thumbnail for carousel-type posts on the index", () => {
+    const html = generateIndexPage([CAROUSEL], SITE_CONFIG);
+    // First image of the carousel becomes the preview
+    expect(html).toContain("/images/lisbon1.jpg");
+    expect(html).toContain("Tram 28");
+  });
+
+  it("does not render thumbnails for text posts", () => {
+    const html = generateIndexPage([POST], SITE_CONFIG);
+    // No img tags inside the post list articles
+    const main = html.match(/<main[\s\S]*?<\/main>/)?.[0] ?? "";
+    expect(main).not.toContain("<img");
+  });
+
   // UX: skip link on index too
   it("includes skip link", () => {
     const html = generateIndexPage([], SITE_CONFIG);
@@ -419,6 +441,101 @@ describe("previewPageOptions", () => {
     const html = generateHtmlPage(MICRO, SITE_CONFIG, previewPageOptions());
     expect(html).toContain('href="/feed.xml"');
     expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
+  });
+});
+
+describe("markdown stripping in meta tags", () => {
+  const bodyWithMarkdown = "**bold** and *italic* and `code` and [link](https://x.com). Plain text continues here.";
+
+  it("strips markdown from <meta description>", () => {
+    const content: ClassifiedContent = {
+      ...MICRO,
+      body: bodyWithMarkdown,
+    };
+    const html = generateHtmlPage(content, SITE_CONFIG);
+    // Extract the meta description content
+    const match = html.match(/<meta name="description" content="([^"]+)"/);
+    expect(match).toBeTruthy();
+    const description = match![1]!;
+    expect(description).not.toContain("**");
+    expect(description).not.toContain("`");
+    expect(description).not.toContain("[link]");
+    expect(description).toContain("bold");
+    expect(description).toContain("italic");
+    expect(description).toContain("code");
+    expect(description).toContain("link");
+  });
+
+  it("strips markdown from OG description", () => {
+    const content: ClassifiedContent = { ...MICRO, body: bodyWithMarkdown };
+    const html = generateHtmlPage(content, SITE_CONFIG);
+    const match = html.match(/<meta property="og:description" content="([^"]+)"/);
+    expect(match).toBeTruthy();
+    expect(match![1]!).not.toContain("**");
+  });
+
+  it("strips markdown from Twitter card description", () => {
+    const content: ClassifiedContent = { ...MICRO, body: bodyWithMarkdown };
+    const html = generateHtmlPage(content, SITE_CONFIG);
+    const match = html.match(/<meta name="twitter:description" content="([^"]+)"/);
+    expect(match).toBeTruthy();
+    expect(match![1]!).not.toContain("**");
+  });
+
+  it("strips markdown from <title> fallback (no title set)", () => {
+    const content: ClassifiedContent = { ...MICRO, body: bodyWithMarkdown };
+    const html = generateHtmlPage(content, SITE_CONFIG);
+    const titleMatch = html.match(/<title>([^<]+)<\/title>/);
+    expect(titleMatch).toBeTruthy();
+    expect(titleMatch![1]!).not.toContain("**");
+  });
+});
+
+describe("post navigation", () => {
+  // Extract the body section to avoid matching CSS rules in <style>
+  const extractBody = (html: string): string => {
+    const i = html.indexOf("</head>");
+    return html.slice(i);
+  };
+
+  it("renders only a single link when only next is given", () => {
+    const body = extractBody(generateHtmlPage(POST, SITE_CONFIG, {
+      nextPost: { title: "Older Post", url: "/posts/older/" },
+    }));
+    expect(body).toContain('class="post-nav-next"');
+    expect(body).not.toContain('class="post-nav-prev"');
+    expect(body).not.toContain("<span></span>");
+  });
+
+  it("renders only a single link when only prev is given", () => {
+    const body = extractBody(generateHtmlPage(POST, SITE_CONFIG, {
+      prevPost: { title: "Newer Post", url: "/posts/newer/" },
+    }));
+    expect(body).toContain('class="post-nav-prev"');
+    expect(body).not.toContain('class="post-nav-next"');
+    expect(body).not.toContain("<span></span>");
+  });
+
+  it("renders both links when both are given", () => {
+    const body = extractBody(generateHtmlPage(POST, SITE_CONFIG, {
+      prevPost: { title: "Newer", url: "/a/" },
+      nextPost: { title: "Older", url: "/b/" },
+    }));
+    expect(body).toContain('class="post-nav-prev"');
+    expect(body).toContain('class="post-nav-next"');
+  });
+
+  it("omits post-nav entirely when no prev/next", () => {
+    const body = extractBody(generateHtmlPage(POST, SITE_CONFIG));
+    expect(body).not.toContain('class="post-nav"');
+  });
+
+  it("strips markdown from nav link titles", () => {
+    const html = generateHtmlPage(POST, SITE_CONFIG, {
+      nextPost: { title: "**Bold** title", url: "/x/" },
+    });
+    expect(html).not.toContain("**Bold**");
+    expect(html).toContain("Bold title");
   });
 });
 

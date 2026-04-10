@@ -82,10 +82,21 @@ export async function regenerateSite(
       comments = await fetchComments(post.slug, commentsEndpoint);
     }
 
+    // Resolve prev/next from the full posts list
+    const idx = posts.indexOf(post);
+    const prevPost = idx > 0
+      ? { title: posts[idx - 1]!.title ?? posts[idx - 1]!.body.slice(0, 60), url: posts[idx - 1]!.url }
+      : undefined;
+    const nextPost = idx < posts.length - 1
+      ? { title: posts[idx + 1]!.title ?? posts[idx + 1]!.body.slice(0, 60), url: posts[idx + 1]!.url }
+      : undefined;
+
     const html = generateHtmlPage(post, config, {
       pageUrl: post.url,
       comments,
       commentsSubmitUrl,
+      prevPost,
+      nextPost,
     });
     const htmlPath = permalink.startsWith("/") ? permalink.slice(1) : permalink;
     await writeFile(join(outDir, htmlPath), html);
