@@ -198,6 +198,90 @@ describe("feedCommand", () => {
     expect(names).toContain("import");
     expect(names).toContain("export");
   });
+
+  it("all subcommands with [site-dir] positional also accept --site-dir option", () => {
+    // Every subcommand that accepts a [site-dir] positional arg should also
+    // register a --site-dir option for flag-style invocation.
+    const subcommandsWithSiteDirArg = [
+      "list", "add", "remove", "poll", "items", "read", "star", "unstar",
+      "reblog", "share", "mark-read", "mute", "unmute", "filter", "notify",
+      "recap", "import", "export",
+    ];
+
+    for (const name of subcommandsWithSiteDirArg) {
+      const cmd = feedsCommand.commands.find((c) => c.name() === name);
+      expect(cmd, `subcommand "${name}" should exist`).toBeDefined();
+
+      const hasPositional = cmd!.registeredArguments.some(
+        (a) => a.name() === "site-dir",
+      );
+      expect(hasPositional, `"${name}" should have [site-dir] positional arg`).toBe(true);
+
+      const hasSiteDirOption = cmd!.options.some(
+        (o) => o.long === "--site-dir",
+      );
+      expect(hasSiteDirOption, `"${name}" should have --site-dir option`).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// --site-dir option integration tests
+// ---------------------------------------------------------------------------
+
+describe("--site-dir flag integration", () => {
+  it("list command accepts --site-dir and behaves identically to positional arg", async () => {
+    await subscribe(siteDir, FEED_A, "Feed A");
+    await ingestItems(siteDir, FEED_A, [makeItem({ id: "1", title: "Flag Item" })]);
+
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((...args) => {
+      logs.push(args.join(" "));
+    });
+
+    const list = feedsCommand.commands.find((c) => c.name() === "list")!;
+    await list.parseAsync(["node", "test", "--site-dir", siteDir]);
+
+    const stripped = logs.map((l) => l.replace(/\x1b\[[0-9;]*m/g, ""));
+    expect(stripped.some((l) => l.includes("Flag Item"))).toBe(true);
+    vi.restoreAllMocks();
+  });
+
+  it("mark-read command accepts --site-dir flag", async () => {
+    await subscribe(siteDir, FEED_A, "Feed A");
+    await ingestItems(siteDir, FEED_A, [makeItem({ id: "1" }), makeItem({ id: "2" })]);
+
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((...args) => {
+      logs.push(args.join(" "));
+    });
+
+    const markReadCmd = feedsCommand.commands.find((c) => c.name() === "mark-read")!;
+    await markReadCmd.parseAsync(["node", "test", "--all", "--site-dir", siteDir]);
+
+    expect(logs.some((l) => l.includes("Marked 2 item(s) as read"))).toBe(true);
+
+    const unread = await listItems(siteDir, { read: false });
+    expect(unread).toHaveLength(0);
+    vi.restoreAllMocks();
+  });
+
+  it("export command accepts --site-dir flag", async () => {
+    await subscribe(siteDir, FEED_A, "Feed A");
+
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((...args) => {
+      logs.push(args.join(" "));
+    });
+
+    const exp = feedsCommand.commands.find((c) => c.name() === "export")!;
+    await exp.parseAsync(["node", "test", "--site-dir", siteDir]);
+
+    const output = logs.join("\n");
+    expect(output).toContain("<opml");
+    expect(output).toContain("Feed A");
+    vi.restoreAllMocks();
+  });
 });
 
 // ---------------------------------------------------------------------------

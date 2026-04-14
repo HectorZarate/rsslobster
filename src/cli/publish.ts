@@ -62,15 +62,16 @@ export const publishCommand = new Command("publish")
     "Publish content directly — no LLM, no Telegram. Just text to HTML.",
   )
   .argument("<text>", "The content to publish")
-  .requiredOption(
+  .option(
     "--type <type>",
     "Content type: micro, post, image, carousel, link",
+    "micro",
   )
   .option("--title <title>", "Post title (for post type)")
   .option("--slug <slug>", "Custom URL slug")
   .option("--tags <tags>", "Comma-separated tags (max 3)")
   .option("--link-url <url>", "URL for link-type posts")
-  .option("--no-deploy", "Skip git commit and push")
+  .option("--deploy", "Git commit and push after publication")
   .option("--site-dir <dir>", "Path to site directory", ".")
   .option("--to <site>", "Publish to a different registered site")
   .action(

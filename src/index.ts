@@ -24,8 +24,11 @@ const program = new Command();
 
 program
   .name("rsslobster")
-  .description("Publish to the open web from your phone. Unplatform yourself.")
-  .version("0.1.0");
+  .description(
+    "Publish to the open web from your phone. Unplatform yourself.\n\n" +
+    "Run with no arguments in a site directory to see a status dashboard.",
+  )
+  .version("0.4.0");
 
 program.addCommand(onboardCommand);
 program.addCommand(startCommand);

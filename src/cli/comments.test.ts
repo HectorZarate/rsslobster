@@ -54,6 +54,41 @@ describe("commentsCommand", () => {
     expect(names).toContain("ban");
     expect(names).toContain("unban");
     expect(names).toContain("bans");
+    expect(names).toContain("dashboard");
+  });
+});
+
+describe("comments dashboard subcommand", () => {
+  it("prints a clickable admin dashboard URL with auth token", async () => {
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((...args) => {
+      logs.push(args.join(" "));
+    });
+
+    const dashboard = commentsCommand.commands.find((c) => c.name() === "dashboard")!;
+    await dashboard.parseAsync(["node", "test", "--site-dir", siteDir]);
+
+    const output = strip(logs.join("\n"));
+    expect(output).toContain(
+      "https://comments.example.com/admin/dashboard?token=test-secret-123",
+    );
+  });
+
+  it("errors when admin secret is missing", async () => {
+    await writeFile(
+      join(siteDir, "lobster.json"),
+      JSON.stringify({}),
+    );
+
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("process.exit");
+    });
+
+    const dashboard = commentsCommand.commands.find((c) => c.name() === "dashboard")!;
+    await expect(
+      dashboard.parseAsync(["node", "test", "--site-dir", siteDir]),
+    ).rejects.toThrow("process.exit");
   });
 });
 

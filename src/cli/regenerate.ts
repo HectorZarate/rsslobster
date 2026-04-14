@@ -5,6 +5,8 @@ import pc from "picocolors";
 import {
   readSiteConfig,
   readPostsIndex,
+  writePostsIndex,
+  healPostText,
   rebuildFeeds,
   rebuildIndex,
   outputDir,
@@ -16,9 +18,11 @@ import { writePages } from "../pages/pages.js";
 import { initMarkdown } from "../generator/markdown.js";
 import { loadCustomCss } from "../styles/presets.js";
 import { permalinkDir } from "../config/permalink.js";
+import { paginateComments, cleanStaleCommentPages, DEFAULT_COMMENTS_PER_PAGE } from "../generator/pagination.js";
+import type { CommentPaginationInfo } from "../generator/html.js";
 import { writeFavicon, writeOgImage } from "../generator/favicon.js";
 import { listSubscriptions } from "../reader/subscriptions.js";
-import { fetchComments } from "ziscus";
+import { type Comment, fetchComments } from "ziscus";
 
 /** Options for regeneration */
 export interface RegenerateOptions {
@@ -50,7 +54,16 @@ export async function regenerateSite(
     }
   }
 
-  const posts = await readPostsIndex(siteDir);
+  const rawPosts = await readPostsIndex(siteDir);
+  // Heal any mojibake left behind by a broken upstream ingest pipeline so
+  // future renders stop echoing garbage characters. If anything changed,
+  // rewrite posts.json.
+  const posts = rawPosts.map((p) => healPostText(p));
+  const healed = posts.some((p, i) => p.body !== rawPosts[i]!.body
+    || p.title !== rawPosts[i]!.title);
+  if (healed) {
+    await writePostsIndex(siteDir, posts);
+  }
   const outDir = outputDir(siteDir);
 
   const targetPosts = options?.slug
@@ -66,6 +79,8 @@ export async function regenerateSite(
     ? `${commentsEndpoint}/submit`
     : undefined;
 
+  const pageSize = config.commentsPerPage ?? DEFAULT_COMMENTS_PER_PAGE;
+
   for (const post of targetPosts) {
     const domain = `https://${config.domain}`;
     const permalink = post.url.startsWith(domain)
@@ -77,12 +92,11 @@ export async function regenerateSite(
       await mkdir(join(outDir, dir), { recursive: true });
     }
 
-    let comments;
+    let allComments: Comment[] | undefined;
     if (commentsEndpoint) {
-      comments = await fetchComments(post.slug, commentsEndpoint);
+      allComments = await fetchComments(post.slug, commentsEndpoint);
     }
 
-    // Resolve prev/next from the full posts list
     const idx = posts.indexOf(post);
     const prevPost = idx > 0
       ? { title: posts[idx - 1]!.title ?? posts[idx - 1]!.body.slice(0, 60), url: posts[idx - 1]!.url }
@@ -91,15 +105,47 @@ export async function regenerateSite(
       ? { title: posts[idx + 1]!.title ?? posts[idx + 1]!.body.slice(0, 60), url: posts[idx + 1]!.url }
       : undefined;
 
-    const html = generateHtmlPage(post, config, {
-      pageUrl: post.url,
-      comments,
-      commentsSubmitUrl,
-      prevPost,
-      nextPost,
-    });
-    const htmlPath = permalink.startsWith("/") ? permalink.slice(1) : permalink;
-    await writeFile(join(outDir, htmlPath), html);
+    const pages = paginateComments(allComments ?? [], pageSize);
+    const totalPages = pages.length;
+    const totalComments = (allComments ?? []).length;
+    const canPaginate = !!dir;
+    const baseUrl = dir ? `/${dir}/` : "/";
+
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+      const pageComments = pages[pageNum - 1]!;
+
+      let htmlPath: string;
+      let pageUrl: string;
+      if (pageNum === 1) {
+        htmlPath = permalink.startsWith("/") ? permalink.slice(1) : permalink;
+        pageUrl = post.url;
+      } else if (canPaginate) {
+        htmlPath = `${dir}/${pageNum}/index.html`;
+        pageUrl = `https://${config.domain}${baseUrl}${pageNum}/`;
+        await mkdir(join(outDir, dir, String(pageNum)), { recursive: true });
+      } else {
+        break;
+      }
+
+      const commentPagination: CommentPaginationInfo | undefined =
+        totalPages > 1 && canPaginate
+          ? { currentPage: pageNum, totalPages, totalComments, baseUrl }
+          : undefined;
+
+      const html = generateHtmlPage(post, config, {
+        pageUrl,
+        comments: pageComments,
+        commentsSubmitUrl,
+        prevPost,
+        nextPost,
+        commentPagination,
+      });
+      await writeFile(join(outDir, htmlPath), html);
+    }
+
+    if (canPaginate) {
+      await cleanStaleCommentPages(outDir, dir, totalPages);
+    }
   }
 
   await writeFavicon(siteDir, config.title, config.style.preset, config.style.overrides);
@@ -124,9 +170,10 @@ export const regenerateCommand = new Command("regenerate")
     "Regenerate all HTML pages, feeds, and search index from existing posts",
   )
   .argument("[site-dir]", "Path to the site directory", ".")
+  .option("--site-dir <dir>", "Path to site directory", ".")
   .option("--slug <slug>", "Only regenerate the page for this post slug")
-  .action(async (siteDirArg: string, opts: { slug?: string }) => {
-    const siteDir = resolve(siteDirArg);
+  .action(async (siteDirArg: string, opts: { siteDir: string; slug?: string }) => {
+    const siteDir = resolve(opts.siteDir !== "." ? opts.siteDir : siteDirArg);
     try {
       await regenerateSite(siteDir, { slug: opts.slug });
       const msg = opts.slug

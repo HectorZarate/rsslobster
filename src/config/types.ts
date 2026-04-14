@@ -25,6 +25,8 @@ export interface SiteConfig {
   homepage?: string;
   /** Base URL of the comments Worker (e.g. "https://comments.example.com"). Enables comment forms and baking. */
   commentsEndpoint?: string;
+  /** Max comments per page before paginating. Default: 200. */
+  commentsPerPage?: number;
 }
 
 /** A static page — not part of the chronological feed */

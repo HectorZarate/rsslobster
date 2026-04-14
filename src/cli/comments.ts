@@ -346,6 +346,24 @@ commentsCommand
   });
 
 commentsCommand
+  .command("dashboard")
+  .description("Print the admin dashboard URL with an auth token")
+  .option("--site-dir <dir>", "Path to site directory", ".")
+  .action(async (opts: { siteDir: string }) => {
+    const siteDir = resolve(opts.siteDir);
+    try {
+      const { endpoint, adminSecret } = await loadCommentConfig(siteDir);
+      const secret = requireSecret(adminSecret);
+      const url = `${endpoint}/admin/dashboard?token=${encodeURIComponent(secret)}`;
+      console.log(url);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to build dashboard URL";
+      console.error(pc.red(msg));
+      process.exit(1);
+    }
+  });
+
+commentsCommand
   .command("bans")
   .description("List banned IPs")
   .option("--site-dir <dir>", "Path to site directory", ".")

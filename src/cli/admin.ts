@@ -28,9 +28,10 @@ const MIME_TYPES: Record<string, string> = {
 export const adminCommand = new Command("admin")
   .description("Open the RSS Lobster admin panel in your browser")
   .argument("[site-dir]", "Path to the site directory", ".")
+  .option("--site-dir <dir>", "Path to site directory", ".")
   .option("-p, --port <port>", "Port to serve on", "4321")
-  .action(async (siteDirArg: string, opts: { port: string }) => {
-    const siteDir = resolve(siteDirArg);
+  .action(async (siteDirArg: string, opts: { siteDir: string; port: string }) => {
+    const siteDir = resolve(opts.siteDir !== "." ? opts.siteDir : siteDirArg);
     const outDir = outputDir(siteDir);
     const port = parseInt(opts.port, 10);
     const adminUrl = `http://localhost:${port}/lobster-admin/`;

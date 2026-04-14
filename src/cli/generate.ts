@@ -6,7 +6,9 @@ import type { ClassifiedContent } from "../config/types.js";
 export const generateCommand = new Command("generate")
   .description("Generate HTML + feeds from classified content (JSON on stdin)")
   .argument("[site-dir]", "Path to site directory", ".")
-  .action(async (siteDir: string) => {
+  .option("--site-dir <dir>", "Path to site directory", ".")
+  .action(async (siteDirArg: string, opts: { siteDir: string }) => {
+    const siteDir = opts.siteDir !== "." ? opts.siteDir : siteDirArg;
     const input = await readFile("/dev/stdin", "utf-8");
     const content = JSON.parse(input) as ClassifiedContent;
 

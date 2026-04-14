@@ -15,4 +15,14 @@ describe("devCommand", () => {
     const opts = devCommand.options.map((o) => o.long);
     expect(opts).toContain("--port");
   });
+
+  it("has a --site-dir option", () => {
+    const opts = devCommand.options.map((o) => o.long);
+    expect(opts).toContain("--site-dir");
+  });
+
+  it("--site-dir option defaults to '.'", () => {
+    const opt = devCommand.options.find((o) => o.long === "--site-dir");
+    expect(opt?.defaultValue).toBe(".");
+  });
 });

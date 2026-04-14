@@ -22,6 +22,7 @@ import { loadCustomCss } from "../styles/presets.js";
 import { writeFavicon, writeOgImage } from "./favicon.js";
 import { generateBlogrollPage } from "./html.js";
 import { listSubscriptions } from "../reader/subscriptions.js";
+import { repairMojibake } from "./mojibake.js";
 
 const POSTS_INDEX = "posts.json";
 
@@ -57,11 +58,37 @@ export async function readPostsIndex(siteDir: string): Promise<Post[]> {
 }
 
 /** Write the posts index */
-async function writePostsIndex(
+export async function writePostsIndex(
   siteDir: string,
   posts: Post[],
 ): Promise<void> {
   await writeFile(join(siteDir, POSTS_INDEX), JSON.stringify(posts, null, 2));
+}
+
+/**
+ * Apply mojibake repair to all user-facing text fields of a post. Used on
+ * ingest (addContent) and as a one-shot heal during regeneration to fix data
+ * corrupted by a broken upstream pipeline.
+ */
+export function healPostText<T extends {
+  title?: string;
+  body: string;
+  tags: string[];
+  linkTitle?: string;
+  linkDescription?: string;
+}>(post: T): T {
+  return {
+    ...post,
+    title: post.title !== undefined ? repairMojibake(post.title) : undefined,
+    body: repairMojibake(post.body),
+    tags: post.tags.map(repairMojibake),
+    linkTitle:
+      post.linkTitle !== undefined ? repairMojibake(post.linkTitle) : undefined,
+    linkDescription:
+      post.linkDescription !== undefined
+        ? repairMojibake(post.linkDescription)
+        : undefined,
+  };
 }
 
 /** Optional injections from plugin system */
@@ -88,6 +115,8 @@ export async function addContent(
   }
 
   const posts = await readPostsIndex(siteDir);
+
+  content = healPostText(content);
 
   const existingSlugs = new Set(posts.map((p) => p.slug));
   let slug = content.slug;
@@ -174,6 +203,55 @@ export async function deletePost(
   } else {
     const htmlPath = permalink.startsWith("/") ? permalink.slice(1) : permalink;
     await rm(join(outDir, htmlPath), { force: true });
+  }
+
+  // Remove image and media assets owned by this post. Uploaded files live at
+  // paths like `/img/<slug>-<n>.<ext>` or `/media/<slug>-<n>.<ext>`, so the
+  // src path maps directly onto a file under the output directory.
+  const assetSrcs = [
+    ...(post.images ?? []).map((i) => i.src),
+    ...(post.media ?? []).map((m) => m.src),
+  ];
+  await Promise.all(
+    assetSrcs.map((src) => {
+      const rel = src.startsWith("/") ? src.slice(1) : src;
+      return rm(join(outDir, rel), { force: true });
+    }),
+  );
+
+  // Rebuild the two neighbors' HTML: their prev/next nav still points at the
+  // now-deleted post. After splice, positions idx-1 (newer neighbor) and idx
+  // (older neighbor, previously at idx+1) are the ones to fix.
+  const neighborIndices = [idx - 1, idx].filter(
+    (i) => i >= 0 && i < posts.length,
+  );
+  const commentsSubmitUrl = config.commentsEndpoint
+    ? `${config.commentsEndpoint}/submit`
+    : undefined;
+  for (const i of neighborIndices) {
+    const neighbor = posts[i]!;
+    const nPermalink = neighbor.url.startsWith(domain)
+      ? neighbor.url.slice(domain.length)
+      : `/${neighbor.slug}.html`;
+    const nDir = permalinkDir(nPermalink);
+    if (nDir) {
+      await mkdir(join(outDir, nDir), { recursive: true });
+    }
+    const prevPost = i > 0
+      ? { title: posts[i - 1]!.title ?? posts[i - 1]!.body.slice(0, 60), url: posts[i - 1]!.url }
+      : undefined;
+    const nextPost = i < posts.length - 1
+      ? { title: posts[i + 1]!.title ?? posts[i + 1]!.body.slice(0, 60), url: posts[i + 1]!.url }
+      : undefined;
+    const html = generateHtmlPage(neighbor, config, {
+      pageUrl: neighbor.url,
+      comments: [],
+      commentsSubmitUrl,
+      prevPost,
+      nextPost,
+    });
+    const nPath = nPermalink.startsWith("/") ? nPermalink.slice(1) : nPermalink;
+    await writeFile(join(outDir, nPath), html);
   }
 
   await Promise.all([

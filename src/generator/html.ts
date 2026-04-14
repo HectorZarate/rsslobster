@@ -5,7 +5,8 @@ import { generateFaviconSvg, faviconLinkTags } from "./favicon.js";
 import { renderNav, renderPageLinks } from "../pages/pages.js";
 import type { PageInjections } from "../plugins/types.js";
 import { renderMarkdown, renderInline } from "./markdown.js";
-import { type Comment, renderCommentsSection, commentStyles } from "ziscus";
+import { type Comment, renderCommentList, renderCommentForm, renderCommentsSection, commentStyles } from "ziscus";
+import { commentPageUrl } from "./pagination.js";
 
 /**
  * Generate an HTML page from classified content.
@@ -37,6 +38,15 @@ export interface HtmlPageOptions {
   prevPost?: { title: string; url: string };
   /** Next post (older) for navigation */
   nextPost?: { title: string; url: string };
+  /** Comment pagination info (when comments span multiple pages) */
+  commentPagination?: CommentPaginationInfo;
+}
+
+export interface CommentPaginationInfo {
+  currentPage: number;
+  totalPages: number;
+  totalComments: number;
+  baseUrl: string;
 }
 
 /** Return HtmlPageOptions for a preview page: noindex meta + banner. */
@@ -170,10 +180,14 @@ export function generateHtmlPage(
   const bodyEnd = options?.pluginInjections?.bodyEnd ?? "";
 
   const postUrl = options?.pageUrl ?? `https://${config.domain}/posts/${content.slug}/`;
+  const cp = options?.commentPagination;
+  const formRedirectUrl = cp
+    ? `https://${config.domain}${cp.baseUrl}`
+    : postUrl;
   const commentsHtml = options?.commentsSubmitUrl
-    ? `\n      ${renderCommentsSection(options.comments ?? [], content.slug, options.commentsSubmitUrl, { redirectUrl: postUrl })}`
+    ? `\n      ${renderPaginatedComments(options.comments ?? [], content.slug, options.commentsSubmitUrl, formRedirectUrl, cp)}`
     : "";
-  const commentsCss = options?.commentsSubmitUrl ? commentStyles() : "";
+  const commentsCss = options?.commentsSubmitUrl ? commentStyles() + (cp && cp.totalPages > 1 ? COMMENT_PAGINATION_CSS : "") : "";
   const postNav = renderPostNav(options?.prevPost, options?.nextPost);
 
   return `<!DOCTYPE html>
@@ -188,7 +202,7 @@ export function generateHtmlPage(
   ${jsonLd}
   ${favicon}
   <link rel="alternate" type="application/rss+xml" title="${escAttr(config.title)}" href="/feed.xml">
-  <link rel="alternate" type="application/feed+json" title="${escAttr(config.title)}" href="/feed.json">
+  <link rel="alternate" type="application/feed+json" title="${escAttr(config.title)}" href="/feed.json">${renderRelPrevNext(cp)}
   <style>${css}${commentsCss}</style>${pluginHead}${extraHead}
 </head>
 <body>${bodyPrefix}
@@ -234,7 +248,7 @@ function renderPostList(posts: ClassifiedContent[], permalink?: string): string 
       if (p.title) {
         return `    <article>
 ${thumb}      <h2><a href="${escAttr(url)}">${escHtml(p.title)}</a></h2>
-      <p>${renderInline(truncate(p.body, 200))}</p>
+      <p>${renderInline(truncate(firstSentence(p.body), 200))}</p>
       <time datetime="${escAttr(p.createdAt)}">${formatDate(p.createdAt)}</time>
     </article>`;
       }
@@ -541,6 +555,22 @@ function truncate(s: string, len: number): string {
   return s.slice(0, len - 1) + "\u2026";
 }
 
+/**
+ * Extract the first sentence of a markdown body, for use as an index preview.
+ * Takes the first non-blank paragraph (so tables, code blocks, and lists in
+ * later paragraphs are ignored), strips markdown, and returns text up to the
+ * first sentence-ending punctuation. Falls back to the full first paragraph
+ * when no terminator is found.
+ */
+function firstSentence(body: string): string {
+  const paragraphs = body.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const first = paragraphs[0];
+  if (!first) return "";
+  const stripped = stripMarkdown(first);
+  const match = stripped.match(/^.*?[.!?](?=\s|$)/);
+  return match ? match[0] : stripped;
+}
+
 /** Strip markdown formatting for use in plain-text contexts like meta tags. */
 function stripMarkdown(s: string): string {
   return s
@@ -568,3 +598,55 @@ export function escHtml(s: string): string {
 function escAttr(s: string): string {
   return escHtml(s).replace(/'/g, "&#39;");
 }
+
+function renderPaginatedComments(
+  comments: Comment[],
+  slug: string,
+  submitUrl: string,
+  redirectUrl: string,
+  pagination?: CommentPaginationInfo,
+): string {
+  if (!pagination || pagination.totalPages <= 1) {
+    return renderCommentsSection(comments, slug, submitUrl, { redirectUrl });
+  }
+  let list = renderCommentList(comments);
+  list = list.replace(
+    /<h2>.*?<\/h2>/,
+    `<h2>${pagination.totalComments.toLocaleString()} Comments \u2014 Page ${pagination.currentPage} of ${pagination.totalPages}</h2>`,
+  );
+  const nav = renderCommentPaginationNav(pagination);
+  const form = renderCommentForm(slug, submitUrl, { redirectUrl });
+  return `${list}\n      ${nav}\n    ${form}`;
+}
+
+function renderCommentPaginationNav(info: CommentPaginationInfo): string {
+  if (info.totalPages <= 1) return "";
+  const parts: string[] = [];
+  if (info.currentPage > 1) {
+    const prevUrl = commentPageUrl(info.baseUrl, info.currentPage - 1);
+    parts.push(`<a href="${escAttr(prevUrl)}">\u2190 Previous</a>`);
+  }
+  parts.push(`<span aria-current="page">Page ${info.currentPage} of ${info.totalPages}</span>`);
+  if (info.currentPage < info.totalPages) {
+    const nextUrl = commentPageUrl(info.baseUrl, info.currentPage + 1);
+    parts.push(`<a href="${escAttr(nextUrl)}">Next \u2192</a>`);
+  }
+  return `<nav class="comment-pagination" aria-label="Comment pages">${parts.join(" ")}</nav>`;
+}
+
+function renderRelPrevNext(cp?: CommentPaginationInfo): string {
+  if (!cp || cp.totalPages <= 1) return "";
+  const links: string[] = [];
+  if (cp.currentPage > 1) {
+    links.push(`\n  <link rel="prev" href="${escAttr(commentPageUrl(cp.baseUrl, cp.currentPage - 1))}">`);
+  }
+  if (cp.currentPage < cp.totalPages) {
+    links.push(`\n  <link rel="next" href="${escAttr(commentPageUrl(cp.baseUrl, cp.currentPage + 1))}">`);
+  }
+  return links.join("");
+}
+
+const COMMENT_PAGINATION_CSS = `
+.comment-pagination { display: flex; gap: 1rem; align-items: center; margin: 1.5rem 0; padding: 0.75rem 0; border-top: 1px solid var(--color-border, #e0e0e0); }
+.comment-pagination [aria-current="page"] { font-weight: bold; }
+`;

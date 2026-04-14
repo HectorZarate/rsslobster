@@ -264,6 +264,42 @@ describe("generateIndexPage", () => {
     expect(html).toContain("Deep Dive into RSS");
   });
 
+  // UX: index preview for titled posts is the first sentence only — tables,
+  // lists, and multiple paragraphs render badly inline.
+  it("uses only the first sentence of the body for titled-post previews", () => {
+    const tablePost: ClassifiedContent = {
+      type: "post",
+      title: "Comments Load Test",
+      body:
+        "k6 load test for the comments system. Cloudflare Workers + D1.\n\n| Load | p95 |\n| --- | --- |\n| 100 comments/sec sustained | under 10s |\n| 50 concurrent writers | under 5s |\n\nComments are closed on this page.",
+      slug: "comments-load-test",
+      tags: [],
+      createdAt: "2026-04-04T20:00:00Z",
+      updatedAt: "2026-04-04T20:00:00Z",
+    };
+    const html = generateIndexPage([tablePost], SITE_CONFIG);
+    const article = html.match(/<article>[\s\S]*?<\/article>/)?.[0] ?? "";
+    expect(article).toContain("k6 load test for the comments system.");
+    expect(article).not.toContain("Cloudflare Workers");
+    expect(article).not.toContain("100 comments/sec");
+    expect(article).not.toContain("Comments are closed");
+    expect(article).not.toContain("|");
+  });
+
+  it("first-sentence preview falls back to full paragraph when no terminator", () => {
+    const noTerm: ClassifiedContent = {
+      type: "post",
+      title: "No Terminator",
+      body: "just a single line without punctuation",
+      slug: "no-term",
+      tags: [],
+      createdAt: "2026-04-04T20:00:00Z",
+      updatedAt: "2026-04-04T20:00:00Z",
+    };
+    const html = generateIndexPage([noTerm], SITE_CONFIG);
+    expect(html).toContain("just a single line without punctuation");
+  });
+
   it("renders a thumbnail for image-type posts on the index", () => {
     const html = generateIndexPage([IMAGE], SITE_CONFIG);
     // Should contain an <img> referencing the first attached image
@@ -630,5 +666,150 @@ describe("generateBlogrollPage", () => {
     const html = generateBlogrollPage(xss, SITE_CONFIG);
     expect(html).toContain("&lt;script&gt;");
     expect(html).not.toContain("<script>alert");
+  });
+});
+
+describe("comment pagination", () => {
+  const COMMENTED_POST: ClassifiedContent = {
+    type: "post",
+    title: "Paginated Comments",
+    body: "A post with many comments.",
+    slug: "paginated-comments",
+    tags: [],
+    createdAt: "2026-04-01T00:00:00Z",
+    updatedAt: "2026-04-01T00:00:00Z",
+  };
+
+  const PAGINATION_MID = {
+    currentPage: 2,
+    totalPages: 3,
+    totalComments: 450,
+    baseUrl: "/posts/paginated-comments/",
+  };
+
+  it("renders pagination nav when commentPagination is set", () => {
+    const html = generateHtmlPage(COMMENTED_POST, SITE_CONFIG, {
+      pageUrl: "https://example.com/posts/paginated-comments/2/",
+      comments: [],
+      commentsSubmitUrl: "https://example.com/submit",
+      commentPagination: PAGINATION_MID,
+    });
+    expect(html).toContain("comment-pagination");
+  });
+
+  it("does not render pagination nav without commentPagination", () => {
+    const html = generateHtmlPage(COMMENTED_POST, SITE_CONFIG, {
+      pageUrl: "https://example.com/posts/paginated-comments/",
+      comments: [],
+      commentsSubmitUrl: "https://example.com/submit",
+    });
+    expect(html).not.toContain("comment-pagination");
+  });
+
+  it("page 1 of 3 has next link but no prev link", () => {
+    const html = generateHtmlPage(COMMENTED_POST, SITE_CONFIG, {
+      pageUrl: "https://example.com/posts/paginated-comments/",
+      comments: [],
+      commentsSubmitUrl: "https://example.com/submit",
+      commentPagination: { ...PAGINATION_MID, currentPage: 1 },
+    });
+    expect(html).toContain("/posts/paginated-comments/2/");
+    expect(html).not.toContain("Previous");
+  });
+
+  it("page 2 of 3 has both prev and next links", () => {
+    const html = generateHtmlPage(COMMENTED_POST, SITE_CONFIG, {
+      pageUrl: "https://example.com/posts/paginated-comments/2/",
+      comments: [],
+      commentsSubmitUrl: "https://example.com/submit",
+      commentPagination: PAGINATION_MID,
+    });
+    expect(html).toContain("/posts/paginated-comments/");
+    expect(html).toContain("/posts/paginated-comments/3/");
+  });
+
+  it("last page has prev link but no next link", () => {
+    const html = generateHtmlPage(COMMENTED_POST, SITE_CONFIG, {
+      pageUrl: "https://example.com/posts/paginated-comments/3/",
+      comments: [],
+      commentsSubmitUrl: "https://example.com/submit",
+      commentPagination: { ...PAGINATION_MID, currentPage: 3 },
+    });
+    expect(html).toContain("/posts/paginated-comments/2/");
+    expect(html).not.toContain("/posts/paginated-comments/4/");
+  });
+
+  it("single page (totalPages=1) renders no pagination nav", () => {
+    const html = generateHtmlPage(COMMENTED_POST, SITE_CONFIG, {
+      pageUrl: "https://example.com/posts/paginated-comments/",
+      comments: [],
+      commentsSubmitUrl: "https://example.com/submit",
+      commentPagination: {
+        currentPage: 1,
+        totalPages: 1,
+        totalComments: 50,
+        baseUrl: "/posts/paginated-comments/",
+      },
+    });
+    expect(html).not.toContain("comment-pagination");
+  });
+
+  it("shows total comment count in heading, not page count", () => {
+    const html = generateHtmlPage(COMMENTED_POST, SITE_CONFIG, {
+      pageUrl: "https://example.com/posts/paginated-comments/2/",
+      comments: [
+        { id: "c1", slug: "paginated-comments", author: "A", body: "hi", status: "approved", createdAt: "2026-04-01T00:00:00Z" },
+      ],
+      commentsSubmitUrl: "https://example.com/submit",
+      commentPagination: PAGINATION_MID,
+    });
+    expect(html).toContain("450 Comments");
+    expect(html).toContain("Page 2 of 3");
+  });
+
+  it("adds rel prev/next links in head", () => {
+    const html = generateHtmlPage(COMMENTED_POST, SITE_CONFIG, {
+      pageUrl: "https://example.com/posts/paginated-comments/2/",
+      comments: [],
+      commentsSubmitUrl: "https://example.com/submit",
+      commentPagination: PAGINATION_MID,
+    });
+    expect(html).toContain('rel="prev"');
+    expect(html).toContain('rel="next"');
+  });
+
+  it("page 1 has no rel prev in head", () => {
+    const html = generateHtmlPage(COMMENTED_POST, SITE_CONFIG, {
+      pageUrl: "https://example.com/posts/paginated-comments/",
+      comments: [],
+      commentsSubmitUrl: "https://example.com/submit",
+      commentPagination: { ...PAGINATION_MID, currentPage: 1 },
+    });
+    expect(html).not.toContain('rel="prev"');
+    expect(html).toContain('rel="next"');
+  });
+
+  it("last page has no rel next in head", () => {
+    const html = generateHtmlPage(COMMENTED_POST, SITE_CONFIG, {
+      pageUrl: "https://example.com/posts/paginated-comments/3/",
+      comments: [],
+      commentsSubmitUrl: "https://example.com/submit",
+      commentPagination: { ...PAGINATION_MID, currentPage: 3 },
+    });
+    expect(html).toContain('rel="prev"');
+    expect(html).not.toContain('rel="next"');
+  });
+
+  it("post content (title and body) is present on all pages", () => {
+    for (const page of [1, 2, 3]) {
+      const html = generateHtmlPage(COMMENTED_POST, SITE_CONFIG, {
+        pageUrl: `https://example.com/posts/paginated-comments/${page === 1 ? "" : `${page}/`}`,
+        comments: [],
+        commentsSubmitUrl: "https://example.com/submit",
+        commentPagination: { ...PAGINATION_MID, currentPage: page },
+      });
+      expect(html).toContain("Paginated Comments");
+      expect(html).toContain("A post with many comments.");
+    }
   });
 });

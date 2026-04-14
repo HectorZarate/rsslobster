@@ -200,6 +200,14 @@ describe("enable commands", () => {
     });
   });
 
+  describe("enable command help text", () => {
+    it("description lists 'comments' as a capability", async () => {
+      const { enableCommand } = await import("./enable.js");
+      const description = enableCommand.description();
+      expect(description).toContain("comments");
+    });
+  });
+
   describe("atomic writes", () => {
     it("does not leave temp files on success", async () => {
       await writeLobsterConfig(dir, { channel: "telegram" });

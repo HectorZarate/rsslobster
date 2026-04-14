@@ -1,10 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { mkdtemp, readFile, writeFile, access } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, access, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { scaffoldSite, addContent } from "../generator/site.js";
 import { regenerateSite, regenerateCommand } from "./regenerate.js";
 import type { SiteConfig, ClassifiedContent } from "../config/types.js";
+
+async function exists(path: string): Promise<boolean> {
+  try { await access(path); return true; } catch { return false; }
+}
 
 const SITE_CONFIG: SiteConfig = {
   domain: "example.com",
@@ -292,6 +296,31 @@ describe("regenerateSite with slug filter", () => {
       regenerateSite(siteDir, { slug: "nonexistent" }),
     ).rejects.toThrow();
   });
+
+  it("heals double-encoded UTF-8 in posts.json on regenerate", async () => {
+    await scaffoldSite(siteDir, SITE_CONFIG);
+    await addContent(siteDir, MICRO);
+
+    // Hand-edit posts.json to contain double-round mojibake (what a broken
+    // upstream tool would leave behind).
+    const indexPath = join(siteDir, "posts.json");
+    const posts = JSON.parse(await readFile(indexPath, "utf-8"));
+    posts[0].body =
+      "sustained \u00C3\u00A2\u00C2\u0080\u00C2\u0094 p95 under 10s";
+    await writeFile(indexPath, JSON.stringify(posts, null, 2));
+
+    await regenerateSite(siteDir);
+
+    const healed = JSON.parse(await readFile(indexPath, "utf-8"));
+    expect(healed[0].body).toBe("sustained — p95 under 10s");
+
+    const html = await readFile(
+      join(siteDir, "_site", "posts", "hello-test", "index.html"),
+      "utf-8",
+    );
+    expect(html).toContain("sustained — p95");
+    expect(html).not.toContain("\u00C3\u00A2");
+  });
 });
 
 describe("regenerateSite with comments", () => {
@@ -357,5 +386,103 @@ describe("regenerateCommand", () => {
       (o) => o.long === "--slug",
     );
     expect(slugOption).toBeDefined();
+  });
+});
+
+// Comment pagination integration tests are in regenerate-pagination.test.ts
+// (separate file to isolate vi.mock of ziscus)
+describe.skip("comment pagination in regenerateSite", () => {
+  let siteDir: string;
+
+  const SITE_WITH_COMMENTS: SiteConfig = {
+    ...SITE_CONFIG,
+    commentsEndpoint: "https://comments.example.com",
+  };
+
+  beforeEach(async () => {
+    siteDir = await mkdtemp(join(tmpdir(), "rsslobster-regen-pag-"));
+  });
+
+  function fakeComments(n: number) {
+    return Array.from({ length: n }, (_, i) => ({
+      id: `c${i + 1}`,
+      slug: "hello-test",
+      author: `Author${i + 1}`,
+      body: `Comment body ${i + 1}`,
+      status: "approved" as const,
+      createdAt: new Date(2026, 0, 1, 0, 0, i).toISOString(),
+    }));
+  }
+
+  it("generates only index.html when comments <= 200", async () => {
+    vi.doMock("ziscus", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("ziscus")>();
+      return { ...actual, fetchComments: vi.fn().mockResolvedValue(fakeComments(200)) };
+    });
+    const { regenerateSite: regen } = await import("./regenerate.js");
+    await scaffoldSite(siteDir, SITE_WITH_COMMENTS);
+    await addContent(siteDir, MICRO);
+    await regen(siteDir);
+
+    const outDir = join(siteDir, "_site");
+    expect(await exists(join(outDir, "posts", "hello-test", "index.html"))).toBe(true);
+    expect(await exists(join(outDir, "posts", "hello-test", "2"))).toBe(false);
+    vi.doUnmock("ziscus");
+  });
+
+  it("generates page 2 when comments > 200", async () => {
+    vi.doMock("ziscus", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("ziscus")>();
+      return { ...actual, fetchComments: vi.fn().mockResolvedValue(fakeComments(201)) };
+    });
+    const { regenerateSite: regen } = await import("./regenerate.js");
+    await scaffoldSite(siteDir, SITE_WITH_COMMENTS);
+    await addContent(siteDir, MICRO);
+    await regen(siteDir);
+
+    const outDir = join(siteDir, "_site");
+    expect(await exists(join(outDir, "posts", "hello-test", "2", "index.html"))).toBe(true);
+
+    const page2 = await readFile(join(outDir, "posts", "hello-test", "2", "index.html"), "utf-8");
+    expect(page2).toContain("comment-pagination");
+    expect(page2).toContain("Hello from the test suite");
+    vi.doUnmock("ziscus");
+  });
+
+  it("cleans stale page directories when comment count drops", async () => {
+    await scaffoldSite(siteDir, SITE_WITH_COMMENTS);
+    await addContent(siteDir, MICRO);
+    const outDir = join(siteDir, "_site");
+    const staleDir = join(outDir, "posts", "hello-test", "3");
+    await mkdir(staleDir, { recursive: true });
+    await writeFile(join(staleDir, "index.html"), "stale");
+
+    vi.doMock("ziscus", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("ziscus")>();
+      return { ...actual, fetchComments: vi.fn().mockResolvedValue(fakeComments(50)) };
+    });
+    const { regenerateSite: regen } = await import("./regenerate.js");
+    await regen(siteDir);
+
+    expect(await exists(staleDir)).toBe(false);
+    vi.doUnmock("ziscus");
+  });
+
+  it("respects commentsPerPage config", async () => {
+    const customConfig = { ...SITE_WITH_COMMENTS, commentsPerPage: 5 };
+    vi.doMock("ziscus", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("ziscus")>();
+      return { ...actual, fetchComments: vi.fn().mockResolvedValue(fakeComments(12)) };
+    });
+    const { regenerateSite: regen } = await import("./regenerate.js");
+    await scaffoldSite(siteDir, customConfig);
+    await addContent(siteDir, MICRO);
+    await regen(siteDir);
+
+    const outDir = join(siteDir, "_site");
+    expect(await exists(join(outDir, "posts", "hello-test", "2", "index.html"))).toBe(true);
+    expect(await exists(join(outDir, "posts", "hello-test", "3", "index.html"))).toBe(true);
+    expect(await exists(join(outDir, "posts", "hello-test", "4"))).toBe(false);
+    vi.doUnmock("ziscus");
   });
 });

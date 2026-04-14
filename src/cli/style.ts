@@ -28,8 +28,9 @@ export const styleCommand = new Command("style")
   .description("Change the site's style preset")
   .argument("<preset>", "Style preset: minimal, brutalist, magazine, terminal")
   .argument("[site-dir]", "Path to site directory", ".")
-  .action(async (preset: string, siteDirArg: string) => {
-    const siteDir = resolve(siteDirArg);
+  .option("--site-dir <dir>", "Path to site directory", ".")
+  .action(async (preset: string, siteDirArg: string, opts: { siteDir: string }) => {
+    const siteDir = resolve(opts.siteDir !== "." ? opts.siteDir : siteDirArg);
     try {
       await setStyle(siteDir, preset);
       console.log(pc.green(`Style changed to ${pc.cyan(preset)}.`));

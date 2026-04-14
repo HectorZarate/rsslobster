@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { setStyle } from "./style.js";
+import { setStyle, styleCommand } from "./style.js";
 
 describe("style command", () => {
   let dir: string;
@@ -68,5 +68,30 @@ describe("style command", () => {
 
   it("throws when rsslobster.json is missing", async () => {
     await expect(setStyle(dir, "terminal")).rejects.toThrow();
+  });
+});
+
+describe("styleCommand --site-dir flag", () => {
+  it("has a --site-dir option", () => {
+    const longFlags = styleCommand.options.map((o) => o.long);
+    expect(longFlags).toContain("--site-dir");
+  });
+
+  it("--site-dir option defaults to '.'", () => {
+    const opt = styleCommand.options.find((o) => o.long === "--site-dir");
+    expect(opt?.defaultValue).toBe(".");
+  });
+
+  it("--site-dir flag is accepted alongside <preset> positional argument", () => {
+    // Verify the command has both the positional <preset> argument and --site-dir option.
+    // This confirms backward-compatible dual-input design without invoking the action.
+    const presetArg = styleCommand.registeredArguments.find(
+      (a) => a.name() === "preset",
+    );
+    expect(presetArg).toBeDefined();
+    expect(presetArg?.required).toBe(true);
+
+    const siteDirOpt = styleCommand.options.find((o) => o.long === "--site-dir");
+    expect(siteDirOpt).toBeDefined();
   });
 });

@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { scaffoldSite, readPostsIndex, addContent } from "../generator/site.js";
-import { buildPublishContent } from "./publish.js";
+import { buildPublishContent, publishCommand } from "./publish.js";
 import type { SiteConfig } from "../config/types.js";
 
 const SITE_CONFIG: SiteConfig = {
@@ -213,5 +213,63 @@ describe("publish command integration", () => {
     const jsonFeed = await readFile(join(siteDir, "_site", "feed.json"), "utf-8");
     const parsed = JSON.parse(jsonFeed);
     expect(parsed.items).toHaveLength(1);
+  });
+
+  it('publish "Hello world" without --type defaults to micro', async () => {
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((...args) => {
+      logs.push(args.join(" "));
+    });
+
+    await publishCommand.parseAsync([
+      "node", "test", "Hello world",
+      "--site-dir", siteDir,
+    ]);
+
+    vi.restoreAllMocks();
+
+    const posts = await readPostsIndex(siteDir);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.type).toBe("micro");
+    expect(posts[0]!.body).toBe("Hello world");
+  });
+
+  it("publish defaults to local-only (no deploy) without --deploy flag", async () => {
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((...args) => {
+      logs.push(args.join(" "));
+    });
+
+    await publishCommand.parseAsync([
+      "node", "test", "No deploy test",
+      "--site-dir", siteDir,
+    ]);
+
+    vi.restoreAllMocks();
+
+    // Should say "Published locally" — not attempt git push
+    const output = logs.join("\n");
+    expect(output).toContain("Published locally");
+  });
+
+  it('publish "Hello" --type post --title "Title" still works explicitly', async () => {
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((...args) => {
+      logs.push(args.join(" "));
+    });
+
+    await publishCommand.parseAsync([
+      "node", "test", "Hello",
+      "--type", "post",
+      "--title", "Title",
+      "--site-dir", siteDir,
+    ]);
+
+    vi.restoreAllMocks();
+
+    const posts = await readPostsIndex(siteDir);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.type).toBe("post");
+    expect(posts[0]!.title).toBe("Title");
   });
 });

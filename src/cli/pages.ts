@@ -7,7 +7,8 @@ import type { PageConfig } from "../config/types.js";
 
 export const pagesCommand = new Command("pages")
   .description("Manage static pages (About, Contact, etc.)")
-  .argument("[site-dir]", "Path to site directory", ".");
+  .argument("[site-dir]", "Path to site directory", ".")
+  .option("--site-dir <dir>", "Path to site directory", ".");
 
 pagesCommand
   .command("add")

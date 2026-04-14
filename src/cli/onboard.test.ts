@@ -3,6 +3,7 @@ import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { lobsterConfigExists, readLobsterConfig } from "../config/lobster.js";
+import { initCommand } from "./init.js";
 
 // Mock scaffoldSite to avoid actual file generation
 vi.mock("../generator/site.js", () => ({
@@ -151,5 +152,59 @@ describe("onboard command", () => {
     ).rejects.toThrow("exit");
 
     exitSpy.mockRestore();
+  });
+});
+
+describe("init command (alias for onboard)", () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "lobster-init-"));
+  });
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  it("init command is named 'init'", () => {
+    expect(initCommand.name()).toBe("init");
+  });
+
+  it("init routes to the same action as onboard: creates rsslobster.json", async () => {
+    initCommand.exitOverride();
+
+    await initCommand.parseAsync(
+      ["--domain", "alias.com", dir],
+      { from: "user" },
+    );
+
+    const siteRaw = await readFile(join(dir, "rsslobster.json"), "utf-8");
+    const site = JSON.parse(siteRaw);
+    expect(site.domain).toBe("alias.com");
+  });
+
+  it("init creates lobster.json (progressive setup)", async () => {
+    initCommand.exitOverride();
+
+    await initCommand.parseAsync(
+      ["--domain", "alias.com", dir],
+      { from: "user" },
+    );
+
+    const config = await readLobsterConfig(dir);
+    expect(config).toEqual({});
+  });
+
+  it("init creates .gitignore with lobster.json", async () => {
+    initCommand.exitOverride();
+
+    await initCommand.parseAsync(
+      ["--domain", "alias.com", dir],
+      { from: "user" },
+    );
+
+    const gitignore = await readFile(join(dir, ".gitignore"), "utf-8");
+    expect(gitignore).toContain("lobster.json");
   });
 });

@@ -123,12 +123,13 @@ feedsCommand
   .command("list", { isDefault: true })
   .description("Show your feed — unread items, paginated")
   .argument("[site-dir]", "Path to site directory", ".")
+  .option("--site-dir <dir>", "Path to site directory")
   .option("--subs", "Show subscriptions only")
   .option("--folder <folder>", "Filter by folder")
   .option("-n, --limit <n>", "Items per page", "5")
   .option("-p, --page <p>", "Page number (1-indexed)", "1")
-  .action(async (siteDir: string, opts: { subs?: boolean; folder?: string; limit: string; page: string }) => {
-    const dir = resolve(siteDir);
+  .action(async (siteDirArg: string, opts: { siteDir?: string; subs?: boolean; folder?: string; limit: string; page: string }) => {
+    const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
     const subs = await listSubscriptions(
       dir,
       opts.folder ? { folder: opts.folder } : undefined,
@@ -195,16 +196,17 @@ feedsCommand
   .description("Subscribe to a feed (auto-discovers feed URL from HTML)")
   .argument("<url>", "Feed or site URL")
   .argument("[site-dir]", "Path to site directory", ".")
+  .option("--site-dir <dir>", "Path to site directory")
   .option("--title <title>", "Override feed title")
   .option("--folder <folder>", "Assign to folder")
   .option("--muted", "Start muted (no notifications)")
   .action(
     async (
       url: string,
-      siteDir: string,
-      opts: { title?: string; folder?: string; muted?: boolean },
+      siteDirArg: string,
+      opts: { siteDir?: string; title?: string; folder?: string; muted?: boolean },
     ) => {
-      const dir = resolve(siteDir);
+      const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
 
       // Auto-discover feed URL and title
       let feedUrl = url;
@@ -261,8 +263,9 @@ feedsCommand
   .description("Unsubscribe from a feed")
   .argument("<url>", "Feed URL")
   .argument("[site-dir]", "Path to site directory", ".")
-  .action(async (url: string, siteDir: string) => {
-    const dir = resolve(siteDir);
+  .option("--site-dir <dir>", "Path to site directory")
+  .action(async (url: string, siteDirArg: string, opts: { siteDir?: string }) => {
+    const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
     const removed = await unsubscribe(dir, url);
 
     if (removed) {
@@ -283,9 +286,10 @@ feedsCommand
   .description("Fetch new items from all subscriptions (or a specific feed)")
   .argument("[url]", "Specific feed URL to poll (optional)")
   .argument("[site-dir]", "Path to site directory", ".")
+  .option("--site-dir <dir>", "Path to site directory")
   .option("--force", "Ignore poll intervals, fetch all feeds now")
-  .action(async (url: string | undefined, siteDir: string, opts: { force?: boolean }) => {
-    const dir = resolve(siteDir);
+  .action(async (url: string | undefined, siteDirArg: string, opts: { siteDir?: string; force?: boolean }) => {
+    const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
 
     if (url) {
       const result = await pollFeed(dir, url);
@@ -333,6 +337,7 @@ feedsCommand
   .command("items")
   .description("Show feed items with filtering and pagination")
   .argument("[site-dir]", "Path to site directory", ".")
+  .option("--site-dir <dir>", "Path to site directory")
   .option("--all", "Show all items, not just unread")
   .option("--starred", "Show starred items only")
   .option("--feed <url>", "Filter by feed URL")
@@ -340,10 +345,10 @@ feedsCommand
   .option("-p, --page <p>", "Page number", "1")
   .action(
     async (
-      siteDir: string,
-      opts: { all?: boolean; starred?: boolean; feed?: string; limit: string; page: string },
+      siteDirArg: string,
+      opts: { siteDir?: string; all?: boolean; starred?: boolean; feed?: string; limit: string; page: string },
     ) => {
-      const dir = resolve(siteDir);
+      const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
       const limit = parseInt(opts.limit, 10) || 5;
       const page = parseInt(opts.page, 10) || 1;
       const offset = (page - 1) * limit;
@@ -393,8 +398,9 @@ feedsCommand
   .description("Show an item's content and mark it as read")
   .argument("<n>", "Item number from last listing")
   .argument("[site-dir]", "Path to site directory", ".")
-  .action(async (n: string, siteDir: string) => {
-    const dir = resolve(siteDir);
+  .option("--site-dir <dir>", "Path to site directory")
+  .action(async (n: string, siteDirArg: string, opts: { siteDir?: string }) => {
+    const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
     const num = parseInt(n, 10);
     const listing = await loadLastListing(dir);
 
@@ -435,8 +441,9 @@ feedsCommand
   .description("Star an item")
   .argument("<n>", "Item number from last listing")
   .argument("[site-dir]", "Path to site directory", ".")
-  .action(async (n: string, siteDir: string) => {
-    const dir = resolve(siteDir);
+  .option("--site-dir <dir>", "Path to site directory")
+  .action(async (n: string, siteDirArg: string, opts: { siteDir?: string }) => {
+    const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
     const num = parseInt(n, 10);
     const listing = await loadLastListing(dir);
 
@@ -459,8 +466,9 @@ feedsCommand
   .description("Unstar an item")
   .argument("<n>", "Item number from last listing")
   .argument("[site-dir]", "Path to site directory", ".")
-  .action(async (n: string, siteDir: string) => {
-    const dir = resolve(siteDir);
+  .option("--site-dir <dir>", "Path to site directory")
+  .action(async (n: string, siteDirArg: string, opts: { siteDir?: string }) => {
+    const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
     const num = parseInt(n, 10);
     const listing = await loadLastListing(dir);
 
@@ -485,10 +493,10 @@ feedsCommand
 /** Shared reblog action — used by both `reblog` and `share` (alias) */
 async function reblogAction(
   n: string,
-  siteDir: string,
-  opts: { message?: string; to?: string; deploy?: boolean },
+  siteDirArg: string,
+  opts: { siteDir?: string; message?: string; to?: string; deploy?: boolean },
 ): Promise<void> {
-  const dir = resolve(siteDir);
+  const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
   const num = parseInt(n, 10);
   const listing = await loadLastListing(dir);
 
@@ -564,6 +572,7 @@ const reblogOpts = (cmd: import("commander").Command) =>
   cmd
     .argument("<n>", "Item number from the last listing")
     .argument("[site-dir]", "Path to site directory", ".")
+    .option("--site-dir <dir>", "Path to site directory")
     .option("-m, --message <text>", "Add your commentary")
     .option("--to <site>", "Publish to a different registered site")
     .option("--deploy", "Git commit and push the target site")
@@ -588,10 +597,11 @@ feedsCommand
   .command("mark-read")
   .description("Mark items as read")
   .argument("[site-dir]", "Path to site directory", ".")
+  .option("--site-dir <dir>", "Path to site directory")
   .option("--all", "Mark all items as read")
   .option("--feed <url>", "Mark all items from a specific feed as read")
-  .action(async (siteDir: string, opts: { all?: boolean; feed?: string }) => {
-    const dir = resolve(siteDir);
+  .action(async (siteDirArg: string, opts: { siteDir?: string; all?: boolean; feed?: string }) => {
+    const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
 
     if (!opts.all && !opts.feed) {
       console.error("Provide --all or --feed <url>");
@@ -615,8 +625,9 @@ feedsCommand
   .description("Mute notifications from a feed")
   .argument("<url>", "Feed URL")
   .argument("[site-dir]", "Path to site directory", ".")
-  .action(async (url: string, siteDir: string) => {
-    const dir = resolve(siteDir);
+  .option("--site-dir <dir>", "Path to site directory")
+  .action(async (url: string, siteDirArg: string, opts: { siteDir?: string }) => {
+    const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
     const result = await updateSubscription(dir, url, {
       notify: { muted: true },
     });
@@ -632,8 +643,9 @@ feedsCommand
   .description("Unmute notifications from a feed")
   .argument("<url>", "Feed URL")
   .argument("[site-dir]", "Path to site directory", ".")
-  .action(async (url: string, siteDir: string) => {
-    const dir = resolve(siteDir);
+  .option("--site-dir <dir>", "Path to site directory")
+  .action(async (url: string, siteDirArg: string, opts: { siteDir?: string }) => {
+    const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
     const result = await updateSubscription(dir, url, {
       notify: { muted: false },
     });
@@ -653,15 +665,16 @@ feedsCommand
   .description("Set keyword filter for a feed (only notify on matches)")
   .argument("<url>", "Feed URL")
   .argument("[site-dir]", "Path to site directory", ".")
+  .option("--site-dir <dir>", "Path to site directory")
   .option("--keywords <words...>", "Keywords to match (any)")
   .option("--clear", "Remove all filters")
   .action(
     async (
       url: string,
-      siteDir: string,
-      opts: { keywords?: string[]; clear?: boolean },
+      siteDirArg: string,
+      opts: { siteDir?: string; keywords?: string[]; clear?: boolean },
     ) => {
-      const dir = resolve(siteDir);
+      const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
       const filter = opts.clear ? [] : opts.keywords;
       if (!filter) {
         console.error("Provide --keywords or --clear");
@@ -690,6 +703,7 @@ feedsCommand
   .command("notify")
   .description("Show or configure notification settings")
   .argument("[site-dir]", "Path to site directory", ".")
+  .option("--site-dir <dir>", "Path to site directory")
   .option("--enable", "Enable notifications")
   .option("--disable", "Disable notifications")
   .option("--schedule <schedule>", "Set schedule: immediate, hourly, daily, weekly")
@@ -700,8 +714,9 @@ feedsCommand
   .option("--no-quiet", "Remove quiet hours")
   .action(
     async (
-      siteDir: string,
+      siteDirArg: string,
       opts: {
+        siteDir?: string;
         enable?: boolean;
         disable?: boolean;
         schedule?: string;
@@ -712,7 +727,7 @@ feedsCommand
         quiet?: boolean;
       },
     ) => {
-      const dir = resolve(siteDir);
+      const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
 
       // If no flags, show current config
       const hasChanges =
@@ -773,6 +788,7 @@ feedsCommand
   .command("recap")
   .description("Configure AI recaps")
   .argument("[site-dir]", "Path to site directory", ".")
+  .option("--site-dir <dir>", "Path to site directory")
   .option("--enable", "Enable AI recaps")
   .option("--disable", "Disable AI recaps")
   .option("--frequency <freq>", "Recap frequency: daily, weekly")
@@ -780,8 +796,9 @@ feedsCommand
   .option("--style <style>", "Recap style: brief, detailed")
   .action(
     async (
-      siteDir: string,
+      siteDirArg: string,
       opts: {
+        siteDir?: string;
         enable?: boolean;
         disable?: boolean;
         frequency?: string;
@@ -789,7 +806,7 @@ feedsCommand
         style?: string;
       },
     ) => {
-      const dir = resolve(siteDir);
+      const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
 
       const hasChanges = opts.enable || opts.disable || opts.frequency || opts.deliverAt || opts.style;
 
@@ -828,8 +845,9 @@ feedsCommand
   .description("Import subscriptions from an OPML file")
   .argument("<file>", "Path to OPML file")
   .argument("[site-dir]", "Path to site directory", ".")
-  .action(async (file: string, siteDir: string) => {
-    const dir = resolve(siteDir);
+  .option("--site-dir <dir>", "Path to site directory")
+  .action(async (file: string, siteDirArg: string, opts: { siteDir?: string }) => {
+    const dir = resolve(opts.siteDir ?? siteDirArg ?? ".");
     const xml = await readFile(resolve(file), "utf-8");
     const outlines = parseOpml(xml);
 
@@ -857,9 +875,10 @@ feedsCommand
   .command("export")
   .description("Export subscriptions to OPML")
   .argument("[site-dir]", "Path to site directory", ".")
+  .option("--site-dir <dir>", "Path to site directory")
   .option("--title <title>", "OPML title", "RSS Lobster Subscriptions")
-  .action(async (siteDir: string, opts: { title: string }) => {
-    const dir = resolve(siteDir);
+  .action(async (siteDirArg: string, opts: { siteDir?: string; title: string }) => {
+    const dir = resolve(opts.siteDir ?? siteDirArg ?? '.');
     const subs = await listSubscriptions(dir);
     const opml = generateOpml(opts.title, subs);
     console.log(opml);

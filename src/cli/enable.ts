@@ -407,8 +407,8 @@ async function enableComments(siteDir: string): Promise<void> {
 }
 
 export const enableCommand = new Command("enable")
-  .description("Enable a capability (telegram, model, deploy, x)")
-  .argument("[capability]", "What to enable: telegram, model, deploy, x")
+  .description("Enable a capability (telegram, model, deploy, comments, x)")
+  .argument("[capability]", "What to enable: telegram, model, deploy, comments, x")
   .option("--list", "Show status of all capabilities")
   .option("--site-dir <dir>", "Path to site directory", ".")
   .action(
