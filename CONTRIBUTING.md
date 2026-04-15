@@ -2,6 +2,8 @@
 
 Thanks for your interest in contributing. This document covers the workflow and standards for the project.
 
+Start with [ARCHITECTURE.md](ARCHITECTURE.md) for a high-level overview of the codebase, data flow, and module map.
+
 ## Getting Started
 
 1. Fork the repository

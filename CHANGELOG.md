@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.4.0 — 2026-04-14
+
+### Comment pagination
+- Zero-JavaScript comment pagination at build time — 200 comments per page (configurable via `commentsPerPage` in rsslobster.json)
+- URL structure: `/posts/slug/2/` for page 2, post content visible on all pages
+- `<link rel="prev/next">` in head for SEO, prev/next navigation links
+- Stale page cleanup when comment count drops on regeneration
+
+### CLI improvements
+- `publish` no longer requires `--type` — defaults to `micro` so `rsslobster publish "Hello"` works
+- `init` is now an alias for `onboard` — one setup command, no confusion
+- `--site-dir` flag standardized across all commands (positional still works for backward compat)
+- `--deploy` replaces `--no-deploy` — publishing is local-only by default, opt in with `--deploy`
+- `enable` help text now lists `comments` as a capability
+- `comments dashboard` subcommand prints authenticated admin URL
+- Bare `rsslobster` with no args documented in help text
+- `--version` now reports correct version
+
+### Generator improvements
+- Index page previews for titled posts use first sentence only (no table/list bleed)
+- Mojibake repair: double-encoded UTF-8 is auto-fixed on ingest and regeneration
+- Delete cleanup: orphaned image/media files removed, adjacent post nav rebuilt
+
+### Documentation
+- ARCHITECTURE.md for OSS contributors — data flow, module map, how-to-add guides
+
+### Internals
+- Upgraded ziscus to 0.5.0 (CSRF fix, dashboard pagination, GDPR, security headers)
+- 1160 tests (up from 1094), all passing
+
 ## 0.3.0 — 2026-04-09
 
 ### Comments system
