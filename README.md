@@ -12,12 +12,17 @@ Personal publishing and reading system built on RSS. Send a message from any cha
 
 ![Blog built with RSS Lobster](docs/screenshot-blog.png)
 
-| Publish | Read |
-|---------|------|
-| Send a message from your phone | Subscribe to any RSS feed |
-| AI classifies type (micro, post, image, link) | Poll feeds on a schedule |
-| Generates static HTML + RSS + JSON Feed | Star, reblog, or share items |
-| Git push to deploy. Live in seconds. | Reblog creates a link post on your site |
+**Publish**
+- Send a message from your phone
+- AI classifies type (micro, post, image, link)
+- Generates static HTML + RSS + JSON Feed
+- Git push to deploy. Live in seconds.
+
+**Read**
+- Subscribe to any RSS feed
+- Poll feeds on a schedule
+- Star, reblog, or share items
+- Reblog creates a link post on your site
 
 ## Quick Start
 
