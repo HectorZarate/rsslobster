@@ -8,6 +8,7 @@ export function paginateComments(
   comments: Comment[],
   pageSize: number = DEFAULT_COMMENTS_PER_PAGE,
 ): Comment[][] {
+  if (pageSize < 1) pageSize = DEFAULT_COMMENTS_PER_PAGE;
   if (comments.length === 0) return [[]];
   const pages: Comment[][] = [];
   for (let i = 0; i < comments.length; i += pageSize) {

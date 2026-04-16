@@ -109,6 +109,13 @@ export async function regenerateSite(
     const totalPages = pages.length;
     const totalComments = (allComments ?? []).length;
     const canPaginate = !!dir;
+    if (!canPaginate && totalPages > 1) {
+      console.warn(
+        pc.yellow(
+          `Warning: ${post.slug} has ${totalComments} comments but uses a flat permalink — comment pagination requires a directory-based permalink (e.g. /posts/:slug/index.html). Only the first ${pageSize} comments will be shown.`,
+        ),
+      );
+    }
     const baseUrl = dir ? `/${dir}/` : "/";
 
     for (let pageNum = 1; pageNum <= totalPages; pageNum++) {

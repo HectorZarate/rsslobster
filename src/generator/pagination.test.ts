@@ -83,6 +83,17 @@ describe("paginateComments", () => {
     expect(pages[2]).toHaveLength(2);
   });
 
+  it("falls back to default page size when pageSize is 0", () => {
+    const pages = paginateComments(fakeComments(5), 0);
+    expect(pages).toHaveLength(1);
+    expect(pages[0]).toHaveLength(5);
+  });
+
+  it("falls back to default page size when pageSize is negative", () => {
+    const pages = paginateComments(fakeComments(5), -1);
+    expect(pages).toHaveLength(1);
+  });
+
   it("preserves comment order across pages", () => {
     const comments = fakeComments(5);
     const pages = paginateComments(comments, 3);

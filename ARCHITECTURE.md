@@ -180,7 +180,29 @@ Key patterns:
 | **Single site directory = repo** | Each site is a git repo. Config, posts, feeds, previews all on disk. Natural backups & version control. Cloudflare Pages auto-deploys on git push. |
 | **Plugins via functions not plugins-folder** | Load modules dynamically at runtime. Errors caught & logged. No plugin discovery magic. |
 
+## Comments Integration (ziscus)
+
+rsslobster integrates with [ziscus](https://github.com/HectorZarate/ziscus), a zero-JS comment system.
+
+**How it works:**
+
+1. Site owner sets `commentsEndpoint` in `rsslobster.json` (e.g. `"https://mysite.com"`)
+2. At build time (`regenerateSite`), rsslobster calls `fetchComments(slug, endpoint)` from the `ziscus` npm package
+3. The ziscus Cloudflare Worker serves `GET /comments/:slug` → approved comments as JSON
+4. rsslobster passes comments to `generateHtmlPage()` which calls `renderCommentList()` + `renderCommentForm()` from ziscus
+5. Comments are baked into static HTML — zero JavaScript at runtime
+6. The HTML form POSTs to `{endpoint}/submit` — the Worker validates, stores in D1, and triggers a rebuild
+
+**Pagination (200 comments/page, configurable via `commentsPerPage`):**
+
+- `paginateComments()` in `src/generator/pagination.ts` splits comments into pages
+- `regenerateSite()` generates multiple HTML files: `posts/slug/index.html`, `posts/slug/2/index.html`, etc.
+- `cleanStaleCommentPages()` removes old page directories when comment count drops
+- Requires a directory-based permalink (e.g. `/posts/:slug/index.html`); flat permalinks log a warning
+
+**Key boundary:** rsslobster imports `ziscus` (the npm embed package) at build time. The ziscus Worker runs independently in production. The only runtime coupling is the `commentsEndpoint` URL.
+
 ## Related Projects
 
-- **ziscus** — Comments system (baked into static HTML, zero JS). Cloudflare Worker + D1. Used as npm dependency.
+- **ziscus** — Comments system (baked into static HTML, zero JS). Cloudflare Worker + D1. Published as `ziscus` on npm.
 - **Recommended Deploy** — Cloudflare Pages for static sites, Cloudflare Workers for comments API.

@@ -71,13 +71,14 @@ export async function writePostsIndex(
  * corrupted by a broken upstream pipeline.
  */
 export function healPostText<T extends {
+  slug?: string;
   title?: string;
   body: string;
   tags: string[];
   linkTitle?: string;
   linkDescription?: string;
 }>(post: T): T {
-  return {
+  const healed = {
     ...post,
     title: post.title !== undefined ? repairMojibake(post.title) : undefined,
     body: repairMojibake(post.body),
@@ -89,6 +90,11 @@ export function healPostText<T extends {
         ? repairMojibake(post.linkDescription)
         : undefined,
   };
+  if (healed.body !== post.body || healed.title !== post.title) {
+    const slug = post.slug ?? "unknown";
+    console.warn(`[mojibake] Repaired encoding in "${slug}"`);
+  }
+  return healed;
 }
 
 /** Optional injections from plugin system */
