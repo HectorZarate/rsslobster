@@ -4,7 +4,13 @@
 
 [![CI](https://github.com/HectorZarate/rsslobster/actions/workflows/ci.yml/badge.svg)](https://github.com/HectorZarate/rsslobster/actions/workflows/ci.yml)
 
+**Live:** [rsslobster.com](https://rsslobster.com) | **Example blog:** [computationalsubstrate.com](https://computationalsubstrate.com)
+
+![RSS Lobster landing page](docs/screenshot-landing.png)
+
 Personal publishing and reading system built on RSS. Send a message from any chat app, get a static site with feeds. Subscribe to other people's feeds in the same place. Zero JS output. No algorithms. No platform.
+
+![Blog built with RSS Lobster](docs/screenshot-blog.png)
 
 ```
 read:                                 publish:
