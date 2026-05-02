@@ -11,7 +11,7 @@ import {
 } from "./feeds.js";
 import { subscribe } from "../reader/subscriptions.js";
 import { ingestItems, listItems, getItem, markRead, starItem } from "../reader/store.js";
-import type { ParsedItem, StoredItem } from "../reader/types.js";
+import type { ParsedItem } from "../reader/types.js";
 import { ensureReaderDir } from "../reader/paths.js";
 import { scaffoldSite } from "../generator/site.js";
 import type { SiteConfig } from "../config/types.js";
@@ -457,7 +457,7 @@ describe("feeds read behavior", () => {
     vi.spyOn(console, "error").mockImplementation((...args) => {
       errors.push(args.join(" "));
     });
-    const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+    vi.spyOn(process, "exit").mockImplementation(() => {
       throw new Error("exit");
     });
 
@@ -537,7 +537,7 @@ describe("feeds mark-read behavior", () => {
     vi.spyOn(console, "error").mockImplementation((...args) => {
       errors.push(args.join(" "));
     });
-    const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+    vi.spyOn(process, "exit").mockImplementation(() => {
       throw new Error("exit");
     });
 
@@ -574,7 +574,7 @@ describe("feeds mute/unmute behavior", () => {
     vi.spyOn(console, "error").mockImplementation((...args) => {
       errors.push(args.join(" "));
     });
-    const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+    vi.spyOn(process, "exit").mockImplementation(() => {
       throw new Error("exit");
     });
 

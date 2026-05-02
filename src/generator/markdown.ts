@@ -153,14 +153,6 @@ export function renderInline(body: string): string {
   return mdInline.renderInline(body);
 }
 
-/**
- * Dispose the shiki highlighter to free memory.
- * Call on shutdown if needed.
- */
-export function disposeMarkdown(): void {
-  highlighter?.dispose();
-}
-
 // ---------------------------------------------------------------------------
 // Heading shift: h1→h2, h2→h3, ..., h5→h6. h6 stays h6.
 // ---------------------------------------------------------------------------

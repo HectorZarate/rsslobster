@@ -196,7 +196,7 @@ describe("deletePost", () => {
 
   it("deletes the generated HTML file", async () => {
     await scaffoldSite(siteDir, CONFIG);
-    const post = await addContent(siteDir, MICRO);
+    await addContent(siteDir, MICRO);
 
     // Verify HTML exists before delete
     const htmlPath = join(siteDir, "_site", "posts", "hello-test", "index.html");

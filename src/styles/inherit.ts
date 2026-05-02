@@ -1,30 +1,5 @@
 import type { StyleOverrides } from "../config/types.js";
 
-/**
- * Extract style properties from an existing site's HTML.
- * Fetches the URL, parses computed-style-equivalent CSS custom properties
- * and common patterns to build a StyleOverrides object.
- *
- * This enables "inherit the look of my existing site" during onboarding.
- */
-export async function inheritStyleFromUrl(
-  url: string,
-): Promise<StyleOverrides> {
-  const response = await fetch(url, {
-    headers: { "User-Agent": "rsslobster/0.1.0 (style-inherit)" },
-    signal: AbortSignal.timeout(10_000),
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch ${url}: ${response.status} ${response.statusText}`,
-    );
-  }
-
-  const html = await response.text();
-  return extractStylesFromHtml(html);
-}
-
 /** Parse HTML/CSS to extract dominant style properties */
 export function extractStylesFromHtml(html: string): StyleOverrides {
   const overrides: StyleOverrides = {};
