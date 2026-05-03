@@ -283,7 +283,7 @@ export function generateIndexPage(
   injections?: PageInjections,
 ): string {
   const resolved = resolveStyle(config.style.preset, config.style.overrides);
-  const css = generateStylesheet(resolved);
+  const css = generateStylesheet(resolved, { hasPosts: posts.length > 0 });
   const pageLinksHtml = renderPageLinks(config);
   const pageLinks = pageLinksHtml ? `\n    ${pageLinksHtml}` : "";
 
@@ -356,7 +356,7 @@ export function generateArchivePage(
   injections?: PageInjections,
 ): string {
   const resolved = resolveStyle(config.style.preset, config.style.overrides);
-  const css = generateStylesheet(resolved);
+  const css = generateStylesheet(resolved, { hasPosts: posts.length > 0 });
   const nav = renderNav(config);
   const items = renderPostList(posts, config.permalink);
   const pluginHead = injections?.head ?? "";

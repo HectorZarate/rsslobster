@@ -490,3 +490,48 @@ describe("page comments", () => {
     }
   });
 });
+
+// Static-landing pages: when the site has zero posts, the page CSS must not
+// ship .post-thumb / .post-nav rules.
+describe("generatePageHtml hasPosts threading", () => {
+  const page: PageConfig = {
+    title: "Home",
+    slug: "home",
+    body: "Welcome.",
+    layout: "raw",
+  };
+
+  it("includes .post-nav and .post-thumb CSS by default (hasPosts unspecified)", () => {
+    const html = generatePageHtml(page, CONFIG);
+    expect(html).toContain(".post-nav");
+    expect(html).toContain(".post-thumb");
+  });
+
+  it("omits .post-nav and .post-thumb CSS when hasPosts is false", () => {
+    const html = generatePageHtml(page, CONFIG, undefined, undefined, undefined, {
+      hasPosts: false,
+    });
+    expect(html).not.toContain(".post-nav");
+    expect(html).not.toContain(".post-thumb");
+  });
+
+  it("writePages with empty posts produces homepage index.html without post CSS", async () => {
+    const siteDir = await mkdtemp(join(tmpdir(), "rsslobster-pages-static-"));
+    try {
+      await mkdir(join(siteDir, "_site"), { recursive: true });
+      const config: SiteConfig = {
+        ...CONFIG,
+        homepage: "home",
+        pages: [{ title: "Home", slug: "home", body: "Welcome.", layout: "raw" }],
+      };
+
+      await writePages(siteDir, config, undefined, []);
+
+      const html = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
+      expect(html).not.toContain(".post-nav");
+      expect(html).not.toContain(".post-thumb");
+    } finally {
+      await rm(siteDir, { recursive: true, force: true });
+    }
+  });
+});

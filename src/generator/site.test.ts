@@ -9,6 +9,8 @@ import {
   addContent,
   deletePost,
   readPostsIndex,
+  rebuildFeeds,
+  rebuildIndex,
 } from "./site.js";
 
 let siteDir: string;
@@ -103,19 +105,18 @@ describe("scaffoldSite", () => {
     expect(html).toContain('href="/favicon.svg"');
   });
 
-  it("generates initial feed.xml", async () => {
+  it("does NOT generate empty feed.xml on scaffold (zero posts)", async () => {
     await scaffoldSite(siteDir, CONFIG);
-    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
-    expect(rss).toContain("<rss");
-    expect(rss).toContain("Test Site");
+    await expect(
+      access(join(siteDir, "_site", "feed.xml")),
+    ).rejects.toThrow();
   });
 
-  it("generates initial feed.json", async () => {
+  it("does NOT generate empty feed.json on scaffold (zero posts)", async () => {
     await scaffoldSite(siteDir, CONFIG);
-    const raw = await readFile(join(siteDir, "_site", "feed.json"), "utf-8");
-    const feed = JSON.parse(raw);
-    expect(feed.version).toContain("jsonfeed.org");
-    expect(feed.title).toBe("Test Site");
+    await expect(
+      access(join(siteDir, "_site", "feed.json")),
+    ).rejects.toThrow();
   });
 });
 
@@ -336,5 +337,94 @@ describe("noRss flag", () => {
     const posts = await readPostsIndex(siteDir);
     expect(posts).toHaveLength(1);
     expect(posts[0]!.slug).toBe("hidden-post");
+  });
+});
+
+// Static-landing pages: rsslobster sites with no posts (e.g. resume / portfolio
+// homepages) should not ship empty post-archive infrastructure on every regen.
+describe("static-landing behavior (zero posts)", () => {
+  async function fileExists(path: string): Promise<boolean> {
+    try {
+      await access(path);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  describe("rebuildFeeds with empty posts", () => {
+    it("does not write feed.xml when posts is empty", async () => {
+      await scaffoldSite(siteDir, CONFIG);
+      // Pre-clear in case scaffold seeds an empty feed
+      await rm(join(siteDir, "_site", "feed.xml"), { force: true });
+      await rm(join(siteDir, "_site", "feed.json"), { force: true });
+
+      await rebuildFeeds(siteDir, CONFIG, []);
+
+      expect(await fileExists(join(siteDir, "_site", "feed.xml"))).toBe(false);
+    });
+
+    it("does not write feed.json when posts is empty", async () => {
+      await scaffoldSite(siteDir, CONFIG);
+      await rm(join(siteDir, "_site", "feed.xml"), { force: true });
+      await rm(join(siteDir, "_site", "feed.json"), { force: true });
+
+      await rebuildFeeds(siteDir, CONFIG, []);
+
+      expect(await fileExists(join(siteDir, "_site", "feed.json"))).toBe(false);
+    });
+
+    it("still writes feed.xml when posts is non-empty (preserves existing behavior)", async () => {
+      await scaffoldSite(siteDir, CONFIG);
+      await addContent(siteDir, MICRO);
+      // addContent already triggers rebuildFeeds, so feed.xml exists.
+      expect(await fileExists(join(siteDir, "_site", "feed.xml"))).toBe(true);
+    });
+  });
+
+  describe("rebuildIndex with empty posts and homepage", () => {
+    const CONFIG_WITH_HOMEPAGE: SiteConfig = {
+      ...CONFIG,
+      homepage: "home",
+      pages: [
+        {
+          title: "Home",
+          slug: "home",
+          body: "Welcome",
+          layout: "raw",
+        },
+      ],
+    };
+
+    it("does not write _site/posts/index.html when posts=[] and config.homepage is set", async () => {
+      await scaffoldSite(siteDir, CONFIG_WITH_HOMEPAGE);
+      // Clear any seeded archive
+      await rm(join(siteDir, "_site", "posts", "index.html"), { force: true });
+
+      await rebuildIndex(siteDir, CONFIG_WITH_HOMEPAGE, []);
+
+      expect(
+        await fileExists(join(siteDir, "_site", "posts", "index.html")),
+      ).toBe(false);
+    });
+
+    it("still writes posts/index.html when posts is non-empty and homepage is set", async () => {
+      await scaffoldSite(siteDir, CONFIG_WITH_HOMEPAGE);
+      await addContent(siteDir, MICRO);
+
+      expect(
+        await fileExists(join(siteDir, "_site", "posts", "index.html")),
+      ).toBe(true);
+    });
+
+    it("still writes root index.html when posts=[] and no homepage (preserves current behavior)", async () => {
+      await scaffoldSite(siteDir, CONFIG);
+      // Clear seeded index from scaffold
+      await rm(join(siteDir, "_site", "index.html"), { force: true });
+
+      await rebuildIndex(siteDir, CONFIG, []);
+
+      expect(await fileExists(join(siteDir, "_site", "index.html"))).toBe(true);
+    });
   });
 });

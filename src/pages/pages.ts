@@ -80,6 +80,16 @@ export interface PageCommentOptions {
   comments?: Comment[];
 }
 
+export interface PageRenderOptions {
+  /**
+   * Whether the surrounding site has any published posts. When false,
+   * post-only CSS (.post-thumb, .post-nav) is omitted from the page's
+   * inlined stylesheet — useful for static landing pages.
+   * Defaults to true (include everything) for backward compatibility.
+   */
+  hasPosts?: boolean;
+}
+
 /** Generate HTML for a static page */
 export function generatePageHtml(
   page: PageConfig,
@@ -88,9 +98,12 @@ export function generatePageHtml(
   /** Pre-resolved body content (from resolvePageBody). If not provided, uses inline body (escaped). */
   resolvedBody?: string,
   commentOptions?: PageCommentOptions,
+  renderOptions?: PageRenderOptions,
 ): string {
   const resolved = resolveStyle(config.style.preset, config.style.overrides);
-  const css = generateStylesheet(resolved);
+  const css = generateStylesheet(resolved, {
+    hasPosts: renderOptions?.hasPosts ?? true,
+  });
   const nav = renderNav(config);
   const extraHead = injections?.head ?? "";
   const bodyEnd = injections?.bodyEnd ?? "";
@@ -153,13 +166,25 @@ function isValidSlug(slug: string): boolean {
   return /^[a-z0-9][a-z0-9-]*$/.test(slug) && !slug.includes("..");
 }
 
-/** Write all static pages to disk */
+/** Write all static pages to disk.
+ *
+ * `posts` is used only to determine whether the surrounding site has any
+ * published content; when it does not, post-only CSS rules are stripped from
+ * each page's inlined stylesheet. Omit it (or pass undefined) to preserve the
+ * previous behavior of always emitting the full stylesheet.
+ */
 export async function writePages(
   siteDir: string,
   config: SiteConfig,
   injections?: PageInjections,
+  posts?: { length: number }[] | readonly { length: number }[] | unknown[],
 ): Promise<void> {
   if (!config.pages || config.pages.length === 0) return;
+
+  // hasPosts is only false when the caller explicitly passed an empty array.
+  // If posts is undefined, we don't know — default to true (full stylesheet).
+  const hasPosts = posts === undefined ? true : posts.length > 0;
+  const renderOptions: PageRenderOptions = { hasPosts };
 
   for (const page of config.pages) {
     if (!isValidSlug(page.slug)) {
@@ -182,7 +207,7 @@ export async function writePages(
       };
     }
 
-    const html = generatePageHtml(page, config, injections, resolvedBody, commentOptions);
+    const html = generatePageHtml(page, config, injections, resolvedBody, commentOptions, renderOptions);
 
     // If this page is the homepage, write as index.html instead of slug.html
     if (config.homepage === page.slug) {

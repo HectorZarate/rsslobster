@@ -224,9 +224,11 @@ describe("E2E pipeline", () => {
     const posts = await readPostsIndex(siteDir);
     expect(posts).toHaveLength(0);
 
-    // RSS should have no items
-    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
-    expect(rss).not.toContain("<item>");
+    // With zero published posts, feeds aren't generated — stronger guarantee
+    // than "feed has no items".
+    await expect(
+      readFile(join(siteDir, "_site", "feed.xml"), "utf-8"),
+    ).rejects.toThrow();
   });
 
   it("multiple posts build up the index and feeds correctly", async () => {
@@ -315,12 +317,13 @@ describe("E2E pipeline", () => {
     expect(result.reply).toContain("Failed");
     expect(result.post).toBeUndefined();
 
-    // Site should be untouched — empty posts, clean feeds
+    // Site should be untouched — empty posts, no feed file at all.
     const posts = await readPostsIndex(siteDir);
     expect(posts).toHaveLength(0);
 
-    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
-    expect(rss).not.toContain("<item>");
+    await expect(
+      readFile(join(siteDir, "_site", "feed.xml"), "utf-8"),
+    ).rejects.toThrow();
   });
 
   it("video post: renders video element and media enclosure in feed", async () => {
@@ -473,17 +476,18 @@ describe("E2E pipeline", () => {
     expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
     expect(html).toContain("Preview — not yet published");
 
-    // Feeds and index must NOT contain the preview content
+    // Feeds and index must NOT contain the preview content.
+    // With zero published posts, feeds aren't generated at all — which is
+    // a stronger guarantee that the preview didn't leak.
     const posts = await readPostsIndex(siteDir);
     expect(posts).toHaveLength(0);
 
-    const rss = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
-    expect(rss).not.toContain("preview first");
-
-    const jsonFeed = JSON.parse(
-      await readFile(join(siteDir, "_site", "feed.json"), "utf-8"),
-    );
-    expect(jsonFeed.items).toHaveLength(0);
+    await expect(
+      readFile(join(siteDir, "_site", "feed.xml"), "utf-8"),
+    ).rejects.toThrow();
+    await expect(
+      readFile(join(siteDir, "_site", "feed.json"), "utf-8"),
+    ).rejects.toThrow();
 
     const index = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
     expect(index).not.toContain("preview first");

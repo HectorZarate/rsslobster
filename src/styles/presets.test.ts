@@ -303,4 +303,40 @@ describe("generateStylesheet", () => {
     expect(beforePrint).not.toContain("url(");
     expect(beforePrint).not.toMatch(/https?:\/\//);
   });
+
+  // Static-landing: omit post-only CSS rules on sites with no posts
+  describe("hasPosts option", () => {
+    it("includes .post-thumb when hasPosts is true (default)", () => {
+      const css = generateStylesheet(resolveStyle());
+      expect(css).toContain(".post-thumb");
+    });
+
+    it("includes .post-nav when hasPosts is true (default)", () => {
+      const css = generateStylesheet(resolveStyle());
+      expect(css).toContain(".post-nav");
+    });
+
+    it("omits .post-thumb when hasPosts is false", () => {
+      const css = generateStylesheet(resolveStyle(), { hasPosts: false });
+      expect(css).not.toContain(".post-thumb");
+    });
+
+    it("omits .post-nav rules when hasPosts is false", () => {
+      const css = generateStylesheet(resolveStyle(), { hasPosts: false });
+      expect(css).not.toContain(".post-nav");
+      expect(css).not.toContain(".post-nav-prev");
+      expect(css).not.toContain(".post-nav-next");
+    });
+
+    it("still includes table styles when hasPosts is false (general utility)", () => {
+      const css = generateStylesheet(resolveStyle(), { hasPosts: false });
+      expect(css).toContain("border-collapse: collapse");
+    });
+
+    it("still includes skip-link and reset when hasPosts is false", () => {
+      const css = generateStylesheet(resolveStyle(), { hasPosts: false });
+      expect(css).toContain(".skip-link");
+      expect(css).toContain("box-sizing: border-box");
+    });
+  });
 });

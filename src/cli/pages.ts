@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import pc from "picocolors";
-import { readSiteConfig, writeSiteConfig } from "../generator/site.js";
+import { readSiteConfig, writeSiteConfig, readPostsIndex } from "../generator/site.js";
 import { writePages } from "../pages/pages.js";
 import type { PageConfig } from "../config/types.js";
 
@@ -51,7 +51,8 @@ pagesCommand
 
     config.pages.push(page);
     await writeSiteConfig(siteDir, config);
-    await writePages(siteDir, config);
+    const posts = await readPostsIndex(siteDir);
+    await writePages(siteDir, config, undefined, posts);
 
     console.log(pc.green(`Added page: ${page.title} → /${page.slug}.html`));
   });

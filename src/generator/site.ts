@@ -175,7 +175,7 @@ export async function addContent(
     rebuildIndex(siteDir, config, posts, options?.pluginInjections),
     writeSearchIndex(siteDir, posts),
     writeSeo(siteDir, config, posts),
-    writePages(siteDir, config, options?.pluginInjections),
+    writePages(siteDir, config, options?.pluginInjections, posts),
     rebuildBlogroll(siteDir, config),
   ]);
 
@@ -270,12 +270,17 @@ export async function deletePost(
   return post;
 }
 
-/** Rebuild RSS and JSON feeds from the posts index */
+/** Rebuild RSS and JSON feeds from the posts index.
+ *
+ * On static landing pages (zero posts), no feed is written — empty RSS/JSON
+ * feeds are useless and only create regen drift on dogfooded sites.
+ */
 export async function rebuildFeeds(
   siteDir: string,
   config: SiteConfig,
   posts: Post[],
 ): Promise<void> {
+  if (posts.length === 0) return;
   const feedConfig: FeedConfig = {
     title: config.title,
     link: `https://${config.domain}`,
@@ -339,6 +344,14 @@ export async function rebuildIndex(
 ): Promise<void> {
   const outDir = outputDir(siteDir);
   const visiblePosts = posts.filter((p) => !p.noRss);
+
+  // Static landing: when a homepage page is set and there are no posts,
+  // skip the empty post-archive page entirely. The homepage page itself
+  // is still written by writePages().
+  if (config.homepage && visiblePosts.length === 0) {
+    return;
+  }
+
   const html = generateIndexPage(visiblePosts, config, injections);
 
   // If a homepage page is set, post listing goes to /posts/index.html
@@ -390,7 +403,7 @@ export async function scaffoldSite(
   await rebuildIndex(siteDir, config, []);
   await writeSearchIndex(siteDir, []);
   await writeSeo(siteDir, config, []);
-  await writePages(siteDir, config);
+  await writePages(siteDir, config, undefined, []);
 
   // Platform-specific deploy config
   if (options?.platform === "cloudflare") {

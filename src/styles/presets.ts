@@ -282,11 +282,66 @@ ${shikiLines}
 }`;
 }
 
+export interface StylesheetOptions {
+  /**
+   * When false, post-only CSS rules (.post-thumb, .post-nav, .post-nav-prev,
+   * .post-nav-next) are omitted. Use on static landing pages with zero posts
+   * to avoid shipping dead CSS. Defaults to true (include everything).
+   */
+  hasPosts?: boolean;
+}
+
 /** Generate a full base stylesheet from resolved styles */
 export function generateStylesheet(
   resolved: ReturnType<typeof resolveStyle>,
+  options?: StylesheetOptions,
 ): string {
+  const hasPosts = options?.hasPosts ?? true;
   const vars = styleToCssVars(resolved);
+  const postCss = hasPosts
+    ? `
+/* === Post thumbnails on index === */
+.post-thumb {
+  display: block;
+  margin-bottom: 0.75rem;
+  line-height: 0;
+}
+
+.post-thumb img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+}
+
+/* === Post navigation === */
+.post-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.9rem;
+}
+
+.post-nav a {
+  color: var(--color-link);
+  text-decoration: none;
+  max-width: 45%;
+}
+
+.post-nav a:hover {
+  text-decoration: underline;
+}
+
+.post-nav-next {
+  text-align: right;
+  margin-left: auto;
+}
+`
+    : "";
   return `${vars}
 
 /*
@@ -649,48 +704,7 @@ footer {
   margin-top: 0.5rem;
   font-size: 0.75rem;
 }
-
-/* === Post thumbnails on index === */
-.post-thumb {
-  display: block;
-  margin-bottom: 0.75rem;
-  line-height: 0;
-}
-
-.post-thumb img {
-  width: 100%;
-  max-height: 280px;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid var(--color-border);
-}
-
-/* === Post navigation === */
-.post-nav {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: 2rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--color-border);
-  font-size: 0.9rem;
-}
-
-.post-nav a {
-  color: var(--color-link);
-  text-decoration: none;
-  max-width: 45%;
-}
-
-.post-nav a:hover {
-  text-decoration: underline;
-}
-
-.post-nav-next {
-  text-align: right;
-  margin-left: auto;
-}
-
+${postCss}
 /* === Selection — intentional === */
 ::selection {
   background: var(--color-link);

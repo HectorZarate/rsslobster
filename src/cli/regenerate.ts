@@ -161,7 +161,7 @@ export async function regenerateSite(
   await rebuildIndex(siteDir, config, posts);
   await writeSearchIndex(siteDir, posts);
   await writeSeo(siteDir, config, posts);
-  await writePages(siteDir, config);
+  await writePages(siteDir, config, undefined, posts);
 
   const subs = await listSubscriptions(siteDir);
   if (subs.length > 0) {

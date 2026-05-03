@@ -113,20 +113,31 @@ describe("previews", () => {
     });
 
     it("does NOT update posts.json, feed.xml, feed.json, or index.html", async () => {
-      // Snapshot current state
+      // Snapshot current state. With zero published posts, feeds don't exist
+      // yet — which is itself part of "no side effects": previewing must not
+      // bring them into existence either.
       const postsBefore = await readFile(join(siteDir, "posts.json"), "utf-8");
-      const rssBefore = await readFile(join(siteDir, "_site", "feed.xml"), "utf-8");
-      const jsonBefore = await readFile(join(siteDir, "_site", "feed.json"), "utf-8");
       const indexBefore = await readFile(join(siteDir, "_site", "index.html"), "utf-8");
+
+      await expect(
+        readFile(join(siteDir, "_site", "feed.xml"), "utf-8"),
+      ).rejects.toThrow();
+      await expect(
+        readFile(join(siteDir, "_site", "feed.json"), "utf-8"),
+      ).rejects.toThrow();
 
       const draft = await createDraft(siteDir, MICRO_CONTENT);
       await createPreview(siteDir, draft);
 
       // Nothing should have changed
       expect(await readFile(join(siteDir, "posts.json"), "utf-8")).toBe(postsBefore);
-      expect(await readFile(join(siteDir, "_site", "feed.xml"), "utf-8")).toBe(rssBefore);
-      expect(await readFile(join(siteDir, "_site", "feed.json"), "utf-8")).toBe(jsonBefore);
       expect(await readFile(join(siteDir, "_site", "index.html"), "utf-8")).toBe(indexBefore);
+      await expect(
+        readFile(join(siteDir, "_site", "feed.xml"), "utf-8"),
+      ).rejects.toThrow();
+      await expect(
+        readFile(join(siteDir, "_site", "feed.json"), "utf-8"),
+      ).rejects.toThrow();
     });
 
     it("reuses existing token on re-preview", async () => {
