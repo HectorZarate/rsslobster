@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.1 — 2026-05-03
+
+### Static landing page support
+- Sites with zero posts (resume / portfolio / single-page sites) no longer ship empty post-archive scaffolding on every regen.
+- `rebuildFeeds` skips writing `_site/feed.xml` and `_site/feed.json` when there are no posts.
+- `rebuildIndex` skips `_site/posts/index.html` when `config.homepage` is set and there are no posts; root `index.html` still gets written on sites without a homepage page (existing behavior preserved for fresh scaffolds).
+- `generateStylesheet` now accepts `{ hasPosts: boolean }` and omits `.post-thumb` / `.post-nav` / `.post-nav-prev` / `.post-nav-next` rules when false. `generatePageHtml` and `writePages` thread this through automatically based on the post count, so `rsslobster regenerate` on a posts-empty site produces a slimmer page payload without any config change.
+
+### Internals
+- 12 new tests covering the elision behavior; 4 existing tests updated where the contract changed.
+
 ## 0.4.0 — 2026-04-14
 
 ### Comment pagination
