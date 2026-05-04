@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { PageConfig, SiteConfig } from "../config/types.js";
+import type { PageConfig, Post, SiteConfig } from "../config/types.js";
 import { resolveStyle, generateStylesheet } from "../styles/presets.js";
 import { escHtml, renderSiteFooter } from "../generator/html.js";
 import { renderMarkdown } from "../generator/markdown.js";
@@ -177,7 +177,7 @@ export async function writePages(
   siteDir: string,
   config: SiteConfig,
   injections?: PageInjections,
-  posts?: { length: number }[] | readonly { length: number }[] | unknown[],
+  posts?: readonly Post[],
 ): Promise<void> {
   if (!config.pages || config.pages.length === 0) return;
 
