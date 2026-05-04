@@ -273,14 +273,21 @@ export async function deletePost(
 /** Rebuild RSS and JSON feeds from the posts index.
  *
  * On static landing pages (zero posts), no feed is written — empty RSS/JSON
- * feeds are useless and only create regen drift on dogfooded sites.
+ * feeds are useless and only create regen drift on dogfooded sites. Any
+ * stale feed.xml / feed.json from a previous regen is removed so that
+ * transitioning a site from "had posts" → "no posts" is idempotent.
  */
 export async function rebuildFeeds(
   siteDir: string,
   config: SiteConfig,
   posts: Post[],
 ): Promise<void> {
-  if (posts.length === 0) return;
+  if (posts.length === 0) {
+    const outDir = outputDir(siteDir);
+    await rm(join(outDir, "feed.xml"), { force: true });
+    await rm(join(outDir, "feed.json"), { force: true });
+    return;
+  }
   const feedConfig: FeedConfig = {
     title: config.title,
     link: `https://${config.domain}`,
@@ -346,9 +353,11 @@ export async function rebuildIndex(
   const visiblePosts = posts.filter((p) => !p.noRss);
 
   // Static landing: when a homepage page is set and there are no posts,
-  // skip the empty post-archive page entirely. The homepage page itself
-  // is still written by writePages().
+  // skip the empty post-archive page entirely. Any stale archive from a
+  // previous regen is removed so transition is idempotent. The homepage
+  // page itself is still written by writePages().
   if (config.homepage && visiblePosts.length === 0) {
+    await rm(join(outDir, "posts", "index.html"), { force: true });
     return;
   }
 

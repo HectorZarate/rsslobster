@@ -427,4 +427,53 @@ describe("static-landing behavior (zero posts)", () => {
       expect(await fileExists(join(siteDir, "_site", "index.html"))).toBe(true);
     });
   });
+
+  // Idempotent regen: when a site transitions from "had posts" to "no posts",
+  // the previously-written feed.xml / feed.json / posts/index.html must be
+  // cleaned up so they don't linger as orphans on the next regen.
+  describe("idempotent cleanup on transition to empty", () => {
+    const CONFIG_WITH_HOMEPAGE: SiteConfig = {
+      ...CONFIG,
+      homepage: "home",
+      pages: [{ title: "Home", slug: "home", body: "Welcome", layout: "raw" }],
+    };
+
+    it("rebuildFeeds removes stale feed.xml when called with empty posts", async () => {
+      await scaffoldSite(siteDir, CONFIG);
+      await addContent(siteDir, MICRO);
+      // Sanity: feed exists from the publish.
+      expect(await fileExists(join(siteDir, "_site", "feed.xml"))).toBe(true);
+
+      // Now simulate transition to zero posts (e.g. all deleted).
+      await rebuildFeeds(siteDir, CONFIG, []);
+
+      expect(await fileExists(join(siteDir, "_site", "feed.xml"))).toBe(false);
+    });
+
+    it("rebuildFeeds removes stale feed.json when called with empty posts", async () => {
+      await scaffoldSite(siteDir, CONFIG);
+      await addContent(siteDir, MICRO);
+      expect(await fileExists(join(siteDir, "_site", "feed.json"))).toBe(true);
+
+      await rebuildFeeds(siteDir, CONFIG, []);
+
+      expect(await fileExists(join(siteDir, "_site", "feed.json"))).toBe(false);
+    });
+
+    it("rebuildIndex removes stale _site/posts/index.html on transition to empty + homepage", async () => {
+      await scaffoldSite(siteDir, CONFIG_WITH_HOMEPAGE);
+      await addContent(siteDir, MICRO);
+      // Sanity: post archive exists.
+      expect(
+        await fileExists(join(siteDir, "_site", "posts", "index.html")),
+      ).toBe(true);
+
+      // Transition to zero posts.
+      await rebuildIndex(siteDir, CONFIG_WITH_HOMEPAGE, []);
+
+      expect(
+        await fileExists(join(siteDir, "_site", "posts", "index.html")),
+      ).toBe(false);
+    });
+  });
 });
