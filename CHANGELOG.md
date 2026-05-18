@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.2 — 2026-05-18
+
+### Idempotent regen cleanup
+- `rebuildFeeds` now removes stale `_site/feed.xml` and `_site/feed.json` when transitioning to zero posts, so re-running `regenerate` on an empty-posts site no longer leaves orphaned feed files from a previous state.
+- `rebuildIndex` now removes stale `_site/posts/index.html` in the same scenario, keeping the output directory consistent on repeated regen runs.
+
+### Type tightening
+- `writePages` signature now accepts `readonly Post[]` instead of a structural union, making the contract more precise without any behavioural change.
+
 ## 0.4.1 — 2026-05-03
 
 ### Static landing page support

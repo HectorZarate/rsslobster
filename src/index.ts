@@ -28,7 +28,7 @@ program
     "Publish to the open web from your phone. Unplatform yourself.\n\n" +
     "Run with no arguments in a site directory to see a status dashboard.",
   )
-  .version("0.4.1");
+  .version("0.4.2");
 
 program.addCommand(onboardCommand);
 program.addCommand(startCommand);
