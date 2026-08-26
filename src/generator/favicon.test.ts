@@ -124,3 +124,23 @@ describe("renderOgImagePng", () => {
     expect(meta.height).toBe(630);
   });
 });
+
+describe("writeFavicon on a fresh checkout", () => {
+  it("creates the output directory instead of failing with ENOENT", async () => {
+    const { mkdtemp, rm } = await import("node:fs/promises");
+    const { existsSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { outputDir } = await import("../config/paths.js");
+    const { writeFavicon } = await import("./favicon.js");
+    const site = await mkdtemp(join(tmpdir(), "rsslobster-favicon-"));
+    try {
+      expect(existsSync(outputDir(site))).toBe(false);
+      await writeFavicon(site, "ziscus");
+      expect(existsSync(join(outputDir(site), "favicon.svg"))).toBe(true);
+      expect(existsSync(join(outputDir(site), "icon.png"))).toBe(true);
+    } finally {
+      await rm(site, { recursive: true, force: true });
+    }
+  });
+});

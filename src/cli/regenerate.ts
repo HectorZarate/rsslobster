@@ -65,6 +65,8 @@ export async function regenerateSite(
     await writePostsIndex(siteDir, posts);
   }
   const outDir = outputDir(siteDir);
+  // A pages-only site never hits the per-post mkdir below; the output dir must still exist.
+  await mkdir(outDir, { recursive: true });
 
   const targetPosts = options?.slug
     ? posts.filter((p) => p.slug === options.slug)

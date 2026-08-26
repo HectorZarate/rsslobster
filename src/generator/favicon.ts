@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { resolveStyle } from "../styles/presets.js";
 import type { StylePreset, StyleOverrides } from "../config/types.js";
@@ -52,6 +52,7 @@ export async function writeFavicon(
 ): Promise<string> {
   const svg = generateFaviconSvg(title, preset, overrides);
   const outDir = outputDir(siteDir);
+  await mkdir(outDir, { recursive: true });
   await writeFile(join(outDir, "favicon.svg"), svg);
 
   const sharp = (await import("sharp")).default;
