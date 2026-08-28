@@ -30,7 +30,7 @@
     "typecheck": "tsc --noEmit",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "examples": "tsx scripts/generate-examples.ts",
-    "prepare": "git rev-parse --is-inside-work-tree > /dev/null 2>&1 && test -d .git && echo '#!/bin/sh\npnpm check' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit || true",
+    "prepare": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
     "deploy": "wrangler deploy",
     "preview": "wrangler dev"
   },

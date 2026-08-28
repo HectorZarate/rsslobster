@@ -1,0 +1,4 @@
+#!/bin/sh
+# Pre-commit: the fast gate (lint + typecheck + test). Enabled per clone by the
+# package.json "prepare" script (git config core.hooksPath .githooks).
+pnpm check
